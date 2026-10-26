@@ -1,0 +1,18 @@
+.parameter-code-editor{display:flex;flex-direction:column;min-height:0;height:100%;--pc-key:#9cdcfe;--pc-string:#ce9178;--pc-number:#b5cea8;--pc-keyword:#569cd6;--pc-comment:#6a9955;--pc-gutter:#858585;--pc-change:#2ea043;--pc-hover:#252526;}
+.pc-copy-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.pc-toolbar{display:flex;align-items:center;justify-content:space-between;flex:none;padding:3px 11px 3px 16px;height:27px;border-bottom:1px solid var(--pd-line);font-size:10px;color:var(--pd-muted);background:var(--pd-bg);}
+.pc-toolbar>span{display:inline-flex;align-items:center;gap:6px;}.pc-toolbar i{width:5px;height:5px;border-radius:50%;background:var(--pc-change);}
+.pc-toolbar button{border-radius:3px;padding:3px 5px;font-size:10px;color:var(--pd-muted);}.pc-toolbar button:hover{background:var(--pc-hover);color:var(--pd-text);}
+.pc-source{flex:1;min-height:0;overflow:auto;outline-offset:-2px;overscroll-behavior:contain;background:var(--pd-bg);scrollbar-gutter:stable;}
+.pc-source:focus-visible{outline:1px solid var(--pd-accent);}
+.pc-lines{min-width:max-content;margin:0;padding:12px 14px 24px 0;color:var(--pd-text);font:12px/1.85 "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;tab-size:2;font-variant-ligatures:none;white-space:pre;}
+.pc-lines>code{font:inherit;display:block;}.pc-line{display:flex;min-height:22px;position:relative;}
+.pc-line:hover{background:var(--pc-hover);}.pc-line-number{position:sticky;left:0;display:inline-block;flex:none;width:47px;padding:0 13px 0 7px;text-align:right;background:var(--pd-bg);color:var(--pc-gutter);font-size:11px;user-select:none;-webkit-user-select:none;z-index:1;border-left:3px solid transparent;}
+.pc-line-text{display:block;white-space:pre;min-width:0;}
+.pc-line-changed{background:color-mix(in srgb,var(--pc-change) 8%,var(--pd-bg));}.pc-line-changed .pc-line-number{border-left-color:var(--pc-change);color:var(--pd-text);}
+.pc-token-key{color:var(--pc-key);}.pc-token-string{color:var(--pc-string);}.pc-token-number{color:var(--pc-number);}.pc-token-boolean,.pc-token-null{color:var(--pc-keyword);}.pc-token-comment{color:var(--pc-comment);}.pc-token-punctuation,.pc-token-plain{color:var(--pd-text);}
+.pc-editor-status{display:flex;align-items:center;gap:12px;flex:none;min-height:23px;padding:3px 10px;background:var(--pd-surface);border-top:1px solid var(--pd-line);font:10px/1.5 "SFMono-Regular",Consolas,monospace;color:var(--pd-muted);}
+.pc-editor-status strong{margin-left:auto;font:inherit;color:var(--pd-muted);white-space:nowrap;}.pc-copy-error{padding:5px 12px;color:#e0b578;font-size:11px;border-bottom:1px solid var(--pd-line);}.pc-empty{padding:15px;font:12px/1.8 monospace;color:var(--pc-comment);}
+:root[data-theme="light"] .parameter-code-editor{--pc-key:#0451a5;--pc-string:#a31515;--pc-number:#098658;--pc-keyword:#0000ff;--pc-comment:#008000;--pc-gutter:#7d7d7d;--pc-change:#24883e;--pc-hover:#f3f3f3;}
+:root[data-theme="light"] .pc-copy-error{color:#8a4b08;}
+@media(max-width:600px){.pc-lines{font-size:11px;}.pc-line-number{width:36px;padding-right:9px;}.pc-editor-status{gap:9px;}}

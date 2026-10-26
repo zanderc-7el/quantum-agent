@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "dataSource": "simulated",
+  "workflows": [
+    {
+      "name": "导入验收 · 运行中单比特",
+      "machine": "M7",
+      "qubits": 1,
+      "target": "Q24",
+      "type": "adaptive",
+      "policy": "threshold",
+      "scenario": "normal",
+      "experiment": "single",
+      "id": "wf-16595705-c378-4c5b-839c-bcd27b153570",
+      "status": "running",
+      "progress": 19,
+      "owner": "你",
+      "createdAt": "2026-10-23T04:16:46.237Z",
+      "elapsed": 7,
+      "iterations": 0,
+      "approved": false,
+      "nodes": [
+        {
+          "id": "ReadoutFreqDip",
+          "name": "ReadoutFreqDip",
+          "label": "读取谐振频率",
+          "detail": "PDF单比特流程：扫描读取谐振频率 · 模拟实验执行完成",
+          "status": "success",
+          "progress": 100,
+          "attempt": 1,
+          "qubits": "Q24"
+        },
+        {
+          "id": "F01Spectroscopy",
+          "name": "F01Spectroscopy",
+          "label": "量子比特频谱",
+          "detail": "PDF单比特流程：测量0→1跃迁频率",
+          "status": "running",
+          "progress": 75,
+          "attempt": 1,
+          "qubits": "Q24"
+        },
+        {
+          "id": "XYGateAmpRabiImpl",
+          "name": "XYGateAmpRabiImpl",
+          "label": "XY门幅度 Rabi",
+          "detail": "PDF单比特流程：校准XY门驱动幅度",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "IqToProbability",
+          "name": "IqToProbability",
+          "label": "IQ概率判别",
+          "detail": "PDF单比特流程：建立IQ测量到概率的判别",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "ReadoutParaSweepByIQProb",
+          "name": "ReadoutParaSweepByIQProb",
+          "label": "读取参数优化",
+          "detail": "PDF单比特流程：通过IQ概率扫描读取参数",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "IqToProbabilityRetest",
+          "name": "IqToProbability",
+          "label": "IQ概率复测",
+          "detail": "读取参数优化后回到IqToProbability复测；独立执行实例",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "T1Idle",
+          "name": "T1Idle",
+          "label": "T1弛豫测量",
+          "detail": "PDF并列分支之一；演示因共享测控资源采用串行调度",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "T2CPMG",
+          "name": "T2CPMG",
+          "label": "T2 CPMG测量",
+          "detail": "PDF并列分支之一；演示因共享测控资源采用串行调度",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        },
+        {
+          "id": "RB1QCal",
+          "name": "RB1QCal",
+          "label": "单比特随机基准",
+          "detail": "PDF并列分支之一；演示因共享测控资源采用串行调度",
+          "status": "pending",
+          "progress": 0,
+          "attempt": 0,
+          "qubits": "Q24"
+        }
+      ],
+      "events": [
+        {
+          "time": "2026-10-23T04:16:46.238Z",
+          "message": "已创建本地模拟工作流，尚未连接设备或真实后端。",
+          "kind": "info"
+        },
+        {
+          "time": "2026-10-23T04:16:46.238Z",
+          "message": "模拟任务已启动，运行时间按演示秒数累计。",
+          "kind": "info"
+        },
+        {
+          "time": "2026-10-23T04:16:46.238Z",
+          "message": "ReadoutFreqDip 已开始 · 第 1 次执行。",
+          "kind": "info"
+        },
+        {
+          "time": "2026-10-23T04:16:46.238Z",
+          "message": "ReadoutFreqDip 模拟执行完成。",
+          "kind": "success"
+        },
+        {
+          "time": "2026-10-23T04:16:46.238Z",
+          "message": "F01Spectroscopy 已开始 · 第 1 次执行。",
+          "kind": "info"
+        }
+      ]
+    }
+  ]
+}
