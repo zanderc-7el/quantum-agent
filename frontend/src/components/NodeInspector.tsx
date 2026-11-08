@@ -26,6 +26,13 @@ import type {
   WorkflowAction,
 } from "../types";
 import { decaySamples, nodeMeasurements } from "../lib/measurements";
+import {
+  THRESHOLD_SOURCE_LABELS,
+  buildNodeComparisons,
+  describeComparisonGap,
+  formatMetricValue,
+} from "../lib/metricComparison";
+import type { MetricComparison } from "../lib/metricComparison";
 
 import "./node-inspector.css";
 
@@ -80,6 +87,12 @@ function getModel(node: ExperimentNode, workflow: Workflow) {
   const isSpectrum = /ReadoutFreqDip|Spectroscopy/.test(node.name);
   const measurement = nodeMeasurements(workflow, node);
   const { anomaly, fidelity, tau } = measurement;
+  let comparison: MetricComparison | null = null;
+  try {
+    comparison = buildNodeComparisons(workflow, node)[0] ?? null;
+  } catch {
+    comparison = null;
+  }
   const seed = node.id
     .split("")
     .reduce((total, character) => total + character.charCodeAt(0), 0);
@@ -124,7 +137,10 @@ function getModel(node: ExperimentNode, workflow: Workflow) {
     anomaly,
     fidelity,
     tau,
+    comparison,
     points,
+    source: measurement.source,
+    reason: measurement.reason ?? null,
     xLabel: isDecay
       ? "延迟时间 (μs)"
       : isXEB
@@ -142,6 +158,23 @@ function getModel(node: ExperimentNode, workflow: Workflow) {
             ? "F(m) = A · pᵐ"
             : "y(x) = A · sin(πx + φ) + B",
   };
+}
+
+function baselineText(comparison: MetricComparison | null): string {
+  if (!comparison) return "固定演示质量检查";
+  const ideal = formatMetricValue(
+    comparison.ideal,
+    comparison.unit,
+    comparison.decimals,
+  );
+  if (comparison.threshold === null)
+    return `${comparison.label} · 理想 ${ideal}`;
+  const floor = formatMetricValue(
+    comparison.threshold,
+    comparison.unit,
+    comparison.decimals,
+  );
+  return `${comparison.label} ≥ ${floor} · 理想 ${ideal}`;
 }
 
 function MiniCurve({
@@ -361,16 +394,17 @@ export default function NodeInspector({
           : model.isRabi
             ? "0.217 a.u."
             : "60 ns";
+  const sourceWord = model.source === "server" ? "服务端" : "模拟";
   const metricLabel = model.isIQ
-    ? "模拟判别保真度"
+    ? `${sourceWord}判别保真度`
     : model.isXEB
-      ? "模拟门保真度"
+      ? `${sourceWord}门保真度`
       : model.isDecay
-        ? "模拟相干参数"
+        ? `${sourceWord}相干参数`
         : model.isSpectrum
-          ? "模拟中心频率"
+          ? `${sourceWord}中心频率`
           : model.isRabi
-            ? "模拟最优幅度"
+            ? `${sourceWord}最优幅度`
             : "演示脉冲宽度";
   const isFailedThreshold = hasData && model.anomaly;
   const qualityLabel = !hasData
@@ -378,8 +412,12 @@ export default function NodeInspector({
     : !ready
       ? "采样未完成"
       : isFailedThreshold
-        ? "低于演示阈值"
-        : "达到演示阈值";
+        ? model.source === "server"
+          ? "低于验收标准"
+          : "低于演示阈值"
+        : model.source === "server"
+          ? "通过验收标准"
+          : "达到演示阈值";
   const observationRows = model.isIQ
     ? [
         ["|0⟩ · I 均值", "−0.520", "a.u."],
@@ -431,7 +469,9 @@ export default function NodeInspector({
           <FlaskConical size={16} />
           <span>节点详情</span>
         </div>
-        <span className="ni-demo">模拟环境</span>
+        <span className="ni-demo">
+          {model.source === "server" ? "服务端测量" : "模拟环境"}
+        </span>
       </header>
       <div className="ni-node-intro">
         <div className="ni-node-kicker">
@@ -556,7 +596,9 @@ export default function NodeInspector({
                 <div className="ni-section-title">
                   <Activity size={14} />
                   <h3>{model.isIQ ? "IQ 分布观测" : "采样曲线"}</h3>
-                  <span className="ni-demo">模拟数据</span>
+                  <span className="ni-demo">
+                    {model.source === "server" ? "服务端测量" : "模拟数据"}
+                  </span>
                 </div>
                 <div className="ni-chart-box">
                   <div className="ni-chart-legend">
@@ -585,13 +627,28 @@ export default function NodeInspector({
                   <span>{metricLabel}</span>
                   <strong>
                     {ready ? metric : "采样中"}
-                    {ready && <small>模拟</small>}
+                    {ready && <small>{sourceWord}</small>}
                   </strong>
                   <span
-                    className={isFailedThreshold ? "ni-warning" : "ni-teal"}
+                    className={`ni-quality ${isFailedThreshold ? "ni-warning" : "ni-teal"}`}
                   >
                     {qualityLabel}
                   </span>
+                  {model.comparison && (
+                    <div className="ni-compare-line">
+                      <span>
+                        理想{" "}
+                        {formatMetricValue(
+                          model.comparison.ideal,
+                          model.comparison.unit,
+                          model.comparison.decimals,
+                        )}
+                      </span>
+                      <span>
+                        {describeComparisonGap(model.comparison)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="ni-section-title ni-section-title-small">
                   <h3>数据摘录</h3>
@@ -706,7 +763,11 @@ export default function NodeInspector({
                   )}
                   <div>
                     <span>数据来源</span>
-                    <strong>前端模拟生成</strong>
+                    <strong>
+                      {model.source === "server"
+                        ? "后端测量记录"
+                        : "前端模拟生成"}
+                    </strong>
                   </div>
                 </div>
                 <div className="ni-info-box">
@@ -742,7 +803,11 @@ export default function NodeInspector({
                   : !ready
                     ? "模拟采样进行中，最终判定将在节点完成后产生。"
                     : model.anomaly
-                      ? "模拟保真度 94.2% 低于 98% 演示阈值。请复核当前流程节点后选择批准或重试。"
+                      ? model.source === "server"
+                        ? `服务端判定未通过：${model.reason || "指标未达到当前设备验收标准"}。请复核后选择批准或重试。`
+                        : model.comparison?.status === "failing"
+                          ? `模拟${model.comparison.label} ${formatMetricValue(model.comparison.actual, model.comparison.unit, model.comparison.decimals)} 低于 ${formatMetricValue(model.comparison.threshold, model.comparison.unit, model.comparison.decimals)} ${THRESHOLD_SOURCE_LABELS[model.comparison.thresholdSource]}。请复核当前流程节点后选择批准或重试。`
+                          : "模拟指标低于演示阈值。请复核当前流程节点后选择批准或重试。"
                       : workflow.policy === "strict" &&
                           selectedIsCurrent &&
                           node.status === "attention"
@@ -757,13 +822,7 @@ export default function NodeInspector({
               </div>
               <div>
                 <span>比对基准</span>
-                <strong>
-                  {model.isIQ || model.isXEB
-                    ? "保真度 ≥ 98%"
-                    : model.isDecay
-                      ? "相干时间 ≥ 30 μs"
-                      : "固定演示质量检查"}
-                </strong>
+                <strong>{baselineText(model.comparison)}</strong>
               </div>
               <div>
                 <span>审批对象</span>

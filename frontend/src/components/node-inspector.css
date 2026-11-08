@@ -340,10 +340,26 @@
   font-weight: 400;
   color: #647d9f;
 }
-.ni-metric-card > span:last-child {
+.ni-quality {
   flex-basis: 100%;
   font-size: 8px;
   padding-top: 1px;
+}
+.ni-compare-line {
+  display: flex;
+  flex-basis: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed #2b3f5d;
+  font-size: 8px;
+  color: #7e9ac1;
+}
+.ni-compare-line > span:last-child {
+  color: #a9bfdc;
+  text-align: right;
 }
 .ni-teal {
   color: #63bea8 !important;

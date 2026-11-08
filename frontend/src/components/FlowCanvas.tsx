@@ -9,12 +9,15 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { ExperimentNode, NodeStatus, Workflow } from "../types";
+import type { NodeDecision } from "../lib/decisionTrail";
 import "./flow-canvas.css";
 
 interface FlowCanvasProps {
   workflow: Workflow;
   selectedNodeId: string;
   onSelectNode: (id: string) => void;
+  /** Server audit verdicts keyed by experiment node id; absent in mock mode. */
+  decisions?: Record<string, NodeDecision>;
 }
 
 type Stage = "single" | "cz";
@@ -111,6 +114,7 @@ function NodeCard({
   selected,
   index,
   paused,
+  decision,
   onSelect,
 }: {
   node: ExperimentNode;
@@ -118,6 +122,7 @@ function NodeCard({
   selected: boolean;
   index: number;
   paused: boolean;
+  decision?: NodeDecision;
   onSelect: () => void;
 }) {
   const statusLabel =
@@ -134,9 +139,16 @@ function NodeCard({
       }}
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={`${node.label}，${node.name}，${statusLabel}，进度 ${Math.round(node.progress)}%`}
-      title={`${node.name}\n${node.detail}`}
+      aria-label={`${node.label}，${node.name}，${statusLabel}${decision ? `，${decision.label}` : ""}，进度 ${Math.round(node.progress)}%`}
+      title={`${node.name}\n${node.detail}${decision ? `\n${decision.label}：${decision.detail}` : ""}`}
     >
+      {decision && (
+        <span
+          className={`fc-node-decision fc-node-decision--${decision.tone}`}
+        >
+          {decision.label}
+        </span>
+      )}
       <span className="fc-node-topline">
         <span className="fc-node-number">
           {String(index + 1).padStart(2, "0")}
@@ -174,6 +186,7 @@ export default function FlowCanvas({
   workflow,
   selectedNodeId,
   onSelectNode,
+  decisions,
 }: FlowCanvasProps) {
   const [stage, setStage] = useState<Stage>(() =>
     workflow.experiment === "two" ? stageFor(selectedNodeId) : "single",
@@ -403,6 +416,7 @@ export default function FlowCanvas({
                   position={positions[index]}
                   selected={node.id === selectedNodeId}
                   paused={workflow.status === "paused"}
+                  decision={decisions?.[node.id] ?? decisions?.[node.name]}
                   index={workflow.nodes.findIndex(
                     (item) => item.id === node.id,
                   )}

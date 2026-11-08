@@ -24,7 +24,7 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import type { CreateWorkflowInput, Workflow } from "../types";
+import type { CreateWorkflowInput, ExperimentNode, Workflow } from "../types";
 import {
   decaySamples,
   DEMO_THRESHOLDS,
@@ -33,6 +33,12 @@ import {
   qubitMeasurements,
   reportMeasurements,
 } from "../lib/measurements";
+import {
+  buildNodeComparisons,
+  formatMetricValue,
+  THRESHOLD_SOURCE_LABELS,
+} from "../lib/metricComparison";
+import type { MetricComparison } from "../lib/metricComparison";
 import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_MAX_COUNT,
@@ -46,6 +52,7 @@ import {
 } from "../lib/chatPersistence";
 import type { ChatReplyKind, StoredChatMessage } from "../lib/chatPersistence";
 import { PLATFORM_NAME } from "../lib/branding";
+import { allowsBlueprintIntent, BLUEPRINTS } from "../lib/blueprints";
 import "./chat-report.css";
 
 interface ChatReportProps {
@@ -277,13 +284,10 @@ interface T1Result {
   points: { time: number; measured: number; fitted: number }[];
 }
 
-const quickCommands = [
-  "运行 T1Idle",
-  "对比 Q11 和 Q13",
-  "解释结果",
-  "生成校准计划",
-  "双比特 CZ 校准",
-];
+const quickCommands = {
+  single: ["运行 T1Idle", "解释结果", "生成单比特校准计划"],
+  two: ["运行 T1Idle", "对比 Q11 和 Q13", "解释结果", "生成双比特 CZ 校准计划"],
+} as const;
 const singleSteps = [
   "ReadoutFreqDip",
   "F01Spectroscopy",
@@ -318,15 +322,55 @@ const escapeHtml = (value: string) =>
 const markdownCell = (value: string) =>
   value.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
 
-function generateResult(qubit: string): T1Result {
-  const measurement = qubitMeasurements(qubit);
+/**
+ * The same resolved comparison the parameter panel shows. A comparison is a
+ * reporting aid: any failure here must not take the report down.
+ */
+function nodeComparison(
+  workflow: Workflow,
+  node: ExperimentNode | undefined,
+): MetricComparison | null {
+  if (!node) return null;
+  try {
+    return buildNodeComparisons(workflow, node)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Acceptance floor text shared by the on-screen table and both exports. */
+function acceptanceText(row: {
+  threshold: number | null;
+  unit: string;
+  comparison: MetricComparison | null;
+}): string {
+  if (row.threshold === null) return "未设验收下限";
+  if (!row.comparison) return `≥ ${row.threshold} ${row.unit}`;
+  const operator =
+    row.comparison.direction === "higher"
+      ? "≥"
+      : row.comparison.direction === "lower"
+        ? "≤"
+        : "偏差 ≤";
+  return `${operator} ${formatMetricValue(row.threshold, row.comparison.unit, row.comparison.decimals)}（${THRESHOLD_SOURCE_LABELS[row.comparison.thresholdSource]}）`;
+}
+
+/** CSV fields must stay numeric when a floor exists, empty when it does not. */
+function acceptanceCsv(row: {
+  threshold: number | null;
+}): number | "" {
+  return row.threshold === null ? "" : row.threshold;
+}
+
+function generateResult(qubit: string, workflow?: Workflow): T1Result {
+  const measurement = qubitMeasurements(qubit, workflow);
   return {
     qubit,
     tau: measurement.t1,
     error: measurement.error,
     fidelity: measurement.rbFidelity,
     r2: measurement.r2,
-    points: decaySamples(qubit),
+    points: decaySamples(qubit, measurement.t1),
   };
 }
 
@@ -444,7 +488,7 @@ export default function ChatReport({
   const report = reportMeasurements(workflow);
   const czFidelity = report.cz;
   const t1Ready = measurementStage(report.t1Node) === "ready";
-  const t1Label = measurementStageLabel(report.t1Node);
+  const t1Label = measurementStageLabel(report.t1Node, report.source);
   const snapshotLabel = `${report.label} · ${workflow.status} · ${workflow.progress}%`;
   const optimizerNode = workflow.nodes.find(
     (node) => node.id === "CZParaOptimizer",
@@ -452,15 +496,17 @@ export default function ChatReport({
   const retestNode = workflow.nodes.find(
     (node) => node.id === "CZXEBCalRetest",
   );
-  const results = useMemo(() => {
+  // Not memoized on the workflow object alone: a server measurement arrives
+  // without mutating `workflow`, and the report must re-render with it.
+  const results = (() => {
     const qubits = [
       ...new Set(
         workflow.target.match(/Q\d+/gi)?.map((qubit) => qubit.toUpperCase()) ||
           (workflow.experiment === "two" ? ["Q12", "Q13"] : ["Q12"]),
       ),
     ].slice(0, workflow.experiment === "two" ? 2 : 1);
-    return qubits.map((qubit) => generateResult(qubit));
-  }, [workflow.target, workflow.experiment]);
+    return qubits.map((qubit) => generateResult(qubit, workflow));
+  })();
   const [activeQubit, setActiveQubit] = useState(0);
   const [conversationState, setConversationState] = useState(() =>
     getLocalConversation(workflow),
@@ -570,20 +616,52 @@ export default function ChatReport({
   }
   const result = results[activeQubit] || results[0];
   const passed = !report.qualityFailed;
+  // The table, both exports and the prose all use the comparison's resolved
+  // floor, so a device-specific acceptance criterion can never be displayed
+  // next to the demo's 98% / 30 μs constants.
+  const readoutComparison = nodeComparison(workflow, report.readoutNode);
+  const t1Comparison = nodeComparison(workflow, report.t1Node);
+  const t2Comparison = nodeComparison(workflow, report.t2Node);
+  const rbComparison = nodeComparison(workflow, report.rbNode);
+  const czComparison = nodeComparison(workflow, report.czNode);
+  const thresholdFor = (
+    comparison: MetricComparison | null,
+    fallback: number,
+  ) => (comparison ? comparison.threshold : fallback);
+  const t1Floor = thresholdFor(t1Comparison, threshold);
+  const t1FloorText =
+    t1Floor === null
+      ? "未设验收下限"
+      : formatMetricValue(t1Floor, "μs", t1Comparison?.decimals ?? 1);
+  // A completed node is "within floor" only when the resolved comparison (or
+  // the resolved floor, if no comparison exists) says so.
+  const t1WithinFloor =
+    t1Floor === null
+      ? null
+      : t1Comparison
+        ? t1Comparison.status === "achieved" || t1Comparison.status === "passing"
+        : results.every((item) => item.tau >= t1Floor);
+  const readoutFloor = thresholdFor(
+    readoutComparison,
+    DEMO_THRESHOLDS.fidelityPercent,
+  );
+  const czFloor = thresholdFor(czComparison, DEMO_THRESHOLDS.fidelityPercent);
   const metricRows = [
     {
       name: "读取判别",
       value: report.readout,
       unit: "%",
-      threshold: DEMO_THRESHOLDS.fidelityPercent,
+      threshold: thresholdFor(readoutComparison, DEMO_THRESHOLDS.fidelityPercent),
+      comparison: readoutComparison,
       stage: measurementStage(report.readoutNode),
-      label: measurementStageLabel(report.readoutNode),
+      label: measurementStageLabel(report.readoutNode, report.source),
     },
     ...results.map((item) => ({
       name: `${item.qubit} · T1Idle`,
       value: item.tau,
       unit: "μs",
-      threshold,
+      threshold: thresholdFor(t1Comparison, threshold),
+      comparison: t1Comparison,
       stage: measurementStage(report.t1Node),
       label: t1Label,
     })),
@@ -593,36 +671,68 @@ export default function ChatReport({
             name: "CZ XEB",
             value: czFidelity,
             unit: "%",
-            threshold: DEMO_THRESHOLDS.fidelityPercent,
+            threshold: thresholdFor(
+              czComparison,
+              DEMO_THRESHOLDS.fidelityPercent,
+            ),
+            comparison: czComparison,
             stage: measurementStage(report.czNode),
-            label: measurementStageLabel(report.czNode),
+            label: measurementStageLabel(report.czNode, report.source),
           },
         ]
       : [
           {
             name: `${result.qubit} · T2CPMG`,
-            value: qubitMeasurements(result.qubit).t2,
+            value: qubitMeasurements(result.qubit, workflow).t2,
             unit: "μs",
-            threshold,
+            threshold: thresholdFor(t2Comparison, threshold),
+            comparison: t2Comparison,
             stage: measurementStage(report.t2Node),
-            label: measurementStageLabel(report.t2Node),
+            label: measurementStageLabel(report.t2Node, report.source),
           },
           {
             name: "RB1QCal",
-            value: 99.37,
+            value: report.rb,
             unit: "%",
-            threshold: DEMO_THRESHOLDS.fidelityPercent,
+            threshold: thresholdFor(rbComparison, DEMO_THRESHOLDS.fidelityPercent),
+            comparison: rbComparison,
             stage: measurementStage(report.rbNode),
-            label: measurementStageLabel(report.rbNode),
+            label: measurementStageLabel(report.rbNode, report.source),
           },
         ]),
   ];
   const assessment = (row: (typeof metricRows)[number]) =>
     row.stage !== "ready"
       ? "未完成 / 预览"
-      : row.value >= row.threshold
-        ? "通过"
-        : "需复核";
+      : row.comparison
+        ? row.comparison.status === "unavailable"
+          ? "无有效值"
+          : row.comparison.thresholdSource === "none"
+            ? "未设验收下限"
+            : row.comparison.status === "achieved" ||
+                row.comparison.status === "passing"
+              ? "通过"
+              : row.comparison.status === "failing"
+                ? "需复核"
+                : "无有效值"
+        : row.threshold === null
+          ? "未设验收下限"
+          : row.value >= row.threshold
+            ? "通过"
+            : "需复核";
+  // Machine-readable counterpart of the table's verdict.
+  const outcome = (comparison: MetricComparison | null, ready: boolean) =>
+    !ready
+      ? "NOT_FINAL_PREVIEW"
+      : !comparison
+        ? "PASS"
+        : comparison.status === "failing"
+          ? "REVIEW"
+          : comparison.status === "unavailable"
+            ? "NO_VALUE"
+            : comparison.threshold === null
+              ? "NO_FLOOR"
+              : "PASS";
 
   useEffect(() => {
     setGeneratedAt(new Date());
@@ -694,8 +804,11 @@ export default function ChatReport({
       return;
     let kind: ReplyKind = "unsupported";
     let reply =
-      "我是规则驱动的演示助手，目前支持「运行 T1Idle」「对比 Q11 和 Q13」「解释结果」「生成校准计划」「双比特 CZ 校准」。请选择一个指令；当前未连接通用 AI 或真实量子设备。";
-    if (sentAttachments.length) {
+      `当前为${BLUEPRINTS[workflow.experiment].title}，可运行本蓝图节点、解释结果或生成本蓝图计划。当前未连接通用 AI 或真实量子设备。`;
+    if (!allowsBlueprintIntent(workflow.experiment, text) ||
+        (!isTwo && /对比|比较/.test(text) && new Set(text.match(/Q\d+/gi)?.map((q) => q.toUpperCase())).size > 1)) {
+      reply = `当前任务使用${BLUEPRINTS[workflow.experiment].title}，不能在这里生成或执行其他蓝图的工作。请到蓝图版选择对应蓝图并新建任务。`;
+    } else if (sentAttachments.length) {
       kind = "attachments";
       reply = `已将 ${sentAttachments.length} 个本地附件关联到这条消息，并请求保存到本浏览器。请以输入框上方的存储状态确认是否保存成功；成功后刷新可恢复，没有上传服务器。你可以展开安全文本预览，或下载原文件副本；PDF 尚未解析正文。当前未接入文档理解模型，尚未分析这些附件，也没有根据论文生成或运行实验。${text ? "你的说明已随附件保留，待接入模型后处理。" : "可继续补充你的需求，待接入模型后处理。"}`;
     } else if (
@@ -715,9 +828,12 @@ export default function ChatReport({
       /Q13/i.test(text)
     ) {
       kind = "comparison";
-      const q11 = generateResult("Q11");
-      const q13 = generateResult("Q13");
-      reply = `在同一套确定性模拟规则下，Q11 的 T1 为 ${fixed(q11.tau)} μs，Q13 为 ${fixed(q13.tau)} μs，相差 ${fixed(Math.abs(q11.tau - q13.tau))} μs。两者均高于本演示设定的 30 μs 门槛。此比较不代表设备实测表现。`;
+      const q11 = generateResult("Q11", workflow);
+      const q13 = generateResult("Q13", workflow);
+      reply =
+        report.source === "server"
+          ? `根据后端记录的测量参数，Q11 的 T1 为 ${fixed(q11.tau)} μs，Q13 为 ${fixed(q13.tau)} μs，相差 ${fixed(Math.abs(q11.tau - q13.tau))} μs。是否达到当前设备验收标准以对应节点的冻结判定为准。`
+          : `在同一套确定性模拟规则下，Q11 的 T1 为 ${fixed(q11.tau)} μs，Q13 为 ${fixed(q13.tau)} μs，相差 ${fixed(Math.abs(q11.tau - q13.tau))} μs。${t1Floor === null ? "当前未设 T1 验收下限。" : `与解析出的 T1 验收下限 ${formatMetricValue(t1Floor, "μs", t1Comparison?.decimals ?? 1)} 相比，Q11 ${q11.tau >= t1Floor ? "高于" : "低于"}下限，Q13 ${q13.tau >= t1Floor ? "高于" : "低于"}下限。`}此比较不代表设备实测表现。`;
     } else if (/生成|制定|创建|给我/.test(text) && /计划|校准/.test(text)) {
       kind = "plan";
       reply = isTwo
@@ -725,7 +841,9 @@ export default function ChatReport({
         : "为 Q12 生成单比特校准演示计划：从 ReadoutFreqDip 开始，经频谱、Rabi、读出与概率映射，最终执行 T1Idle、T2CPMG、RB1QCal，共 9 个执行节点。工作流会模拟执行、质量检查和人工审批。";
     } else if (/解释|分析|为什么/.test(text)) {
       kind = "explanation";
-      reply = `${snapshotLabel}。${isTwo ? "双比特报告的 CZXEBCal 模拟保真度为 " + fixed(czFidelity) + "%（" + measurementStageLabel(report.czNode) + "），脉冲宽度为 60 ns。前置单比特检查包括 T1Idle、T2CPMG 和 RB1QCal。" : ""}T1Idle 测量激发态能量弛豫的时间尺度。本演示采用 P₁(t) = 0.96 × exp(−t/T1) + 0.02 生成数据，并叠加固定的微小噪声。${result.qubit} 的${t1Label}参数为 ${fixed(result.tau)} μs，${result.tau >= threshold ? "高于" : "低于"}演示门槛 30 μs。右侧参数和 R² 是模拟展示值，尚未调用真实拟合或设备接口。`;
+      reply = report.source === "server"
+        ? `${snapshotLabel}。${isTwo ? "双比特报告的 CZXEBCal 服务端保真度为 " + fixed(czFidelity) + "%（" + measurementStageLabel(report.czNode, report.source) + "），脉冲宽度为 60 ns。前置单比特检查包括 T1Idle、T2CPMG 和 RB1QCal。" : ""}T1Idle 测量激发态能量弛豫的时间尺度。${result.qubit} 的${t1Label}参数为 ${fixed(result.tau)} μs。数值来自后端记录的服务端测量结果；是否达到验收标准以冻结判定为准，未执行节点仍显示示例预览。`
+        : `${snapshotLabel}。${isTwo ? "双比特报告的 CZXEBCal 模拟保真度为 " + fixed(czFidelity) + "%（" + measurementStageLabel(report.czNode) + "），脉冲宽度为 60 ns。前置单比特检查包括 T1Idle、T2CPMG 和 RB1QCal。" : ""}T1Idle 测量激发态能量弛豫的时间尺度。本演示采用 P₁(t) = 0.96 × exp(−t/T1) + 0.02 生成数据，并叠加固定的微小噪声。${result.qubit} 的${t1Label}参数为 ${fixed(result.tau)} μs，${t1Floor === null ? "当前未设 T1 验收下限" : `${result.tau >= t1Floor ? "高于" : "低于"}验收下限 ${formatMetricValue(t1Floor, "μs", t1Comparison?.decimals ?? 1)}（${THRESHOLD_SOURCE_LABELS[t1Comparison?.thresholdSource ?? "demo"]}）`}。右侧参数和 R² 是模拟展示值，尚未调用真实拟合或设备接口。`;
     } else if (/运行|执行|开始|测量/.test(text) && /T\s*1/i.test(text)) {
       kind = "result";
       reply = `已打开 ${workflow.target} 的 T1Idle ${t1Label}，共 ${results.length} 个比特、每比特 21 个采样点。固定输入会得到相同结果，便于演示与复现。点击下方按钮可创建完整的模拟执行工作流。`;
@@ -751,6 +869,10 @@ export default function ChatReport({
   }
 
   function createPlan(experiment: "single" | "two" = workflow.experiment) {
+    if (experiment !== workflow.experiment) {
+      onNotify(`当前任务仅允许${BLUEPRINTS[workflow.experiment].title}；请切换蓝图后新建任务。`);
+      return;
+    }
     const target = experiment === "two" ? "Q12–Q13" : "Q12";
     onCreateWorkflow({
       experiment,
@@ -771,14 +893,16 @@ export default function ChatReport({
       hour12: false,
     });
     const disclaimer =
-      "模拟数据报告：由前端确定性规则生成，未连接真实设备或拟合服务。尚未执行的节点仅提供显著标注的示例预览；阶段结果不代表完整流程完成。";
+      report.source === "server"
+        ? "服务端测量报告：指标来自后端记录的节点测量结果；尚未执行的节点仅提供显著标注的示例预览，阶段结果不代表完整流程完成。"
+        : "模拟数据报告：由前端确定性规则生成，未连接真实设备或拟合服务。尚未执行的节点仅提供显著标注的示例预览；阶段结果不代表完整流程完成。";
     const optimization = isTwo
-      ? `CZ_width = 60 ns；流程定义为优化 1 次 + 复测 1 次。当前优化节点：${measurementStageLabel(optimizerNode)}，复测节点：${measurementStageLabel(retestNode)}。`
+      ? `CZ_width = 60 ns；流程定义为优化 1 次 + 复测 1 次。当前优化节点：${measurementStageLabel(optimizerNode, report.source)}，复测节点：${measurementStageLabel(retestNode, report.source)}。`
       : "";
     let content = "";
     let mime = "text/plain;charset=utf-8";
     if (format === "md") {
-      content = `# ${markdownCell(title)}\n\n${PLATFORM_NAME}\n\n> ${disclaimer}\n\n**${snapshotLabel}**\n\n生成时间：${stamp}（北京时间）\n\n工作流：${markdownCell(workflow.id)}\n\n## 指标与节点状态\n\n| 指标 | 模拟值 | 演示阈值 | 节点状态 | 判定 |\n| --- | ---: | ---: | --- | --- |\n${metricRows.map((row) => `| ${row.name} | ${fixed(row.value)} ${row.unit} | ≥ ${row.threshold} ${row.unit} | ${row.label} | ${assessment(row)} |`).join("\n")}\n\n${optimization}\n\n## T1Idle 图表来源\n\n${t1Label}。P₁(t) = 0.96 × exp(−t/T1) + 0.02。采样范围 0–160 μs，共 21 点，叠加固定噪声。参数、曲线与节点详情使用同一套生成规则。\n\n## 当前结论\n\n${report.conclusion}\n\n展示误差与 R² 为预设模拟参数，不来自真实数值拟合。当前报告不支持真实设备性能结论。\n`;
+      content = `# ${markdownCell(title)}\n\n${PLATFORM_NAME}\n\n> ${disclaimer}\n\n**${snapshotLabel}**\n\n生成时间：${stamp}（北京时间）\n\n工作流：${markdownCell(workflow.id)}\n\n## 指标与节点状态\n\n| 指标 | ${report.source === "server" ? "服务端值" : "模拟值"} | 验收下限 | 节点状态 | 判定 |\n| --- | ---: | ---: | --- | --- |\n${metricRows.map((row) => `| ${row.name} | ${fixed(row.value)} ${row.unit} | ${acceptanceText(row)} | ${row.label} | ${assessment(row)} |`).join("\n")}\n\n${optimization}\n\n## T1Idle 图表来源\n\n${t1Label}。P₁(t) = 0.96 × exp(−t/T1) + 0.02。采样范围 0–160 μs，共 21 点，叠加固定噪声。${report.source === "server" ? "参数与节点详情来自后端记录的服务端测量结果。" : "参数、曲线与节点详情使用同一套生成规则。"}\n\n## 当前结论\n\n${report.conclusion}\n\n展示误差与 R² 为预设模拟参数，不来自真实数值拟合。当前报告不支持真实设备性能结论。\n`;
     } else if (format === "csv") {
       mime = "text/csv;charset=utf-8";
       const header =
@@ -786,7 +910,13 @@ export default function ChatReport({
       const rows = results.flatMap((item) =>
         item.points.map((point) =>
           [
-            t1Ready ? "SIMULATED_EXECUTED" : "SIMULATED_PREVIEW",
+            report.source === "server"
+              ? t1Ready
+                ? "SERVER_RECORDED"
+                : "SERVER_PREVIEW"
+              : t1Ready
+                ? "SIMULATED_EXECUTED"
+                : "SIMULATED_PREVIEW",
             workflow.status,
             workflow.progress,
             report.preview
@@ -802,14 +932,14 @@ export default function ChatReport({
             fixed(item.tau),
             fixed(item.error),
             fixed(item.r2, 4),
-            threshold,
-            t1Ready ? "PASS" : "NOT_FINAL_PREVIEW",
+            acceptanceCsv({ threshold: t1Floor }),
+            outcome(t1Comparison, t1Ready),
             fixed(report.readout),
             measurementStage(report.readoutNode),
-            DEMO_THRESHOLDS.fidelityPercent,
+            acceptanceCsv({ threshold: readoutFloor }),
             isTwo ? fixed(czFidelity) : "",
             isTwo ? measurementStage(report.czNode) : "",
-            isTwo ? DEMO_THRESHOLDS.fidelityPercent : "",
+            isTwo ? acceptanceCsv({ threshold: czFloor }) : "",
             isTwo ? 60 : "",
           ].join(","),
         ),
@@ -817,7 +947,7 @@ export default function ChatReport({
       content = "\uFEFF" + header + "\r\n" + rows.join("\r\n");
     } else {
       mime = "text/html;charset=utf-8";
-      content = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · ${escapeHtml(PLATFORM_NAME)}</title><style>body{font:15px/1.7 system-ui,sans-serif;background:#f5f7fb;color:#182335;max-width:960px;margin:48px auto;padding:0 24px}h1{font-size:26px}h2{font-size:19px;margin-top:32px}.notice{background:#e4eefb;border-left:4px solid #4f7fff;padding:16px}.stage{font-size:20px;font-weight:600;color:#315799}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;padding:12px;border-bottom:1px solid #e2e6ee}th{background:#edf1f8}.muted{color:#667084}svg{display:block;width:100%;max-width:700px;background:#fff;border-radius:10px;margin:16px 0}text{font:11px system-ui;fill:#69778b}</style></head><body><p class="muted">${escapeHtml(PLATFORM_NAME)} · 模拟实验报告</p><h1>${escapeHtml(title)}</h1><p class="stage">${escapeHtml(snapshotLabel)}</p><p class="notice">${disclaimer}</p><p class="muted">生成时间：${escapeHtml(stamp)}（北京时间） · 工作流 ${escapeHtml(workflow.id)}</p><h2>指标与节点状态</h2><table><thead><tr><th>指标</th><th>模拟值</th><th>演示阈值</th><th>节点状态</th><th>判定</th></tr></thead><tbody>${metricRows.map((row) => `<tr><td>${escapeHtml(row.name)}</td><td>${fixed(row.value)} ${row.unit}</td><td>≥ ${row.threshold} ${row.unit}</td><td>${row.label}</td><td>${assessment(row)}</td></tr>`).join("")}</tbody></table><p>${optimization}</p><h2>T1Idle 模拟曲线 · ${t1Label}</h2>${results
+      content = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · ${escapeHtml(PLATFORM_NAME)}</title><style>body{font:15px/1.7 system-ui,sans-serif;background:#f5f7fb;color:#182335;max-width:960px;margin:48px auto;padding:0 24px}h1{font-size:26px}h2{font-size:19px;margin-top:32px}.notice{background:#e4eefb;border-left:4px solid #4f7fff;padding:16px}.stage{font-size:20px;font-weight:600;color:#315799}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;padding:12px;border-bottom:1px solid #e2e6ee}th{background:#edf1f8}.muted{color:#667084}svg{display:block;width:100%;max-width:700px;background:#fff;border-radius:10px;margin:16px 0}text{font:11px system-ui;fill:#69778b}</style></head><body><p class="muted">${escapeHtml(PLATFORM_NAME)} · ${report.source === "server" ? "服务端测量报告" : "模拟实验报告"}</p><h1>${escapeHtml(title)}</h1><p class="stage">${escapeHtml(snapshotLabel)}</p><p class="notice">${disclaimer}</p><p class="muted">生成时间：${escapeHtml(stamp)}（北京时间） · 工作流 ${escapeHtml(workflow.id)}</p><h2>指标与节点状态</h2><table><thead><tr><th>指标</th><th>模拟值</th><th>验收下限</th><th>节点状态</th><th>判定</th></tr></thead><tbody>${metricRows.map((row) => `<tr><td>${escapeHtml(row.name)}</td><td>${fixed(row.value)} ${row.unit}</td><td>${escapeHtml(acceptanceText(row))}</td><td>${row.label}</td><td>${assessment(row)}</td></tr>`).join("")}</tbody></table><p>${optimization}</p><h2>T1Idle ${report.source === "server" ? "服务端测量曲线" : "模拟曲线"} · ${t1Label}</h2>${results
         .map((item) => {
           const points = item.points
             .map(
@@ -981,15 +1111,23 @@ export default function ChatReport({
                             </strong>
                             <span
                               className={
-                                t1Ready ? "cr-good-text" : "cr-preview-text"
+                                t1Ready && t1WithinFloor !== false
+                                  ? "cr-good-text"
+                                  : "cr-preview-text"
                               }
                             >
-                              {t1Ready ? (
+                              {t1Ready && t1WithinFloor !== false ? (
                                 <Check size={11} />
                               ) : (
                                 <CircleHelp size={11} />
                               )}
-                              {t1Ready ? "达到演示门槛" : "示例预览·节点未完成"}
+                              {t1Ready
+                                ? t1WithinFloor === false
+                                  ? "低于验收下限"
+                                  : t1Floor === null
+                                    ? "已执行 · 未设验收下限"
+                                    : "达到验收下限"
+                                : "示例预览·节点未完成"}
                             </span>
                           </div>
                         ))}
@@ -1029,6 +1167,7 @@ export default function ChatReport({
                       ))}
                       <button
                         className="cr-primary-button"
+                        disabled={message.kind === "two-plan" && !isTwo}
                         onClick={() =>
                           createPlan(
                             message.kind === "two-plan"
@@ -1060,7 +1199,7 @@ export default function ChatReport({
                           </div>
                         );
                       })}
-                      <span>确定性模拟 · 30 μs 演示门槛</span>
+                      <span>确定性模拟 · T1 验收下限 {t1FloorText}</span>
                     </div>
                   )}
                   {message.role === "assistant" &&
@@ -1084,7 +1223,7 @@ export default function ChatReport({
               试着问我
             </div>
             <div className="cr-quick-commands">
-              {quickCommands.map((command) => (
+              {quickCommands[workflow.experiment].map((command) => (
                 <button
                   key={command}
                   disabled={!canEditConversation || readingAttachments || !storageLoaded}
@@ -1318,7 +1457,7 @@ export default function ChatReport({
                         {fixed(czFidelity)}
                         <small>%</small>
                       </strong>
-                      <p>{measurementStageLabel(report.czNode)}</p>
+                      <p>{measurementStageLabel(report.czNode, report.source)}</p>
                     </div>
                     <div>
                       <span>TTGAczDelicateG</span>
@@ -1348,17 +1487,17 @@ export default function ChatReport({
                     <div>
                       <span>T2CPMG</span>
                       <strong>
-                        {fixed(qubitMeasurements(result.qubit).t2)}
+                        {fixed(qubitMeasurements(result.qubit, workflow).t2)}
                         <small>μs</small>
                       </strong>
-                      <p>{measurementStageLabel(report.t2Node)}</p>
+                      <p>{measurementStageLabel(report.t2Node, report.source)}</p>
                     </div>
                     <div>
                       <span>RB1QCal</span>
                       <strong>
-                        99.37<small>%</small>
+                        {fixed(report.rb)}<small>%</small>
                       </strong>
-                      <p>{measurementStageLabel(report.rbNode)}</p>
+                      <p>{measurementStageLabel(report.rbNode, report.source)}</p>
                     </div>
                   </>
                 )}
@@ -1379,7 +1518,9 @@ export default function ChatReport({
                   {!passed
                     ? "当前指标需要复核"
                     : report.completed
-                      ? "模拟结果符合演示阈值"
+                      ? report.source === "server"
+                        ? "服务端结果已按冻结标准判定"
+                        : "模拟结果符合演示验收下限"
                       : "等待完整流程结果"}
                 </strong>
                 <p>{report.conclusion}</p>
@@ -1500,16 +1641,14 @@ export default function ChatReport({
                         <td>
                           {fixed(row.value)} <span>{row.unit}</span>
                         </td>
-                        <td>
-                          ≥ {row.threshold} {row.unit}
-                        </td>
+                        <td>{acceptanceText(row)}</td>
                         <td>
                           <span
                             title={row.label}
-                            className={`cr-status-pill ${row.stage !== "ready" ? "cr-status-preview" : row.value < row.threshold ? "cr-status-review" : ""}`}
+                            className={`cr-status-pill ${row.stage !== "ready" ? "cr-status-preview" : assessment(row) === "需复核" ? "cr-status-review" : ""}`}
                           >
                             {row.stage === "ready" &&
-                            row.value >= row.threshold ? (
+                            assessment(row) === "通过" ? (
                               <Check size={11} />
                             ) : (
                               <CircleHelp size={11} />
@@ -1548,8 +1687,9 @@ export default function ChatReport({
                       个采样点，由指数函数叠加固定噪声生成散点。
                     </li>
                     <li>
-                      演示门槛：相干时间 ≥ 30 μs，读取/CZ/RB 保真度 ≥
-                      98%。异常仅在指定节点第一轮出现，重试或已执行复测后以最新节点结果为准。
+                      演示验收下限：相干时间 ≥ {DEMO_THRESHOLDS.coherenceUs} μs，读取/CZ/RB 保真度 ≥{" "}
+                      {DEMO_THRESHOLDS.fidelityPercent}
+                      %；远程结果使用服务端冻结标准或设备/Skill 验收下限，不借用演示值。异常仅在指定节点第一轮出现，重试或已执行复测后以最新节点结果为准。
                     </li>
                     <li>
                       误差与 R²

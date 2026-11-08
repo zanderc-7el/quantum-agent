@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
-import { ArrowLeft, ArrowRight, Crosshair, GripVertical, FileJson, Pin, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Code2, Crosshair, GripVertical, Pin, SlidersHorizontal, X } from 'lucide-react';
 import type { Workflow } from '../types';
 import { selectDrawerNode } from '../lib/parameterDrawerState';
 import ParameterCodeEditor from './ParameterCodeEditor';
+import ParameterPanel from './ParameterPanel';
 import './parameter-drawer.css';
 
 export interface ParameterDrawerProps {
@@ -37,6 +38,9 @@ export function ParameterDrawer({ workflow, selectedNodeId, onClose, onSelectNod
   const [resizing, setResizing] = useState(false);
   const [follow, setFollow] = useState(!selectedNodeId);
   const [pinnedNodeId, setPinnedNodeId] = useState(selectedNodeId);
+  // The drawer opens on the readable parameter sheet; the JSONC source is a
+  // deliberate second step rather than the default landing view.
+  const [view, setView] = useState<'panel' | 'code'>('panel');
   onCloseRef.current = onClose;
 
   useEffect(() => {
@@ -107,8 +111,8 @@ export function ParameterDrawer({ workflow, selectedNodeId, onClose, onSelectNod
   return <aside id="parameter-drawer" ref={panelRef} className={`parameter-drawer ${resizing ? 'pd-resizing' : ''}`} style={{ '--pd-width': `${width}px` } as CSSProperties} aria-labelledby={titleId}>
     <div className="pd-resize-handle" role="separator" aria-orientation="vertical" aria-label="调整参数侧栏宽度，左右方向键调整" aria-valuemin={min} aria-valuemax={max} aria-valuenow={width} aria-valuetext={`${Math.round(width)} 像素`} tabIndex={0} onPointerDown={resizeStart} onPointerMove={resizeMove} onPointerUp={resizeEnd} onPointerCancel={resizeEnd} onLostPointerCapture={() => { dragRef.current = null; setResizing(false); }} onKeyDown={resizeKeys}><GripVertical size={12} /></div>
     <header className="pd-titlebar">
-      <FileJson size={15} aria-hidden="true" />
-      <h2 id={titleId}><span className="pd-heading-label">实时参数</span>{node ? `${node.name}.parameters.jsonc` : 'parameters.jsonc'}</h2>
+      <SlidersHorizontal size={15} aria-hidden="true" />
+      <h2 id={titleId}><span className="pd-heading-label">实时参数</span>{node ? node.name : '参数快照'}</h2>
       <button type="button" ref={closeRef} className="pd-icon-button" onClick={onClose} aria-label="关闭参数侧栏" title="关闭参数侧栏 (Esc)"><X size={16} /></button>
     </header>
     <div className="pd-node-toolbar">
@@ -121,8 +125,16 @@ export function ParameterDrawer({ workflow, selectedNodeId, onClose, onSelectNod
       <button type="button" className="pd-icon-button" aria-label="上一个实验节点" title="上一个节点" disabled={nodeIndex <= 0} onClick={() => chooseNode(workflow.nodes[nodeIndex - 1].id)}><ArrowLeft size={13} /></button>
       <button type="button" className="pd-icon-button" aria-label="下一个实验节点" title="下一个节点" disabled={nodeIndex < 0 || nodeIndex >= workflow.nodes.length - 1} onClick={() => chooseNode(workflow.nodes[nodeIndex + 1].id)}><ArrowRight size={13} /></button>
       <button type="button" className={`pd-follow ${follow ? 'is-active' : ''}`} aria-pressed={follow} onClick={() => { if (follow) setPinnedNodeId(node?.id); setFollow(value => !value); }} title={follow ? '关闭跟随，固定查看当前节点' : '自动跟随执行中的节点'}>{follow ? <Crosshair size={12} /> : <Pin size={12} />}{follow ? '跟随' : '固定'}</button>
+      <div className="pd-view-switch" role="group" aria-label="参数显示方式">
+        <button type="button" className={view === 'panel' ? 'is-active' : ''} aria-pressed={view === 'panel'} onClick={() => setView('panel')} title="以参数表查看"><SlidersHorizontal size={12} /><span>参数</span></button>
+        <button type="button" className={view === 'code' ? 'is-active' : ''} aria-pressed={view === 'code'} onClick={() => setView('code')} title="查看只读 JSONC 源码"><Code2 size={12} /><span>代码</span></button>
+      </div>
     </div>
-    <div className="pd-content"><ParameterCodeEditor workflow={workflow} node={node} /></div>
+    <div className={`pd-content ${view === 'panel' ? 'pd-content-panel' : ''}`}>
+      {view === 'panel'
+        ? <ParameterPanel workflow={workflow} node={node} embedded />
+        : <ParameterCodeEditor workflow={workflow} node={node} />}
+    </div>
   </aside>;
 }
 
