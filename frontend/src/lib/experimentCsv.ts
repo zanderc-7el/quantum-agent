@@ -1,5 +1,6 @@
 import type { ExperimentNode, Workflow } from '../types.ts';
 import { buildNodeParameters } from './nodeParameters.ts';
+import { formatMetricValue, TARGET_SOURCE_LABELS, THRESHOLD_SOURCE_LABELS } from './metricComparison.ts';
 
 /** Current storage has node snapshots and bounded event history, not per-attempt telemetry. */
 export const EXPERIMENT_CSV_HISTORY_NOTE = '导出当前浏览器仍保留的全部已运行任务，包含各节点当前状态、配置、已生成的模拟结果及保留的事件。未开始的节点不填最终结果；重试前被覆盖的测量、已删除任务和超过保留上限的旧事件无法还原。数值均为前端模拟数据，非真实设备采集。';
@@ -32,7 +33,8 @@ const columns = [
   ['stage', '结果阶段'], ['stageLabel', '结果阶段说明'], ['nodeProgress', '节点进度(%)'],
   ['attempt', '执行次数'], ['retries', '重试次数'], ['nodeElapsed', '节点累计估算演示时间(s)'],
   ['observedSamples', '已观察模拟样本数'], ['plannedSamples', '计划模拟样本数'],
-  ['detail', '节点详情'], ['threshold', '判定阈值'], ['assessment', '判定说明'],
+  ['detail', '节点详情'], ['threshold', '判定阈值'], ['thresholdSource', '阈值来源'],
+  ['designTarget', '设计目标'], ['targetSource', '目标来源'], ['assessment', '判定说明'],
   ['fieldKey', '字段键'], ['fieldLabel', '字段名称'], ['fieldValue', '字段值'], ['unit', '单位'], ['source', '参数来源'],
   ['eventIndex', '事件序号'], ['eventTime', '事件时间'], ['eventKind', '事件级别'], ['eventMessage', '事件内容'],
   ['raw', '原始参数JSON'], ['note', '记录说明'],
@@ -108,6 +110,7 @@ export function buildExperimentCsv(workflows: readonly Workflow[], exportedAt: D
     workflow.nodes.forEach((node, index) => {
       const snapshot = buildNodeParameters(workflow, node);
       if (!snapshot) return;
+      const comparison = snapshot.comparisons[0];
       const nodeBase: CsvRow = {
         ...base, nodeIndex: index + 1, nodeId: node.id, nodeName: node.name, nodeLabel: node.label, nodeTarget: node.qubits,
         nodeStatus: enumLabel(node.status, nodeStatusLabels), executed: node.attempt > 0 || node.progress > 0,
@@ -115,6 +118,11 @@ export function buildExperimentCsv(workflows: readonly Workflow[], exportedAt: D
         attempt: snapshot.runtime.attempt, retries: snapshot.runtime.retries, nodeElapsed: snapshot.runtime.nodeElapsedDemoSeconds,
         observedSamples: snapshot.runtime.observedSamples, plannedSamples: snapshot.runtime.plannedSamples,
         detail: node.detail, threshold: snapshot.threshold, assessment: snapshot.assessment,
+        // Structured counterparts to the human-readable threshold text, so a
+        // spreadsheet can tell a device criterion from a demo constant.
+        thresholdSource: comparison ? THRESHOLD_SOURCE_LABELS[comparison.thresholdSource] : '',
+        designTarget: comparison ? formatMetricValue(comparison.ideal, comparison.unit, comparison.decimals) : '',
+        targetSource: comparison ? TARGET_SOURCE_LABELS[comparison.targetSource] : '',
       };
       rows.push({
         ...nodeBase, recordType: '节点',

@@ -3,10 +3,16 @@ import { canPerformAction, canChangePolicy, canImportWorkspace, canResetWorkspac
 import { readSession } from "./auth.ts";
 import { createMockGateway } from "./gateway.ts";
 import type { WorkflowGateway, MockWorkflowGateway, MockGatewayDependencies } from "./gateway.ts";
+import { remoteEnabled } from "./apiClient.ts";
+import { createRemoteGateway } from "./remoteGateway.ts";
 
 /** Demonstration permissions. A real backend must independently authenticate every request. */
 export function createRoleGateway(user: User, injected?: WorkflowGateway, dependencies?: MockGatewayDependencies, sessionValid: () => boolean = () => readSession()?.id === user.id): WorkflowGateway {
-  const base = injected ?? createMockGateway({ ...dependencies, actor: user });
+  const base =
+    injected ??
+    (remoteEnabled()
+      ? createRemoteGateway({ localUserId: user.id })
+      : createMockGateway({ ...dependencies, actor: user }));
   const denied = () => { throw new Error("当前账号没有此操作权限：工作人员仅能操作本人任务，审批与团队管理由负责人完成。"); };
   const guard = () => { if (!sessionValid()) throw new Error("登录已过期，请重新登录后操作。"); };
   const gateway: WorkflowGateway = {
