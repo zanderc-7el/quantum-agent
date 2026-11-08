@@ -1,0 +1,1543 @@
+<title>QuantaMind 测控平台详设</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+  /* 版式：仪器活页夹。左侧索引栏 + 宽阅读栏，图版独立成页，色彩取测控机架的青与墨。 */
+  :root {
+    color-scheme: light;
+    --paper: #F4F6F3;
+    --surface: #FFFFFF;
+    --surface-2: #FAFBF9;
+    --ink: #14202A;
+    --muted: #55646D;
+    --faint: #7C8B93;
+    --line: #D6DDD9;
+    --line-strong: #AEBAB4;
+    --accent: #0B6B66;
+    --accent-ink: #07524E;
+    --tint: #E3EFEC;
+    --warn: #8A5A08;
+    --warn-tint: #F5ECD9;
+    --bad: #9C3A30;
+    --bad-tint: #F7E5E1;
+    --code-bg: #EDF1EE;
+    --grid: rgba(11, 107, 102, 0.055);
+    --hover: rgba(11, 107, 102, 0.035);
+    --serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+    --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: "IBM Plex Mono", "Cascadia Code", "Consolas", monospace;
+    --measure: 45em;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #0D1417;
+      --surface: #121C21;
+      --surface-2: #0F181C;
+      --ink: #E4EBE7;
+      --muted: #9AABB2;
+      --faint: #7B8C94;
+      --line: #24333A;
+      --line-strong: #3B4D55;
+      --accent: #52C7BA;
+      --accent-ink: #8ADDD3;
+      --tint: #11302E;
+      --warn: #DCA34D;
+      --warn-tint: #33270F;
+      --bad: #E08375;
+      --bad-tint: #3A1C18;
+      --code-bg: #172329;
+      --grid: rgba(82, 199, 186, 0.07);
+      --hover: rgba(82, 199, 186, 0.05);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #0D1417;
+    --surface: #121C21;
+    --surface-2: #0F181C;
+    --ink: #E4EBE7;
+    --muted: #9AABB2;
+    --faint: #7B8C94;
+    --line: #24333A;
+    --line-strong: #3B4D55;
+    --accent: #52C7BA;
+    --accent-ink: #8ADDD3;
+    --tint: #11302E;
+    --warn: #DCA34D;
+    --warn-tint: #33270F;
+    --bad: #E08375;
+    --bad-tint: #3A1C18;
+    --code-bg: #172329;
+    --grid: rgba(82, 199, 186, 0.07);
+    --hover: rgba(82, 199, 186, 0.05);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.82;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  a:hover { text-decoration-thickness: 2px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+
+  /* ---------- 报头 ---------- */
+  .masthead {
+    position: relative;
+    padding-block: 54px 38px;
+    border-bottom: 1px solid var(--line);
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: top left;
+  }
+
+  .masthead__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 56px;
+    align-items: end;
+  }
+
+  .eyebrow {
+    margin: 0 0 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+
+  .masthead h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: clamp(38px, 5.6vw, 60px);
+    line-height: 1.1;
+    letter-spacing: 0.005em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    margin: 22px 0 0;
+    max-width: 40em;
+    font-size: 17px;
+    line-height: 1.85;
+    color: var(--muted);
+  }
+
+  .masthead__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .stepchain { width: 100%; height: auto; display: block; }
+  .stepchain text {
+    font-family: var(--mono);
+    font-size: 10px;
+    fill: var(--muted);
+  }
+  .stepchain line { stroke: var(--accent); stroke-width: 1; opacity: 0.35; }
+  .stepchain circle { fill: var(--accent); }
+  .stepchain circle.hollow { fill: var(--paper); stroke: var(--accent); stroke-width: 1.2; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .meta div { display: grid; grid-template-columns: 74px 1fr; gap: 10px; align-items: baseline; }
+  .meta dt {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .meta dd { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
+
+  /* ---------- 布局 ---------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 196px minmax(0, 1fr);
+    gap: 64px;
+    padding-block: 40px 80px;
+    align-items: start;
+  }
+
+  .toc {
+    position: sticky;
+    top: calc(24px + env(safe-area-inset-top, 0px));
+    align-self: start;
+  }
+  .toc__title {
+    margin: 0 0 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .toc a {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 6px;
+    padding: 5px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .toc a:hover { color: var(--ink); border-bottom-color: var(--line); }
+  .toc a span { font-family: var(--mono); font-size: 10px; color: var(--faint); padding-top: 2px; }
+
+  .toc-mobile { display: none; margin: 0 0 30px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .toc-mobile summary {
+    cursor: pointer;
+    padding: 12px 2px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    list-style: none;
+  }
+  .toc-mobile summary::-webkit-details-marker { display: none; }
+  .toc-mobile summary::after { content: "+"; float: right; color: var(--accent); }
+  .toc-mobile[open] summary::after { content: "−"; }
+  .toc-mobile ol { margin: 0 0 8px; padding: 0 0 0 4px; list-style: none; columns: 2; column-gap: 24px; }
+  .toc-mobile li { break-inside: avoid; }
+  .toc-mobile a {
+    display: block;
+    padding: 4px 0;
+    font-size: 12.5px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .toc-mobile a span { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-right: 6px; }
+
+  /* ---------- 正文 ---------- */
+  .doc-section {
+    padding-block: 38px 14px;
+    border-top: 1px solid var(--line);
+    scroll-margin-top: 20px;
+  }
+  .doc-section:first-of-type { border-top: 0; padding-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .secno {
+    flex: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--accent-ink);
+    border: 1px solid var(--line-strong);
+    padding: 2px 5px;
+    line-height: 1.2;
+    transform: translateY(-4px);
+  }
+  h2 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(24px, 3vw, 30px);
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+
+  h3 {
+    margin: 34px 0 8px;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+  h4 {
+    margin: 24px 0 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .doc-section > p,
+  .doc-section > ul,
+  .doc-section > ol,
+  .doc-section > .note,
+  .doc-section > h3 + p {
+    max-width: var(--measure);
+  }
+
+  p { margin: 0 0 14px; }
+  .doc-section > p.lead { font-size: 17px; line-height: 1.85; }
+
+  ul, ol { margin: 0 0 16px; padding-left: 1.3em; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--accent); }
+  ul.tight li { margin-bottom: 3px; }
+
+  strong { font-weight: 600; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 0.5px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  pre {
+    margin: 18px 0;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+  pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+    white-space: pre;
+    font-size: inherit;
+  }
+
+  /* ---------- 标签与提示 ---------- */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    padding: 3px 5px;
+    border: 1px solid;
+    border-radius: 2px;
+    vertical-align: 1px;
+    white-space: nowrap;
+  }
+  .tag--impl { color: var(--accent-ink); border-color: var(--accent); background: var(--tint); }
+  .tag--sim { color: var(--warn); border-color: var(--warn); background: var(--warn-tint); }
+  .tag--gap { color: var(--bad); border-color: var(--bad); background: var(--bad-tint); }
+
+  .note {
+    margin: 22px 0;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note__title {
+    margin: 0 0 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+  .note--warn { border-left-color: var(--warn); background: var(--warn-tint); }
+  .note--warn .note__title { color: var(--warn); }
+  .note--bad { border-left-color: var(--bad); background: var(--bad-tint); }
+  .note--bad .note__title { color: var(--bad); }
+
+  /* 关键数字 */
+  .ledger {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin: 26px 0 8px;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  .ledger div {
+    padding: 16px 18px 14px;
+    border-left: 1px solid var(--line);
+  }
+  .ledger div:first-child { border-left: 0; padding-left: 0; }
+  .ledger strong {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 32px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .ledger span {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* ---------- 表格 ---------- */
+  .table-wrap {
+    margin: 18px 0 10px;
+    overflow-x: auto;
+    border-top: 1px solid var(--ink);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.62;
+  }
+  th {
+    padding: 9px 12px 8px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line-strong);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: var(--hover); }
+  td code { white-space: normal; }
+  td:first-child { white-space: nowrap; }
+  table.wrap-first td:first-child { white-space: normal; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- 图版 ---------- */
+  figure.plate {
+    margin: 26px 0 18px;
+    padding: 14px 16px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .plate__label {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .plate__scroll { overflow-x: auto; padding-bottom: 4px; }
+  svg.diagram { display: block; width: 100%; min-width: 680px; height: auto; }
+
+  svg.diagram text { font-family: var(--sans); }
+  .d-name { font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .d-sub { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  .d-edge { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  .d-band { font-family: var(--mono); font-size: 10.5px; fill: var(--accent-ink); letter-spacing: 0.04em; }
+  .d-box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+  .d-box-a { fill: var(--tint); stroke: var(--accent); stroke-width: 1.2; }
+  .d-box-ghost { fill: none; stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+  .d-wire { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+  .d-wire-a { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+  .d-wire-bad { stroke: var(--bad); stroke-width: 1.2; fill: none; }
+  .d-life { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 5; }
+  .d-activation { fill: var(--tint); stroke: var(--accent); stroke-width: 0.8; }
+  figcaption {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--muted);
+    max-width: 70em;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 页脚 ---------- */
+  .footer {
+    padding-block: 26px 52px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+  }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; gap: 0; }
+    .toc { display: none; }
+    .toc-mobile { display: block; }
+    .masthead__grid { grid-template-columns: 1fr; gap: 32px; }
+    .masthead__aside { max-width: 320px; }
+  }
+
+  @media (max-width: 620px) {
+    body { font-size: 15.5px; }
+    .masthead { padding-block: 38px 30px; }
+    .ledger { grid-template-columns: repeat(2, 1fr); }
+    .ledger div:nth-child(3) { border-left: 0; padding-left: 0; }
+    .ledger div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .doc-section { padding-block: 30px 10px; }
+    .section-head { gap: 10px; }
+    .plate__label { flex-direction: column; gap: 2px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="masthead__grid">
+      <div>
+        <p class="eyebrow">QuantaMind · 详细设计 · 2026-11-06</p>
+        <h1>QuantaMind 测控平台详设</h1>
+        <p class="lede">前端工作台、本机实验模拟服务与 QuantaMind 校准后端的分层设计。本文以当前代码为准，逐节标出哪些能力已经闭环、哪些只跑在模拟里、哪些还没有接上。</p>
+      </div>
+      <div class="masthead__aside">
+        <svg class="stepchain" viewBox="0 0 260 120" role="img" aria-label="两套内置 Skill 的节点规模：单比特 9 步，双比特 17 步">
+          <text x="0" y="12">single-qubit · 9 步</text>
+          <line x1="4" y1="34" x2="244" y2="34"></line>
+          <circle cx="4" cy="34" r="3"></circle>
+          <circle cx="34" cy="34" r="3"></circle>
+          <circle cx="64" cy="34" r="3"></circle>
+          <circle cx="94" cy="34" r="3"></circle>
+          <circle cx="124" cy="34" r="3"></circle>
+          <circle cx="154" cy="34" r="3"></circle>
+          <circle cx="184" cy="34" r="3"></circle>
+          <circle cx="214" cy="34" r="3"></circle>
+          <circle cx="244" cy="34" r="3" class="hollow"></circle>
+          <text x="0" y="76">two-qubit · 17 步</text>
+          <line x1="4" y1="98" x2="244" y2="98"></line>
+          <circle cx="4" cy="98" r="2.2"></circle>
+          <circle cx="19" cy="98" r="2.2"></circle>
+          <circle cx="34" cy="98" r="2.2"></circle>
+          <circle cx="49" cy="98" r="2.2"></circle>
+          <circle cx="64" cy="98" r="2.2"></circle>
+          <circle cx="79" cy="98" r="2.2"></circle>
+          <circle cx="94" cy="98" r="2.2"></circle>
+          <circle cx="109" cy="98" r="2.2"></circle>
+          <circle cx="124" cy="98" r="2.2"></circle>
+          <circle cx="139" cy="98" r="2.2"></circle>
+          <circle cx="154" cy="98" r="2.2"></circle>
+          <circle cx="169" cy="98" r="2.2"></circle>
+          <circle cx="184" cy="98" r="2.2"></circle>
+          <circle cx="199" cy="98" r="2.2"></circle>
+          <circle cx="214" cy="98" r="2.2"></circle>
+          <circle cx="229" cy="98" r="2.2"></circle>
+          <circle cx="244" cy="98" r="2.2" class="hollow"></circle>
+        </svg>
+        <dl class="meta">
+          <div><dt>基线</dt><dd>quantum-agent-main<br>QuantaMind 工作副本</dd></div>
+          <div><dt>前端</dt><dd>React 19.2.0 · Vite 7.3.7</dd></div>
+          <div><dt>权威后端</dt><dd>FastAPI · 默认 :18789</dd></div>
+          <div><dt>本机模拟</dt><dd>Node 22 · :5290</dd></div>
+          <div><dt>核验日</dt><dd>2026-11-06</dd></div>
+        </dl>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="目录">
+      <p class="toc__title">目录</p>
+      <ol>
+        <li><a href="#s01"><span>01</span>概要</a></li>
+        <li><a href="#s02"><span>02</span>总体架构</a></li>
+        <li><a href="#s03"><span>03</span>前端详细设计</a></li>
+        <li><a href="#s04"><span>04</span>本机实验模拟服务</a></li>
+        <li><a href="#s05"><span>05</span>QuantaMind 校准后端</a></li>
+        <li><a href="#s06"><span>06</span>关键业务流程</a></li>
+        <li><a href="#s07"><span>07</span>状态机与判定规则</a></li>
+        <li><a href="#s08"><span>08</span>数据模型与接口契约</a></li>
+        <li><a href="#s09"><span>09</span>部署与运行</a></li>
+        <li><a href="#s10"><span>10</span>测试与质量</a></li>
+        <li><a href="#s11"><span>11</span>已知差距与演进</a></li>
+        <li><a href="#s12"><span>12</span>附录</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <details class="toc-mobile">
+        <summary>目录 · 12 节</summary>
+        <ol>
+          <li><a href="#s01"><span>01</span>概要</a></li>
+          <li><a href="#s02"><span>02</span>总体架构</a></li>
+          <li><a href="#s03"><span>03</span>前端详细设计</a></li>
+          <li><a href="#s04"><span>04</span>本机实验模拟服务</a></li>
+          <li><a href="#s05"><span>05</span>QuantaMind 校准后端</a></li>
+          <li><a href="#s06"><span>06</span>关键业务流程</a></li>
+          <li><a href="#s07"><span>07</span>状态机与判定规则</a></li>
+          <li><a href="#s08"><span>08</span>数据模型与接口契约</a></li>
+          <li><a href="#s09"><span>09</span>部署与运行</a></li>
+          <li><a href="#s10"><span>10</span>测试与质量</a></li>
+          <li><a href="#s11"><span>11</span>已知差距与演进</a></li>
+          <li><a href="#s12"><span>12</span>附录</a></li>
+        </ol>
+      </details>
+
+      <!-- 01 -->
+      <section class="doc-section" id="s01">
+        <div class="section-head"><span class="secno">01</span><h2>概要</h2></div>
+        <p class="lead">这套系统把超导量子芯片的校准做成一条可观察、可干预、可复盘的流水线。一次校准从创建工作流开始，按 Skill 定义的节点顺序推进；每个节点产生测量值，并与冻结在流程上的验收条件比较；达标就继续，不达标就按自主等级决定自动重试还是停下来等人。所有状态变化写入事件流，服务端保存权威副本。</p>
+        <p>当前实现是<strong>模拟闭环</strong>。保真度、T1/T2、读出频率等数值由时间模拟器生成，设备命令只做下发与回读校验，不连接真实测控机。这个边界在 UI 的页脚和接口响应里都有标注，阅读时先记住它，后面的“已实现”都以此为前提。</p>
+
+        <div class="ledger">
+          <div><strong>2</strong><span>内置校准 Skill</span></div>
+          <div><strong>26</strong><span>校准节点 · 9 + 17</span></div>
+          <div><strong>10</strong><span>持久化数据表</span></div>
+          <div><strong>193</strong><span>校准测试函数</span></div>
+        </div>
+
+        <div class="note">
+          <p class="note__title">阅读约定</p>
+          <p><span class="tag tag--impl">已实现</span> 代码中存在，当前工作副本可运行。 <span class="tag tag--sim">模拟</span> 功能闭环，但数据或设备是模拟的。 <span class="tag tag--gap">缺口</span> 已识别、尚未闭环的问题，集中列在第 11 节。</p>
+        </div>
+
+        <h3>三条结论</h3>
+        <ol>
+          <li><strong>工作流的权威在 QuantaMind 服务端。</strong>前端内置模拟器是它的行为克隆，用于离线演示与契约对齐，不是第二套后端。</li>
+          <li><strong>本机 5290 服务不是工作流后端。</strong>它只承担实验能力联调：S21 扫频、F01 频谱、参数候选与发布。界面上它属于“接口验证台”，不属于“蓝图版工作流”。</li>
+          <li><strong>纵向链路已通，横向能力有缺口。</strong>创建、执行、异常、审批、完成、重启持久化都能走通；真实设备、CZ 执行、Skill 失败策略仍是未完成项。</li>
+        </ol>
+      </section>
+
+      <!-- 02 -->
+      <section class="doc-section" id="s02">
+        <div class="section-head"><span class="secno">02</span><h2>总体架构</h2></div>
+        <p>仓库里同时存在三个可独立启动的实体。它们看起来都在“跑校准”，但职责和权威性完全不同。先把这层关系说清，后面每个模块的设计才有落点。</p>
+
+        <h3>2.1 三个运行实体</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>实体</th><th>位置</th><th>端口</th><th>职责</th><th>状态存放</th></tr></thead>
+            <tbody>
+              <tr><td>前端工作台</td><td><code>frontend/</code></td><td>5286（Vite）</td><td>视图、交互、权限展示、离线演示</td><td>localStorage + IndexedDB</td></tr>
+              <tr><td>本机实验服务</td><td><code>backend/</code></td><td>5290</td><td>配方预览、计划/运行、参数治理、模拟设备</td><td><code>data/state.json</code></td></tr>
+              <tr><td>QuantaMind API</td><td><code>E:\work\QuantaMind</code></td><td>18789（默认）</td><td>工作流权威、Skill/设备版本、执行器、审计</td><td>PostgreSQL 或 SQLite</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>2.2 权威边界</h3>
+        <p>远程模式下，服务端是唯一的事实来源。每条命令携带 <code>expectedRevision</code> 与 <code>requestId</code>：前者防止用旧快照覆盖新状态，后者让重试不会重复执行。客户端收到 409 时拉取权威快照，最多自动重试一次；之后的变化通过 SSE 推送，而不是轮询。</p>
+        <p>前端模拟器与后端状态机的等价性是刻意维持的。后端 <code>state_machine.py</code> 的模块注释写明它是对 <code>frontend/src/lib/simulator.ts</code> 的逐行移植，要求同样的输入产生同样的节点顺序、进度数字和事件语义。这样做的好处是：离线演示与远程联调看到的行为一致，前端测试可以替后端契约兜底。代价是两边必须同步演进，任何一侧单独改判定规则都会破坏一致性。</p>
+
+        <figure class="plate">
+          <div class="plate__label"><span>图 1 · 路径与权威</span><span>REST + SSE / 本机 HTTP</span></div>
+          <div class="plate__scroll">
+            <svg class="diagram" viewBox="0 0 1080 460" role="img" aria-label="前端通过 WorkflowGateway 连接内置模拟或远程 QuantaMind；接口验证台单独连接本机 5290 实验服务">
+              <defs>
+                <marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"></path></marker>
+                <marker id="a1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"></path></marker>
+              </defs>
+
+              <text x="0" y="12" class="d-band">A · 工作流路径：同一接口，两种实现</text>
+
+              <rect x="20" y="66" width="160" height="104" class="d-box"></rect>
+              <text x="100" y="106" text-anchor="middle" class="d-name">React SPA</text>
+              <text x="100" y="128" text-anchor="middle" class="d-sub">Vite :5286</text>
+              <text x="100" y="146" text-anchor="middle" class="d-sub">hash 视图 · 无路由</text>
+
+              <rect x="220" y="66" width="170" height="104" class="d-box"></rect>
+              <text x="305" y="106" text-anchor="middle" class="d-name">WorkflowGateway</text>
+              <text x="305" y="128" text-anchor="middle" class="d-sub">list · get · create</text>
+              <text x="305" y="146" text-anchor="middle" class="d-sub">act · policy · subscribe</text>
+
+              <rect x="440" y="20" width="200" height="64" class="d-box"></rect>
+              <text x="540" y="46" text-anchor="middle" class="d-name">内置模拟网关</text>
+              <text x="540" y="64" text-anchor="middle" class="d-sub">内存 + localStorage</text>
+
+              <rect x="440" y="152" width="200" height="64" class="d-box-a"></rect>
+              <text x="540" y="178" text-anchor="middle" class="d-name">远程网关</text>
+              <text x="540" y="196" text-anchor="middle" class="d-sub">REST + SSE · 409 重试一次</text>
+
+              <rect x="700" y="20" width="190" height="64" class="d-box"></rect>
+              <text x="795" y="46" text-anchor="middle" class="d-name">localStorage</text>
+              <text x="795" y="64" text-anchor="middle" class="d-sub">qcal-workspace-demo-v1</text>
+
+              <rect x="700" y="152" width="190" height="64" class="d-box-a"></rect>
+              <text x="795" y="178" text-anchor="middle" class="d-name">QuantaMind API</text>
+              <text x="795" y="196" text-anchor="middle" class="d-sub">FastAPI · :18789</text>
+
+              <rect x="940" y="152" width="120" height="64" class="d-box-a"></rect>
+              <text x="1000" y="176" text-anchor="middle" class="d-name">PostgreSQL</text>
+              <text x="1000" y="194" text-anchor="middle" class="d-sub">SQLite · 10 表</text>
+
+              <rect x="700" y="252" width="190" height="64" class="d-box-a"></rect>
+              <text x="795" y="278" text-anchor="middle" class="d-name">执行循环</text>
+              <text x="795" y="296" text-anchor="middle" class="d-sub">租约 30s · tick 1s</text>
+
+              <line x1="180" y1="118" x2="220" y2="118" class="d-wire" marker-end="url(#a1)"></line>
+              <path d="M390,100 C412,100 412,52 440,52" class="d-wire" marker-end="url(#a1)"></path>
+              <path d="M390,138 C412,138 412,184 440,184" class="d-wire-a" marker-end="url(#a1a)"></path>
+              <line x1="640" y1="52" x2="700" y2="52" class="d-wire" marker-end="url(#a1)"></line>
+              <line x1="640" y1="184" x2="700" y2="184" class="d-wire-a" marker-end="url(#a1a)"></line>
+              <line x1="890" y1="184" x2="940" y2="184" class="d-wire-a" marker-end="url(#a1a)"></line>
+              <line x1="795" y1="216" x2="795" y2="252" class="d-wire-a" marker-start="url(#a1a)" marker-end="url(#a1a)"></line>
+
+              <text x="400" y="92" class="d-edge">mock</text>
+              <text x="400" y="132" class="d-edge">remote</text>
+              <text x="664" y="76" class="d-edge">写快照</text>
+              <text x="648" y="176" class="d-edge">POST</text>
+              <text x="908" y="176" class="d-edge">commit</text>
+              <text x="806" y="238" class="d-edge">推进 / 提交</text>
+
+              <text x="0" y="340" class="d-band">B · 实验联调路径：不经过 WorkflowGateway</text>
+
+              <rect x="20" y="356" width="170" height="80" class="d-box"></rect>
+              <text x="105" y="386" text-anchor="middle" class="d-name">React SPA · #api</text>
+              <text x="105" y="406" text-anchor="middle" class="d-sub">接口验证视图</text>
+
+              <rect x="240" y="356" width="200" height="80" class="d-box"></rect>
+              <text x="340" y="386" text-anchor="middle" class="d-name">本机实验服务</text>
+              <text x="340" y="406" text-anchor="middle" class="d-sub">Node http · :5290</text>
+
+              <rect x="490" y="356" width="190" height="80" class="d-box"></rect>
+              <text x="585" y="386" text-anchor="middle" class="d-name">data/state.json</text>
+              <text x="585" y="406" text-anchor="middle" class="d-sub">原子写入 · 演示状态</text>
+
+              <line x1="190" y1="396" x2="240" y2="396" class="d-wire" marker-end="url(#a1)"></line>
+              <line x1="440" y1="396" x2="490" y2="396" class="d-wire" marker-end="url(#a1)"></line>
+
+              <text x="720" y="374" class="d-edge">CORS 仅放行 :5286 / :5173</text>
+              <text x="720" y="392" class="d-edge">无鉴权 · 仅限本机联调</text>
+              <text x="720" y="410" class="d-edge">配方：S21 / F01 / 参数发布</text>
+            </svg>
+          </div>
+          <figcaption><b>两条路径互不替代。</b>工作流经 <code>WorkflowGateway</code>，模拟实现写在浏览器内存里，远程实现走 REST 与 SSE；真正保存工作流的是 QuantaMind。接口验证台直接访问 5290 的实验服务，那条路径没有鉴权，也不产生校准工作流。</figcaption>
+        </figure>
+
+        <h3>2.3 技术栈</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>层</th><th>选型</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td>前端</td><td>React 19.2.0 · TypeScript 5.9.3 · Vite 7.3.7</td><td>单页工作台，无第三方路由与状态库</td></tr>
+              <tr><td>前端样式</td><td>自研 CSS 变量与组件样式</td><td>亮/暗主题、角色化布局</td></tr>
+              <tr><td>本机服务</td><td>Node 22 · <code>node:http</code></td><td>无框架、零依赖的实验模拟 API</td></tr>
+              <tr><td>权威后端</td><td>FastAPI · Pydantic v2 · SQLAlchemy 2 · Alembic</td><td>校准工作流、执行器、审计、账号</td></tr>
+              <tr><td>存储</td><td>PostgreSQL 16 / SQLite</td><td>生产用 Postgres，本机可退化为 SQLite</td></tr>
+              <tr><td>测试</td><td>Vitest（前端）· <code>node --test</code>（本机）· pytest（后端）</td><td>契约、状态机、并发、权限</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>2.4 部署形态</h3>
+        <p>开发态是三个进程：Vite 开发服务器、可选的 5290 实验服务、以及 QuantaMind API。生产态由 <code>docker-compose</code> 组织：PostgreSQL 16、执行迁移、启动 API；前端构建为静态资源单独托管。远程模式通过 <code>VITE_GATEWAY_MODE=remote</code> 与 <code>VITE_API_BASE_URL</code> 指定后端，构建时注入。</p>
+      </section>
+
+      <!-- 03 -->
+      <section class="doc-section" id="s03">
+        <div class="section-head"><span class="secno">03</span><h2>前端详细设计</h2></div>
+        <p>前端是一个单页应用，没有 React Router，也没有 Redux。视图由 <code>location.hash</code> 决定，状态由 <code>useWorkflowStore</code> 与网关共同维护。这个选择让演示部署很轻，但也意味着深链接、浏览器历史和多标签页同步都要自己处理。</p>
+
+        <h3>3.1 结构与启动</h3>
+        <p>入口 <code>main.tsx</code> 挂载 <code>App.tsx</code>。组件层负责呈现与交互，<code>lib/</code> 层承担状态、持久化、网关、权限和格式化。没有全局 store 库，跨组件状态通过 hooks 与 gateway 订阅传递。</p>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>目录 / 文件</th><th>职责</th><th>关键实现</th></tr></thead>
+            <tbody>
+              <tr><td><code>App.tsx</code></td><td>壳层、视图切换、角色化导航</td><td>hash 视图、启动页、远程审计与测量挂载</td></tr>
+              <tr><td><code>lib/gateway.ts</code></td><td>网关接口与模拟实现</td><td><code>WorkflowGateway</code>、<code>createMockGateway</code></td></tr>
+              <tr><td><code>lib/remoteGateway.ts</code></td><td>远程实现</td><td>revision、幂等键、SSE 缓存</td></tr>
+              <tr><td><code>lib/simulator.ts</code></td><td>确定性演示引擎</td><td>4 秒/节点、25%/秒、200 个任务上限</td></tr>
+              <tr><td><code>lib/useWorkflowStore.ts</code></td><td>工作流状态 hook</td><td>订阅、动作分发、错误呈现</td></tr>
+              <tr><td><code>lib/apiClient.ts</code></td><td>HTTP 与会话</td><td>sessionStorage、401 刷新、<code>ApiError</code></td></tr>
+              <tr><td><code>lib/access.ts</code></td><td>界面权限判定</td><td>leader / operator / owner</td></tr>
+              <tr><td><code>lib/workflowStorage.ts</code></td><td>工作区持久化</td><td>localStorage 读写与容量校验</td></tr>
+              <tr><td><code>lib/blueprints.ts</code></td><td>蓝图定义</td><td>阶段、允许的实验能力</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.2 四个视图</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>hash</th><th>名称</th><th>内容</th><th>数据来源</th></tr></thead>
+            <tbody>
+              <tr><td><code>#dashboard</code></td><td>工作看台</td><td>任务列表、状态汇总、最近事件</td><td>网关</td></tr>
+              <tr><td><code>#blueprint</code></td><td>蓝图版工作流</td><td>节点画布、检查器、参数抽屉、决策轨迹、审计回放</td><td>网关 + 远程测量/目标/审计</td></tr>
+              <tr><td><code>#chat</code></td><td>对话式 Agent</td><td>对话记录、报告生成与导出</td><td>本地会话 + 工作流快照</td></tr>
+              <tr><td><code>#api</code></td><td>接口验证台</td><td>直连本机 5290 的实验演练</td><td>本机实验服务</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>视图切换不会重置工作流状态；从看台打开任务时默认进入蓝图视图。远程模式下，蓝图页才会拉取服务端审计与测量，其他视图使用网关快照。</p>
+
+        <h3>3.3 网关抽象</h3>
+        <p>网关接口是前端与后端之间唯一的接缝。模拟实现与远程实现签名相同，切换只发生在工厂函数里。</p>
+        <pre><code>interface WorkflowGateway {
+  readonly mode: "mock" | "remote";
+  list(): Promise&lt;Workflow[]&gt;;
+  get(id: string): Promise&lt;Workflow&gt;;
+  create(input: CreateWorkflowInput): Promise&lt;Workflow&gt;;
+  act(id: string, action: WorkflowAction): Promise&lt;Workflow&gt;;
+  policy(id: string, policy: Policy): Promise&lt;Workflow&gt;;
+  subscribe(listener: (state: AppState) =&gt; void): () =&gt; void;
+  importWorkflows?(json: string): Promise&lt;WorkspaceImportResult&gt;;
+}</code></pre>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>方法</th><th>模拟实现</th><th>远程实现</th></tr></thead>
+            <tbody>
+              <tr><td><code>list / get</code></td><td>读内存快照</td><td>列表分页 200，单条按 id 拉取并缓存</td></tr>
+              <tr><td><code>create</code></td><td>本地生成并持久化</td><td><code>POST /workflows</code>，服务端返回 revision</td></tr>
+              <tr><td><code>act</code></td><td>纯函数状态迁移</td><td><code>POST /workflows/{id}/actions</code></td></tr>
+              <tr><td><code>policy</code></td><td>改写工作流策略</td><td><code>PATCH /workflows/{id}/policy</code></td></tr>
+              <tr><td><code>subscribe</code></td><td>监听器 + storage 事件</td><td>SSE 快照与增量</td></tr>
+              <tr><td><code>importWorkflows</code></td><td>合并导入</td><td>远程模式未启用</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.4 本地状态与持久化</h3>
+        <ul class="tight">
+          <li>工作区 key 为 <code>qcal-workspace-demo-v1</code>，最多 200 个任务；超限时拒绝写入并提示先导出。</li>
+          <li>模拟推进按 4 秒/节点、每秒 25 个百分点计算；进度与尝试次数可复算，因此刷新后不会跳变。</li>
+          <li>同一浏览器的多个标签页通过 <code>storage</code> 事件同步；没有服务端时，这是唯一的一致性机制。</li>
+          <li>聊天记录与附件走 IndexedDB，工作区走 localStorage；两者生命周期不同，导出时分别处理。</li>
+          <li>导入工作区会合并去重并返回新增/跳过计数，不覆盖已有任务。</li>
+        </ul>
+
+        <h3>3.5 远程适配</h3>
+        <p><code>apiClient</code> 把会话放在 <code>sessionStorage</code>：关闭标签页即失效，换标签页需要重新登录。请求遇到 401 会用刷新令牌换一次访问令牌，刷新失败才让用户重新登录。<code>remoteGateway</code> 在内存里维护工作流与 revision 的缓存，让 SSE 到达前的界面仍可渲染；审批与重试需要绑定到具体节点和尝试次数，缓存里保留了这份对应关系。</p>
+        <p>命令路径统一走 <code>sendCommand</code>：带 <code>expectedRevision</code> 与 <code>requestId</code>，收到 409 时先 <code>GET</code> 单条工作流拿到权威 revision，再重试一次；仍冲突就把错误交给界面。SSE 连接地址是 <code>/api/v1/calibration/stream?token=...</code>，支持 <code>snapshot</code>、<code>workflow.updated</code>、<code>workflow.deleted</code> 三类事件，断线后浏览器按 <code>Last-Event-ID</code> 续传。</p>
+        <div class="note note--warn">
+          <p class="note__title">安全提示</p>
+          <p>访问令牌放在 SSE 的查询串里，是因为浏览器原生 <code>EventSource</code> 不能设置请求头。代价是令牌可能进入反向代理访问日志、浏览器历史或监控采样。生产部署应限制日志对该参数的记录，或改用支持头的流式方案。</p>
+        </div>
+
+        <h3>3.6 权限模型</h3>
+        <p>界面权限只决定“按钮是否出现”，不是安全边界。真正的授权在服务端 RBAC。前端有 leader 与 operator 两种角色，再加上任务归属人。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>判定函数</th><th>规则</th><th>用途</th></tr></thead>
+            <tbody>
+              <tr><td><code>canCreateWorkflow</code></td><td>已登录</td><td>新建任务入口</td></tr>
+              <tr><td><code>canOperateWorkflow</code></td><td>leader 或任务归属人</td><td>启动、暂停、恢复、终止</td></tr>
+              <tr><td><code>canApproveWorkflow</code></td><td>仅 leader</td><td>接受低指标结果</td></tr>
+              <tr><td><code>canChangePolicy</code></td><td>仅 leader</td><td>切换 L1/L2/L3</td></tr>
+              <tr><td><code>canImportWorkspace</code></td><td>仅 leader</td><td>导入工作区</td></tr>
+              <tr><td><code>canResetWorkspace</code></td><td>仅 leader</td><td>重置演示数据</td></tr>
+              <tr><td><code>canPerformAction</code></td><td>按动作细化</td><td>异常态的 retry 仅 leader 可做</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.7 主要组件</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>组件</th><th>职责</th></tr></thead>
+            <tbody>
+              <tr><td><code>FlowCanvas</code></td><td>节点链路、进度、当前节点与异常标记</td></tr>
+              <tr><td><code>NodeInspector</code></td><td>节点详情、验收值、事件与操作入口</td></tr>
+              <tr><td><code>ParameterPanel / ParameterDrawer</code></td><td>参数查看、编辑、候选发布与回读状态</td></tr>
+              <tr><td><code>DecisionTrail</code></td><td>验收判定与人工决定的轨迹</td></tr>
+              <tr><td><code>ChatReport</code></td><td>复盘报告生成与导出</td></tr>
+              <tr><td><code>WorkspaceSettings</code></td><td>工作区导入导出、重置、账号入口</td></tr>
+              <tr><td><code>LoginScreen</code></td><td>本地演示登录与远程账号登录</td></tr>
+              <tr><td><code>BackendSimulatorWorkbench</code></td><td>5290 实验服务演练：S21、F01、参数发布</td></tr>
+              <tr><td><code>ApiOnlyWorkbench</code></td><td>只看接口响应的联调视图</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.8 前端侧已确认的问题</h3>
+        <ul class="tight">
+          <li>远程模式冷启动时，如果服务端没有任何工作流，界面停在“正在连接工作空间”，只提供“重新加载”，没有创建入口。<span class="tag tag--gap">缺口</span></li>
+          <li><code>package.json</code> 版本是 1.3.1，而 README 记录到 v1.7；README 说只有三个入口，实际已有 <code>#api</code>。文档与实现存在漂移。<span class="tag tag--gap">缺口</span></li>
+          <li>报告导出把服务端测量也标成“模拟值”，对远程数据不准确。<span class="tag tag--gap">缺口</span></li>
+          <li>会话放在 sessionStorage，新标签页不能共享登录态。这是取舍，不是缺陷，但需要在验收说明里写清。</li>
+        </ul>
+      </section>
+
+      <!-- 04 -->
+      <section class="doc-section" id="s04">
+        <div class="section-head"><span class="secno">04</span><h2>本机实验模拟服务</h2></div>
+        <p><code>backend/</code> 是一个零依赖的 Node HTTP 服务，用来在没有 QuantaMind、也没有真机的情况下演练实验能力。它有自己的计划、运行、事件和参数版本模型，但不参与校准工作流。把它误当成工作流后端，是联调时最常见的误解。</p>
+
+        <h3>4.1 运行形态</h3>
+        <ul class="tight">
+          <li>监听 <code>127.0.0.1:5290</code>，端口可用 <code>QCAL_PORT</code> 覆盖。</li>
+          <li>状态写入 <code>backend/data/state.json</code>，路径可用 <code>QCAL_DATA_FILE</code> 覆盖；写入采用临时文件加替换，避免半写。</li>
+          <li>每 250 毫秒推进一次处于 queued/running 的运行。</li>
+          <li>CORS 只放行 <code>http://127.0.0.1:5286</code> 与 <code>http://127.0.0.1:5173</code>。</li>
+          <li><code>QCAL_SIM_FAULT</code> 可注入模拟故障，用于演练失败路径。</li>
+          <li>没有鉴权。它只监听回环地址，定位是本机替身。</li>
+        </ul>
+
+        <h3>4.2 接口清单</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>分组</th><th>方法与路径</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>健康与设备</td><td><code>GET /health</code> · <code>/api/v1/device-profile</code> · <code>/device-adapter</code> · <code>/topology</code></td><td>服务状态、模拟设备档案、拓扑</td></tr>
+              <tr><td>能力与配方</td><td><code>GET /api/v1/recipes</code> · <code>POST /recipes/preview</code></td><td>批量选择、依赖预检，返回 <code>executable:false</code></td></tr>
+              <tr><td>Skills</td><td><code>GET /api/v1/skills/readout-s21</code> · <code>/skills/f01-spectrum</code></td><td>两个实验能力的步骤与判据</td></tr>
+              <tr><td>Agent</td><td><code>GET /agent/tools</code> · <code>POST /agent/plan-preview</code> · <code>/agent/proposal-review</code></td><td>确定性预览与复核，不调用模型</td></tr>
+              <tr><td>参数治理</td><td><code>GET /parameters/readout-frequency</code> · <code>/readback</code> · <code>POST /rollback</code></td><td>当前值、回读值、按版本回滚</td></tr>
+              <tr><td>计划</td><td><code>POST /plans</code> · <code>GET /plans/{id}</code> · <code>POST /plans/{id}/runs</code></td><td>预检、解析版本、启动运行</td></tr>
+              <tr><td>运行</td><td><code>GET /runs/{id}</code> · <code>/summary</code> · <code>/events?after=</code> · <code>POST /stop</code> · <code>/follow-up-plan</code> · <code>/parameter-candidate</code></td><td>事件游标、停止、后续计划、候选参数</td></tr>
+              <tr><td>候选发布</td><td><code>POST /parameter-candidates/{id}/approve</code> · <code>/publish</code></td><td>带基线版本与期望版本校验</td></tr>
+              <tr><td>测量</td><td><code>GET /attempts/{id}/measurements</code> · <code>/analysis</code></td><td>原始点与拟合摘要</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4.3 计划、运行与幂等</h3>
+        <p>一个计划记录本次请求解析出的拓扑版本、参数版本、上游依赖和资源估计；预检通过后才允许启动运行。运行按尝试（attempt）产生事件与测量，客户端用 <code>after</code> 游标增量读取。</p>
+        <p>所有写命令接受 <code>Idempotency-Key</code>，长度 8–128 字符。服务端对请求体做摘要：同一键、同一摘要返回首次响应；同一键、不同摘要返回 <code>IDEMPOTENCY_CONFLICT</code>。参数候选的审批与发布另外校验基线版本，防止在旧参数上批准新值。</p>
+
+        <h3>4.4 蓝图策略</h3>
+        <p>蓝图不是 Skill，是<strong>能力范围</strong>：它限定一次任务可以请求哪些实验能力，并给出允许的目标比特。策略以版本号固定，超出范围直接拒绝。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>蓝图</th><th>版本</th><th>允许能力</th><th>目标</th></tr></thead>
+            <tbody>
+              <tr><td><code>single</code></td><td>1</td><td><code>readout_resonator_scan</code>、<code>f01_spectroscopy</code></td><td>Q12</td></tr>
+              <tr><td><code>two</code></td><td>1</td><td>上述两项 + <code>cz_calibration</code></td><td>Q12 / Q13 / Q12-Q13</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>拒绝时返回 <code>BLUEPRINT_VERSION_UNSUPPORTED</code> 或 <code>BLUEPRINT_SCOPE_DENIED</code>。这条边界独立于 Skill 版本：Skill 定义“怎么做”，蓝图定义“允许做什么”。</p>
+
+        <h3>4.5 确定性 Agent</h3>
+        <p>Agent 端点只做规则化的计划预览与提案复核：给定目标与蓝图，产出步骤、依赖、缺口和风险提示；给定提案，检查范围、依赖与参数。响应固定 <code>executable:false</code> 与 <code>modelUsed:false</code>，不会下命令，也不会调用大模型。这样设计是为了让演示可复现，同时把“能看”与“能执行”分开。</p>
+
+        <h3>4.6 参数治理</h3>
+        <p>参数从测量走到发布要经过四道门：候选生成、审批、发布、回读校验。候选绑定来源运行、来源尝试、分析方法和产物摘要；发布要求候选已批准，且基线版本与期望版本都等于当前版本；发布后写入新 revision，回读不一致时结果不能视为已接受。回滚同样按 revision 做冲突检查。</p>
+
+        <h3>4.7 本机服务的已知问题</h3>
+        <ul class="tight">
+          <li>无鉴权、无角色，任何本机进程都能改状态；只适合回环地址下的联调。<span class="tag tag--gap">缺口</span></li>
+          <li><code>approveCandidate</code> 先把候选状态改成 <code>approved</code>，再校验 actor；actor 非法时内存对象已被部分修改。应把校验提到赋值之前。<span class="tag tag--gap">缺口</span></li>
+          <li>实施方案写计划初始状态为 <code>draft</code>，代码返回 <code>preflight_passed</code>，契约需要对齐。<span class="tag tag--gap">缺口</span></li>
+          <li>双比特蓝图允许 <code>cz_calibration</code>，但本机模拟没有可执行配方，预览仍返回不可执行。<span class="tag tag--gap">缺口</span></li>
+        </ul>
+      </section>
+
+      <!-- 05 -->
+      <section class="doc-section" id="s05">
+        <div class="section-head"><span class="secno">05</span><h2>QuantaMind 校准后端</h2></div>
+        <p>这是系统的权威后端。它把校准工作流、Skill 与设备版本、执行器、账号与审计放在同一个 FastAPI 应用里，领域逻辑与 Web 层分离。状态机是纯函数，执行器在后台线程里推进，数据库保存每一次提交。</p>
+
+        <h3>5.1 分层</h3>
+        <pre><code>routes/            FastAPI 路由、鉴权依赖、SSE
+services/          应用服务：命令编排、幂等、事务边界
+quantamind/calibration/
+  models.py        领域模型与枚举
+  state_machine.py 纯函数状态机（前端模拟器的逐行移植）
+  skills.py        Skill 定义、验收与自主等级
+  acceptance.py    可判定的验收条件
+  registry.py      Skill/设备发布版本
+  devices.py       设备档案与判据覆盖
+  executor.py      时间模拟执行器
+  adapters.py      设备适配器（模拟/回读）
+  lease.py         数据库租约
+  repository.py    乐观锁、幂等日志、事件流
+  tables.py        SQLAlchemy 表
+persistence/       Base、SQL 会话与迁移</code></pre>
+
+        <h3>5.2 领域枚举</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>枚举</th><th>取值</th><th>含义</th></tr></thead>
+            <tbody>
+              <tr><td><code>WorkflowStatus</code></td><td>draft · queued · running · paused · attention · completed · failed · aborted</td><td>工作流状态；queued 与 failed 当前不会被写入</td></tr>
+              <tr><td><code>NodeStatus</code></td><td>pending · running · attention · success · abandoned</td><td>节点状态</td></tr>
+              <tr><td><code>Policy</code></td><td>strict · threshold · autopilot</td><td>对应 L1 / L2 / L3</td></tr>
+              <tr><td><code>Scenario</code></td><td>normal · anomaly</td><td>演示场景；异常场景在指定节点首次失败</td></tr>
+              <tr><td><code>Experiment</code></td><td>single · two</td><td>选择 9 步或 17 步节点集</td></tr>
+              <tr><td><code>WorkflowType</code></td><td>adaptive · fixed</td><td>是否允许根据结果调整后续参数</td></tr>
+              <tr><td><code>EventKind</code></td><td>info · success · warning</td><td>事件呈现级别</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.3 状态机</h3>
+        <p>状态迁移集中在一个纯函数里：相同输入必然得到相同输出，非法动作返回原对象。命令层用“返回值是否为同一对象”判断是否发生了变更，再决定是否提交事务。</p>
+        <figure class="plate">
+          <div class="plate__label"><span>图 2 · 工作流状态</span><span>虚线框为未写入状态</span></div>
+          <div class="plate__scroll">
+            <svg class="diagram" viewBox="0 0 700 360" role="img" aria-label="工作流从草稿到运行，运行可暂停或进入异常等待，最终完成或终止；队列与失败状态已定义但不会被写入">
+              <defs>
+                <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"></path></marker>
+                <marker id="a2b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--bad)"></path></marker>
+              </defs>
+
+              <rect x="20" y="90" width="100" height="54" class="d-box"></rect>
+              <text x="70" y="112" text-anchor="middle" class="d-name">DRAFT</text>
+              <text x="70" y="130" text-anchor="middle" class="d-sub">草稿</text>
+
+              <rect x="190" y="90" width="120" height="54" class="d-box"></rect>
+              <text x="250" y="112" text-anchor="middle" class="d-name">RUNNING</text>
+              <text x="250" y="130" text-anchor="middle" class="d-sub">执行中</text>
+
+              <rect x="380" y="24" width="130" height="54" class="d-box"></rect>
+              <text x="445" y="46" text-anchor="middle" class="d-name">COMPLETED</text>
+              <text x="445" y="64" text-anchor="middle" class="d-sub">全部节点成功</text>
+
+              <rect x="180" y="210" width="120" height="54" class="d-box"></rect>
+              <text x="240" y="232" text-anchor="middle" class="d-name">ATTENTION</text>
+              <text x="240" y="250" text-anchor="middle" class="d-sub">等待决定</text>
+
+              <rect x="360" y="210" width="110" height="54" class="d-box"></rect>
+              <text x="415" y="232" text-anchor="middle" class="d-name">PAUSED</text>
+              <text x="415" y="250" text-anchor="middle" class="d-sub">已暂停</text>
+
+              <rect x="540" y="210" width="100" height="54" class="d-box"></rect>
+              <text x="590" y="232" text-anchor="middle" class="d-name">ABORTED</text>
+              <text x="590" y="250" text-anchor="middle" class="d-sub">不可恢复</text>
+
+              <rect x="20" y="210" width="100" height="44" class="d-box-ghost"></rect>
+              <text x="70" y="237" text-anchor="middle" class="d-sub">QUEUED</text>
+
+              <rect x="20" y="274" width="100" height="44" class="d-box-ghost"></rect>
+              <text x="70" y="301" text-anchor="middle" class="d-sub">FAILED</text>
+
+              <line x1="120" y1="117" x2="190" y2="117" class="d-wire" marker-end="url(#a2)"></line>
+              <text x="155" y="108" text-anchor="middle" class="d-edge">start</text>
+
+              <path d="M310,108 H345 V51 H380" class="d-wire" marker-end="url(#a2)"></path>
+              <text x="328" y="42" class="d-edge">末节点完成</text>
+
+              <line x1="235" y1="144" x2="235" y2="210" class="d-wire" marker-end="url(#a2)"></line>
+              <text x="228" y="180" text-anchor="end" class="d-edge">失败 / L1</text>
+
+              <line x1="265" y1="210" x2="265" y2="144" class="d-wire" marker-end="url(#a2)"></line>
+              <text x="272" y="176" class="d-edge">approve</text>
+              <text x="272" y="190" class="d-edge">retry</text>
+
+              <line x1="310" y1="135" x2="360" y2="212" class="d-wire" marker-start="url(#a2)" marker-end="url(#a2)"></line>
+              <text x="345" y="168" class="d-edge">pause</text>
+              <text x="345" y="182" class="d-edge">resume</text>
+
+              <line x1="470" y1="237" x2="540" y2="237" class="d-wire-bad" marker-end="url(#a2b)"></line>
+              <text x="492" y="230" text-anchor="middle" class="d-edge">abort</text>
+
+              <text x="20" y="344" class="d-edge">QUEUED 与 FAILED 已定义，但状态机不会写入；DRAFT 不能直接 abort。</text>
+            </svg>
+          </div>
+          <figcaption><b>一次运行只有一条主路径。</b>开始后进入 RUNNING；失败或 L1 的逐笔审批会停在 ATTENTION，等待 approve 或 retry；暂停与恢复在 RUNNING 与 PAUSED 之间往返；终止只对活动态开放。状态机的校验还要求“成功节点构成前缀”，不允许跳过中间节点。</figcaption>
+        </figure>
+
+        <h3>5.4 Skill 体系</h3>
+        <p>Skill 是版本化的校准流程定义，包含节点顺序、每步的验收条件、设计目标、失败处理与自主等级。内置两套，版本均为 1.1.0。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Skill</th><th>ID</th><th>节点</th><th>覆盖</th></tr></thead>
+            <tbody>
+              <tr><td>单比特校准</td><td><code>single-qubit-calibration</code></td><td class="num">9</td><td>谐振频率、F01 频谱、Rabi、IQ 判别、读取参数优化与复测、T1、T2、单比特 RB</td></tr>
+              <tr><td>双比特 CZ 校准</td><td><code>two-qubit-calibration</code></td><td class="num">17</td><td>完整单比特前置，加 Z 脉冲依赖、QQ 交换、CZ 扫描与精调、交叉熵基准、参数优化与复测</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>每步带验收条件；默认保真度门槛 0.98，T1 不低于 20μs，T2 不低于 10μs。验收条件与设计目标是两套数值：门槛回答“何时需要人看”，目标回答“离设计值还有多远”。把两者混在一起，会让 0.98 的验收下限看起来像设备的最好水平。</p>
+
+        <h3>5.5 验收判定</h3>
+        <p>判据以数据形式存在，不在状态机里写死。指标路径是点分隔的，允许 <code>*</code> 展开映射，例如 <code>parameters.*.t1Us</code> 会检查每个比特。所有解析出的值都必须满足比较；对“越大越好”取最小值作为 <code>actual</code>，对“越小越好”取最大值。指标缺失按失败处理，绝不当作通过。</p>
+        <p>判定结果连同当时使用的 Skill 版本、设备档案版本、判据、目标、实测值、样本数和决定一起写入评估记录。后续审计不依赖“今天的阈值”，也不依赖仍然活跃的注册表版本。</p>
+
+        <h3>5.6 设备档案与冻结绑定</h3>
+        <p>设备档案（M3/M5/M7/M8）可以覆盖 Skill 的默认判据与目标，例如不同机型对 T1 的要求不同。创建工作流时，Skill 与设备的版本、以及两者的完整定义会被冻结进绑定表；运行中的流程永远按冻结副本判定。这样即使管理员在运行期间激活了新版本，也不会改变在途任务的验收标准。</p>
+
+        <h3>5.7 版本管理</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>状态</th><th>含义</th><th>可进入</th></tr></thead>
+            <tbody>
+              <tr><td><code>candidate</code></td><td>已发布，但未生效</td><td>activate</td></tr>
+              <tr><td><code>active</code></td><td>新工作流绑定的版本</td><td>被新版本取代</td></tr>
+              <tr><td><code>superseded</code></td><td>曾经激活，可再次激活作为回滚</td><td>activate</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>内置 Skill 与设备档案是不可变的 Python 数据，数据库里的注册表是覆盖层。发布版本不修改内置定义，只新增一行；激活才改变新任务的绑定。</p>
+
+        <h3>5.8 执行器与租约</h3>
+        <ul class="tight">
+          <li>时间模拟执行器按每节点 4 个模拟秒、每秒 25 个百分点推进；调度 tick 默认 1 秒。</li>
+          <li>后台循环可以多副本运行，但每轮只有一个副本能拿到数据库租约（默认 30 秒），避免同一工作流被推进两次。</li>
+          <li>执行分 dry-run 与 live 两种设备控制语义；参数下发后做回读校验，校验不通过会把节点送进 ATTENTION。</li>
+          <li>每次提交递增工作流 revision，并写一条全局流事件，供 SSE 断线续传。</li>
+        </ul>
+
+        <h3>5.9 持久化表</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>表</th><th>作用</th><th>关键约束</th></tr></thead>
+            <tbody>
+              <tr><td><code>users</code></td><td>账号、角色、口令哈希、令牌版本</td><td>username 唯一；token_version 用于批量吊销</td></tr>
+              <tr><td><code>calibration_workflows</code></td><td>工作流头、进度、归属、策略、revision</td><td>owner/status/updated_at 索引</td></tr>
+              <tr><td><code>calibration_nodes</code></td><td>节点状态、浮点进度、尝试次数</td><td>(workflow_id, node_index) 唯一</td></tr>
+              <tr><td><code>calibration_events</code></td><td>每个工作流的事件序列</td><td>(workflow_id, seq) 唯一</td></tr>
+              <tr><td><code>calibration_action_log</code></td><td>命令幂等日志与审计</td><td>request_id 主键、请求摘要</td></tr>
+              <tr><td><code>calibration_stream_events</code></td><td>全局 SSE 序号</td><td>自增，按保留策略裁剪</td></tr>
+              <tr><td><code>calibration_registry_versions</code></td><td>Skill/设备发布版本</td><td>(kind, registry_id, version) 唯一</td></tr>
+              <tr><td><code>calibration_workflow_bindings</code></td><td>冻结的 Skill/设备定义</td><td>workflow_id 主键，存完整 payload</td></tr>
+              <tr><td><code>calibration_node_results</code></td><td>每次尝试的评估记录</td><td>(workflow_id, node_id, attempt) 唯一</td></tr>
+              <tr><td><code>calibration_leases</code></td><td>后台执行租约</td><td>SQL UPDATE 原子抢占</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.10 接口</h3>
+        <p>校准路由前缀为 <code>/api/v1/calibration</code>，共三组：工作流与工作区、Skill 与设备注册表、审计与导出。另有账号、用户管理、运行、产物、知识库等路由。</p>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>分组</th><th>代表端点</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td>工作流</td><td><code>GET/POST /workflows</code> · <code>GET /workflows/{id}</code> · <code>POST /workflows/{id}/actions</code> · <code>PATCH /workflows/{id}/policy</code></td><td>列表分页、创建、命令、改策略</td></tr>
+              <tr><td>事件与流</td><td><code>GET /workflows/{id}/events</code> · <code>GET /stream</code></td><td>历史事件；SSE 快照与增量</td></tr>
+              <tr><td>工作区</td><td><code>POST /workspace/import</code> · <code>GET /workspace/export</code> · <code>GET /export/csv</code></td><td>导入导出与 CSV</td></tr>
+              <tr><td>结果与参数</td><td><code>GET /workflows/{id}/results</code> · <code>/parameters</code></td><td>节点结果、参数快照</td></tr>
+              <tr><td>Skill</td><td><code>GET /skills</code> · <code>/skills/{id}</code> · <code>/skills/{id}/versions</code> · <code>POST /skills/{id}/versions</code> · <code>/activate</code></td><td>查询、发布、激活</td></tr>
+              <tr><td>设备</td><td><code>GET /devices</code> · <code>/devices/{id}</code> · <code>/devices/{id}/versions</code> · <code>POST .../activate</code></td><td>设备档案与版本</td></tr>
+              <tr><td>审计</td><td><code>GET /workflows/{id}/skill</code> · <code>/audit</code> · <code>/audit/replay</code></td><td>绑定的 Skill、动作日志、回放</td></tr>
+              <tr><td>账号</td><td><code>POST /api/v1/auth/login</code> · <code>/refresh</code> · <code>/logout</code> · <code>GET /auth/me</code></td><td>JWT 登录、刷新、吊销</td></tr>
+              <tr><td>用户</td><td><code>GET/POST /api/v1/users</code> · <code>PATCH /users/{id}</code> · <code>POST /users/{id}/password</code></td><td>仅 leader 可管理</td></tr>
+              <tr><td>审计与运行</td><td><code>GET /api/v1/audit/summary</code> · <code>/events</code> · <code>/approvals</code></td><td>跨工作流审计与审批</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.11 认证、权限与审计</h3>
+        <ul class="tight">
+          <li>JWT HS256，访问令牌与刷新令牌分离；令牌内嵌 <code>token_version</code>，登出、改密、改角色、停用账号时递增，一次性吊销该账号的全部会话。</li>
+          <li>口令使用 PBKDF2 哈希；开发模式会种入 leader 与 operator 两个演示账号，生产必须关闭 <code>QUANTAMIND_DEV_AUTH</code> 并更换所有凭据。</li>
+          <li>角色为 <code>calibration_leader</code> 与 <code>calibration_operator</code>；审批、改策略、版本发布等动作限 leader，执行类动作限归属人或 leader。</li>
+          <li>登录限流 10 次/60 秒，刷新 30 次/60 秒；单副本用进程内滑动窗口，多副本切换为数据库共享计数器。</li>
+          <li>命令落 <code>calibration_action_log</code>，保存请求摘要、期望 revision、结果 revision 与响应；审计查询与回放都基于这份记录。</li>
+        </ul>
+
+        <h3>5.12 后端侧已确认的问题</h3>
+        <ul class="tight">
+          <li><code>queued</code> 与 <code>failed</code> 只出现在枚举、迁移条件与校验里，没有任何代码写入这两个状态。<span class="tag tag--gap">缺口</span></li>
+          <li>Skill 的 <code>onFail</code> 与 <code>maxAttempts</code> 只写进定义与评估记录，<code>finish_node</code> 不使用它们；L3 的自动重试没有次数上限。<span class="tag tag--gap">缺口</span></li>
+          <li>未设置 <code>QUANTAMIND_JWT_SECRET</code> 时，每次进程启动生成随机密钥，重启后所有令牌失效。<span class="tag tag--gap">缺口</span></li>
+          <li>SSE 令牌经查询串传递，存在日志泄露面。<span class="tag tag--gap">缺口</span></li>
+        </ul>
+      </section>
+
+      <!-- 06 -->
+      <section class="doc-section" id="s06">
+        <div class="section-head"><span class="secno">06</span><h2>关键业务流程</h2></div>
+
+        <h3>6.1 创建工作流</h3>
+        <p>创建请求包含名称、机型、比特数、目标、实验类型、策略、场景与蓝图。服务端校验目标与蓝图范围，生成节点列表（每个节点 pending），选择当前激活的 Skill 与设备版本，把两份完整定义冻结进绑定表，写入 revision 1，返回 draft。</p>
+        <pre><code>POST /api/v1/calibration/workflows
+{
+  "name": "Q12 单比特校准演示",
+  "machine": "M7",
+  "qubits": 1,
+  "target": "Q12",
+  "type": "adaptive",
+  "policy": "threshold",
+  "scenario": "normal",
+  "experiment": "single",
+  "blueprintId": "single",
+  "blueprintVersion": 1
+}</code></pre>
+        <p>蓝图校验发生在领域层之前：能力不在蓝图范围内时直接拒绝，不会产生半成品工作流。</p>
+
+        <h3>6.2 启动与推进</h3>
+        <ol>
+          <li><code>start</code> 把第一个 pending 节点置为 running，attempt 加一，工作流进入 running。</li>
+          <li>执行器每次 tick 按经过的模拟时间增加节点进度；进度到 100 时产生测量值。</li>
+          <li><code>finish_node</code> 用冻结的 Skill 判据评估测量值；参数下发类节点还要检查回读。</li>
+          <li>判定结果交给策略：通过则继续下一个节点；失败则按 L1/L2/L3 分流。</li>
+          <li>最后一个节点成功后，工作流进入 completed，进度固定 100。</li>
+        </ol>
+
+        <h3>6.3 异常与人工决定</h3>
+        <p>进入 attention 的节点带着评估记录与原因码：指标未达门槛、策略要求逐步确认、或没有可归因的记录。leader 可以接受结果，也可以重试。接受会把节点置为 success、记录“接受不代表达标”，然后继续；重试会把节点重置为 running、attempt 加一、清空后续节点的进度，并把工作流拉回 running。</p>
+        <p>L1（strict）对每个节点都要求确认，即使指标达标；L2（threshold）只在失败时停；L3（autopilot）在失败时自动调整参数并重试一次。当前 L3 的重试没有次数上限，这一点在第 11 节展开。</p>
+
+        <h3>6.4 远程命令与断线恢复</h3>
+        <figure class="plate">
+          <div class="plate__label"><span>图 3 · 一次审批命令</span><span>revision / requestId / SSE</span></div>
+          <div class="plate__scroll">
+            <svg class="diagram" viewBox="0 0 920 340" role="img" aria-label="审批命令从界面经远程网关到 API，API 校验版本并提交，返回新 revision，其他会话通过 SSE 收到更新；409 时重试一次">
+              <defs>
+                <marker id="a3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"></path></marker>
+                <marker id="a3a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"></path></marker>
+                <marker id="a3b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="var(--bad)"></path></marker>
+              </defs>
+
+              <rect x="10" y="10" width="140" height="44" class="d-box"></rect>
+              <text x="80" y="37" text-anchor="middle" class="d-name">操作者</text>
+
+              <rect x="190" y="10" width="140" height="44" class="d-box"></rect>
+              <text x="260" y="37" text-anchor="middle" class="d-name">React UI</text>
+
+              <rect x="390" y="10" width="140" height="44" class="d-box"></rect>
+              <text x="460" y="37" text-anchor="middle" class="d-name">远程网关</text>
+
+              <rect x="590" y="10" width="140" height="44" class="d-box-a"></rect>
+              <text x="660" y="37" text-anchor="middle" class="d-name">Calibration API</text>
+
+              <rect x="780" y="10" width="140" height="44" class="d-box-a"></rect>
+              <text x="850" y="37" text-anchor="middle" class="d-name">DB + 执行器</text>
+
+              <line x1="80" y1="54" x2="80" y2="320" class="d-life"></line>
+              <line x1="260" y1="54" x2="260" y2="320" class="d-life"></line>
+              <line x1="460" y1="54" x2="460" y2="320" class="d-life"></line>
+              <line x1="660" y1="54" x2="660" y2="320" class="d-life"></line>
+              <line x1="850" y1="54" x2="850" y2="320" class="d-life"></line>
+
+              <line x1="80" y1="92" x2="260" y2="92" class="d-wire" marker-end="url(#a3)"></line>
+              <text x="170" y="84" text-anchor="middle" class="d-edge">点击“批准”</text>
+
+              <line x1="260" y1="122" x2="460" y2="122" class="d-wire" marker-end="url(#a3)"></line>
+              <text x="360" y="114" text-anchor="middle" class="d-edge">act(id, approve)</text>
+
+              <line x1="460" y1="152" x2="660" y2="152" class="d-wire-a" marker-end="url(#a3a)"></line>
+              <text x="560" y="144" text-anchor="middle" class="d-edge">POST /actions</text>
+              <text x="560" y="166" text-anchor="middle" class="d-edge">expectedRevision · requestId</text>
+
+              <line x1="660" y1="186" x2="850" y2="186" class="d-wire" marker-end="url(#a3)"></line>
+              <text x="755" y="178" text-anchor="middle" class="d-edge">校 revision / 幂等键</text>
+
+              <line x1="850" y1="216" x2="660" y2="216" class="d-wire" marker-end="url(#a3)"></line>
+              <text x="755" y="208" text-anchor="middle" class="d-edge">commit：revision+1</text>
+
+              <line x1="660" y1="246" x2="460" y2="246" class="d-wire-a" marker-end="url(#a3a)"></line>
+              <text x="560" y="238" text-anchor="middle" class="d-edge">200 {workflow, revision}</text>
+
+              <line x1="660" y1="276" x2="460" y2="276" class="d-wire-a" marker-end="url(#a3a)"></line>
+              <text x="560" y="268" text-anchor="middle" class="d-edge">SSE workflow.updated</text>
+              <line x1="460" y1="292" x2="260" y2="292" class="d-wire-a" marker-end="url(#a3a)"></line>
+              <text x="360" y="284" text-anchor="middle" class="d-edge">emit</text>
+
+              <line x1="460" y1="316" x2="660" y2="316" class="d-wire-bad" marker-end="url(#a3b)"></line>
+              <text x="560" y="308" text-anchor="middle" class="d-edge">409 → GET → 重试一次</text>
+            </svg>
+          </div>
+          <figcaption><b>写命令只有一条成功路径，恢复路径也只有一次。</b>revision 不匹配时，错误响应携带权威快照，网关据此重试；第二次仍冲突就把决定权交回给人，避免在并发环境下反复覆盖。</figcaption>
+        </figure>
+
+        <h3>6.5 重启与恢复</h3>
+        <p>配置了数据库 URL 时，工作流、节点、事件与绑定都在库里。进程重启后：执行器重新抢租约，按节点进度继续推进；SSE 客户端带 <code>Last-Event-ID</code> 重连，服务端从全局流补发缺失事件；如果请求的序号早于保留窗口，则先发一份快照，再继续增量。未配置数据库时，存储退化为内存 SQLite，重启即清空，这是开发态的默认行为。</p>
+      </section>
+
+      <!-- 07 -->
+      <section class="doc-section" id="s07">
+        <div class="section-head"><span class="secno">07</span><h2>状态机与判定规则</h2></div>
+
+        <h3>7.1 工作流状态</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>状态</th><th>进入条件</th><th>可执行动作</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>draft</code></td><td>创建完成</td><td>start</td><td>全部节点 pending</td></tr>
+              <tr><td><code>running</code></td><td>start / resume / approve / retry</td><td>pause / abort</td><td>恰有一个 running 节点</td></tr>
+              <tr><td><code>paused</code></td><td>pause</td><td>resume / abort</td><td>进度与计时冻结</td></tr>
+              <tr><td><code>attention</code></td><td>失败或 L1 逐笔确认</td><td>approve / retry / abort</td><td>恰有一个 attention 节点</td></tr>
+              <tr><td><code>completed</code></td><td>末节点成功</td><td>—</td><td>全部节点 success</td></tr>
+              <tr><td><code>aborted</code></td><td>abort</td><td>—</td><td>未完成节点标记 abandoned</td></tr>
+              <tr><td><code>queued</code></td><td>—</td><td>—</td><td>枚举存在，当前无写入路径</td></tr>
+              <tr><td><code>failed</code></td><td>—</td><td>—</td><td>枚举存在，当前无写入路径</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7.2 节点状态</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>状态</th><th>含义</th><th>迁移</th></tr></thead>
+            <tbody>
+              <tr><td><code>pending</code></td><td>尚未开始</td><td>start / 前序完成后进入 running</td></tr>
+              <tr><td><code>running</code></td><td>推进中</td><td>完成 → success 或 attention；abort → abandoned</td></tr>
+              <tr><td><code>attention</code></td><td>等待决定</td><td>approve → success；retry → running</td></tr>
+              <tr><td><code>success</code></td><td>完成且被接受</td><td>终态</td></tr>
+              <tr><td><code>abandoned</code></td><td>随工作流终止</td><td>终态</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>7.3 结构不变量</h3>
+        <p>每次提交前后都可以跑一遍校验，以下条件必须同时成立：</p>
+        <ul class="tight">
+          <li>running / paused 恰有一个 running 节点；attention 恰有一个 attention 节点。</li>
+          <li>completed 的每个节点都是 success；aborted 只允许 success 或 abandoned。</li>
+          <li>success 节点必须构成列表前缀，不能留下中间的 pending。</li>
+          <li>draft / queued 只能包含 pending 且进度为 0 的节点。</li>
+          <li>活动节点必须是第一个未完成节点。</li>
+        </ul>
+
+        <h3>7.4 自主等级</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>等级</th><th>策略</th><th>达标</th><th>不达标</th></tr></thead>
+            <tbody>
+              <tr><td>L1</td><td><code>strict</code></td><td>仍停在 attention，等人确认</td><td>停在 attention</td></tr>
+              <tr><td>L2</td><td><code>threshold</code></td><td>自动继续</td><td>停在 attention</td></tr>
+              <tr><td>L3</td><td><code>autopilot</code></td><td>自动继续</td><td>自动重试；当前无次数上限</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>策略只影响未来的决定，不改写已经停在 attention 的节点。leader 改策略时会写一条事件说明这一点。</p>
+
+        <h3>7.5 评估记录</h3>
+        <p>一条评估记录包含 <code>skillId</code>、<code>skillVersion</code>、<code>deviceId</code>、<code>deviceProfileVersion</code>、节点、判据、目标与目标来源、实测值、是否通过、样本数、原因、决定和自主等级。它既是审计证据，也是回放输入：用同一份测量重放，应当得到同一个结论。</p>
+      </section>
+
+      <!-- 08 -->
+      <section class="doc-section" id="s08">
+        <div class="section-head"><span class="secno">08</span><h2>数据模型与接口契约</h2></div>
+
+        <h3>8.1 核心对象</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>对象</th><th>关键字段</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td><code>Workflow</code></td><td>id · name · experiment · machine · qubits · target · type · status · progress · owner · policy · scenario · elapsed · iterations · approved · revision · nodes · events</td><td>服务端返回的工作流快照</td></tr>
+              <tr><td><code>ExperimentNode</code></td><td>id · name · label · status · progress · attempt · qubits · detail</td><td>节点顺序即执行顺序</td></tr>
+              <tr><td><code>Event</code></td><td>id · seq · time · kind · message · payload</td><td>工作流内序号从 1 递增</td></tr>
+              <tr><td><code>Binding</code></td><td>skillId/version · deviceId/version · source · payload</td><td>创建时冻结，不在运行时查注册表</td></tr>
+              <tr><td><code>Evaluation</code></td><td>criterion · target · actual · passed · samples · reason · decision · autonomy</td><td>与测量一起保存</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>8.2 并发与幂等字段</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>字段</th><th>位置</th><th>语义</th></tr></thead>
+            <tbody>
+              <tr><td><code>revision</code></td><td>工作流</td><td>每次成功提交递增；客户端必须回传读到的值</td></tr>
+              <tr><td><code>expectedRevision</code></td><td>命令体</td><td>不匹配返回 409，并附权威快照</td></tr>
+              <tr><td><code>requestId</code></td><td>命令体</td><td>同一 id 与同一请求体返回首次结果；请求体不同返回 422</td></tr>
+              <tr><td><code>Idempotency-Key</code></td><td>本机服务请求头</td><td>8–128 字符；摘要不一致返回 409</td></tr>
+              <tr><td><code>Last-Event-ID</code></td><td>SSE 请求头</td><td>断线续传；过旧则先发快照</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>8.3 错误语义</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>码</th><th>HTTP</th><th>触发</th></tr></thead>
+            <tbody>
+              <tr><td><code>VALIDATION_ERROR</code></td><td>400</td><td>字段缺失、格式或范围不合法</td></tr>
+              <tr><td><code>NOT_FOUND</code></td><td>404</td><td>工作流、候选或运行不存在</td></tr>
+              <tr><td><code>FORBIDDEN</code></td><td>403</td><td>角色或归属不满足</td></tr>
+              <tr><td><code>CONFLICT</code></td><td>409</td><td>revision 过期、状态不允许该动作</td></tr>
+              <tr><td><code>IDEMPOTENCY_CONFLICT</code></td><td>422</td><td>同一 requestId 对应不同请求体</td></tr>
+              <tr><td><code>BLUEPRINT_SCOPE_DENIED</code></td><td>—</td><td>本机服务：能力或目标超出蓝图</td></tr>
+              <tr><td><code>BLUEPRINT_VERSION_UNSUPPORTED</code></td><td>—</td><td>本机服务：蓝图版本不存在</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>错误响应统一为 <code>{ error: { code, message, retryable } }</code>；409 额外携带权威快照或实际 revision，客户端据此恢复，而不是盲目重试。</p>
+      </section>
+
+      <!-- 09 -->
+      <section class="doc-section" id="s09">
+        <div class="section-head"><span class="secno">09</span><h2>部署与运行</h2></div>
+
+        <h3>9.1 环境变量</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>变量</th><th>默认</th><th>作用</th></tr></thead>
+            <tbody>
+              <tr><td><code>VITE_GATEWAY_MODE</code></td><td><code>mock</code></td><td>前端网关：mock / remote</td></tr>
+              <tr><td><code>VITE_API_BASE_URL</code></td><td>—</td><td>远程模式的 API 基址</td></tr>
+              <tr><td><code>QCAL_PORT</code></td><td>5290</td><td>本机实验服务端口</td></tr>
+              <tr><td><code>QCAL_DATA_FILE</code></td><td><code>backend/data/state.json</code></td><td>本机状态文件</td></tr>
+              <tr><td><code>QCAL_SIM_FAULT</code></td><td>空</td><td>注入模拟故障</td></tr>
+              <tr><td><code>QUANTAMIND_GATEWAY_PORT</code></td><td>18789</td><td>API 端口</td></tr>
+              <tr><td><code>QUANTAMIND_DATABASE_URL</code></td><td>内存 SQLite</td><td>持久化数据库；生产用 Postgres</td></tr>
+              <tr><td><code>QUANTAMIND_JWT_SECRET</code></td><td>随机生成</td><td>令牌签名；生产必须固定</td></tr>
+              <tr><td><code>QUANTAMIND_DEV_AUTH</code></td><td>关闭</td><td>种入演示账号；生产必须关闭</td></tr>
+              <tr><td><code>QUANTAMIND_CALIBRATION_WORKER</code></td><td>关闭</td><td>启动后台执行循环</td></tr>
+              <tr><td><code>QUANTAMIND_CALIBRATION_TICK_SECONDS</code></td><td>1</td><td>执行器调度间隔</td></tr>
+              <tr><td><code>QUANTAMIND_CALIBRATION_LEASE_SECONDS</code></td><td>30</td><td>后台租约时长</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>9.2 本机联调</h3>
+        <pre><code># 1 · QuantaMind（持久化 + 执行器 + 演示账号）
+$env:QUANTAMIND_DATABASE_URL='sqlite:///./data/quantamind.db'
+$env:QUANTAMIND_CALIBRATION_WORKER='true'
+$env:QUANTAMIND_DEV_AUTH='true'
+python -m uvicorn backend.quantamind_api.app:app --host 127.0.0.1 --port 18790
+
+# 2 · 前端（远程模式）
+$env:VITE_GATEWAY_MODE='remote'
+$env:VITE_API_BASE_URL='http://127.0.0.1:18790'
+node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5286 --strictPort
+
+# 3 · 可选：本机实验服务
+node backend/src/server.mjs</code></pre>
+        <p>三个进程互相独立。后端重启会换掉随机 JWT 密钥，浏览器需要重新登录；工作流本身留在 SQLite 里，不会丢。远程模式冷启动时，如果库里没有任务，需要先通过 API 创建一条，否则前端会停在启动页。</p>
+
+        <h3>9.3 生产部署</h3>
+        <ul class="tight">
+          <li>PostgreSQL 16 + Alembic 迁移；数据库连接由 <code>QUANTAMIND_DATABASE_URL</code> 注入。</li>
+          <li>固定 <code>QUANTAMIND_JWT_SECRET</code>，关闭开发鉴权，替换演示账号。</li>
+          <li>前端静态资源与 API 分离托管，SSE 路径不能被缓冲或压缩超时截断。</li>
+          <li>多副本时执行器靠数据库租约互斥，限流器切换到数据库共享计数。</li>
+          <li>若沿用查询串令牌，反向代理需关闭对该参数的日志记录。</li>
+        </ul>
+      </section>
+
+      <!-- 10 -->
+      <section class="doc-section" id="s10">
+        <div class="section-head"><span class="secno">10</span><h2>测试与质量</h2></div>
+        <p>测试重心放在“行为等价”与“并发安全”，而不是 UI 截图。前端模拟器与后端状态机的等价性让两边可以互相验证，跨仓库的端到端用例则覆盖登录、创建、执行与结果回读。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>范围</th><th>规模</th><th>覆盖</th></tr></thead>
+            <tbody>
+              <tr><td>前端 QA</td><td class="num">25 个测试文件</td><td>模拟器、存储、网关、权限、导入导出、格式化、远程适配</td></tr>
+              <tr><td>本机服务</td><td class="num">5 个测试文件</td><td>计划/运行、幂等、参数治理、蓝图、Agent</td></tr>
+              <tr><td>校准后端</td><td class="num">64 个测试文件 · 193 个测试函数</td><td>状态机、校验、仓储、幂等、租约、限流、Skill、设备、发布、迁移、权限生命周期</td></tr>
+              <tr><td>跨仓库 E2E</td><td>远程模式</td><td>登录 → 创建工作流 → 执行 → 结果读取，需设置 <code>QUANTAMIND_E2E_BASE_URL</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>10.1 覆盖到与没覆盖到</h3>
+        <ul class="tight">
+          <li>已覆盖：状态迁移的合法与非法路径、成功节点前缀、revision 冲突、requestId 重放、租约互斥、令牌吊销、角色权限、Skill 版本绑定。</li>
+          <li>部分覆盖：SSE 断线续传的逻辑有测试，但真实代理下的缓冲与超时没有压测。</li>
+          <li>未覆盖：真机时序、真实噪声与拟合、双比特 CZ 执行、浏览器渲染回归。</li>
+        </ul>
+      </section>
+
+      <!-- 11 -->
+      <section class="doc-section" id="s11">
+        <div class="section-head"><span class="secno">11</span><h2>已知差距与演进</h2></div>
+        <p>下面这些问题按影响排序，全部来自当前代码，不是推测。修复顺序建议先解决会让演示或自动运行“停住”的项，再处理安全与一致性问题。</p>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>问题</th><th>级别</th><th>影响</th><th>建议</th></tr></thead>
+            <tbody>
+              <tr><td>远程冷启动无任务时停在启动页，且没有创建入口</td><td><span class="tag tag--gap">P0</span></td><td>首次联调无法进入工作台</td><td>启动页增加“新建任务”，或在服务端提供演示种子</td></tr>
+              <tr><td>L3 自动重试无上限；Skill 的 <code>maxAttempts</code> / <code>onFail</code> 未被执行</td><td><span class="tag tag--gap">P0</span></td><td>持续不达标时可能无限重试</td><td>在 <code>finish_node</code> 读取冻结的步骤定义，达到上限转 attention 或 failed</td></tr>
+              <tr><td>默认 JWT 密钥每次启动随机</td><td><span class="tag tag--gap">P1</span></td><td>重启即全体掉线</td><td>启动时强制要求配置，或在数据目录持久化密钥</td></tr>
+              <tr><td>SSE 令牌放在查询串</td><td><span class="tag tag--gap">P1</span></td><td>日志与代理可能记录令牌</td><td>限制访问日志字段，或改用 Cookie / 短时流令牌</td></tr>
+              <tr><td><code>queued</code> 与 <code>failed</code> 状态不可达</td><td><span class="tag tag--gap">P2</span></td><td>状态枚举与界面分支存在死代码</td><td>要么补写入路径，要么从契约中移除</td></tr>
+              <tr><td>本机服务无鉴权；审批先改状态后校验 actor</td><td><span class="tag tag--gap">P2</span></td><td>本机状态可被任意进程修改；非法 actor 留下部分变更</td><td>校验前置；如要跨机使用必须加鉴权</td></tr>
+              <tr><td>双比特蓝图的 <code>cz_calibration</code> 在本机模拟中不可执行</td><td><span class="tag tag--gap">P1</span></td><td>双比特演示只能走 QuantaMind</td><td>补配方与模拟轨迹，或明确声明本机仅支持单比特</td></tr>
+              <tr><td>计划初始状态文档写 <code>draft</code>，代码返回 <code>preflight_passed</code></td><td><span class="tag tag--gap">P2</span></td><td>契约阅读者会误判</td><td>统一命名并补契约测试</td></tr>
+              <tr><td>前端版本号与 README 不一致；README 漏记 <code>#api</code></td><td><span class="tag tag--gap">P2</span></td><td>交付说明与实现脱节</td><td>以 package.json 为准统一版本，补齐入口说明</td></tr>
+              <tr><td>报告导出把服务端数据标成“模拟值”</td><td><span class="tag tag--gap">P2</span></td><td>复盘材料误导读者</td><td>按 <code>dataSource</code> 标注来源</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>11.1 演进路线</h3>
+        <ol>
+          <li><strong>先把演示闭环做稳。</strong>补启动页创建入口与服务端种子；统一文档版本；修正导出标注。目标是一次冷启动可以从零走到完成。</li>
+          <li><strong>再让自动运行可信。</strong>执行 Skill 的失败策略与尝试上限；补齐 queued/failed 的语义或移除；把回读失败、参数发布失败的路径纳入端到端用例。</li>
+          <li><strong>最后接真机。</strong>替换时间模拟执行器与模拟适配器，接入真实设备命令通道；在此之前，所有指标只能作为流程验证，不能作为硬件性能结论。</li>
+        </ol>
+
+        <div class="note note--bad">
+          <p class="note__title">交付边界</p>
+          <p>本文描述的是模拟闭环。任何“保真度 98%”“T1 20μs”之类的数字都来自模拟器或演示阈值，不代表真实芯片性能。对外汇报时必须带上前提。</p>
+        </div>
+      </section>
+
+      <!-- 12 -->
+      <section class="doc-section" id="s12">
+        <div class="section-head"><span class="secno">12</span><h2>附录</h2></div>
+
+        <h3>12.1 术语</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>术语</th><th>含义</th></tr></thead>
+            <tbody>
+              <tr><td>Skill</td><td>版本化的校准流程定义：节点顺序、验收条件、设计目标、失败处理、自主等级</td></tr>
+              <tr><td>验收条件</td><td>“何时需要人看”的阈值，与设计目标分开</td></tr>
+              <tr><td>设计目标</td><td>该指标在好设备上的理想值，用于衡量差距，不作为通过门槛</td></tr>
+              <tr><td>自主等级</td><td>L1 逐步审批、L2 异常时审批、L3 自动运行</td></tr>
+              <tr><td>冻结绑定</td><td>创建时写入工作流的 Skill/设备完整定义，运行期不再查注册表</td></tr>
+              <tr><td>蓝图</td><td>一次任务允许请求的实验能力与目标范围，不等于 Skill</td></tr>
+              <tr><td>读回校验</td><td>参数下发后重新读取设备值，与期望值比对</td></tr>
+              <tr><td>revision</td><td>工作流提交版本，用于乐观并发控制</td></tr>
+              <tr><td>requestId</td><td>命令幂等标识，重试时复用</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>12.2 文件索引</h3>
+        <div class="table-wrap">
+          <table class="wrap-first">
+            <thead><tr><th>关注点</th><th>入口文件</th></tr></thead>
+            <tbody>
+              <tr><td>前端壳层</td><td><code>frontend/src/App.tsx</code></td></tr>
+              <tr><td>网关契约</td><td><code>frontend/src/lib/gateway.ts</code> · <code>remoteGateway.ts</code></td></tr>
+              <tr><td>模拟引擎</td><td><code>frontend/src/lib/simulator.ts</code></td></tr>
+              <tr><td>权限</td><td><code>frontend/src/lib/access.ts</code></td></tr>
+              <tr><td>本机服务路由</td><td><code>backend/src/server.mjs</code></td></tr>
+              <tr><td>蓝图策略</td><td><code>backend/src/blueprint-policy.mjs</code></td></tr>
+              <tr><td>后端状态机</td><td><code>quantamind/calibration/state_machine.py</code></td></tr>
+              <tr><td>Skill 定义</td><td><code>quantamind/calibration/skills.py</code> · <code>definitions.py</code></td></tr>
+              <tr><td>验收判定</td><td><code>quantamind/calibration/acceptance.py</code></td></tr>
+              <tr><td>数据表</td><td><code>quantamind/calibration/tables.py</code></td></tr>
+              <tr><td>API 路由</td><td><code>backend/quantamind_api/routes/calibration.py</code></td></tr>
+              <tr><td>执行器与租约</td><td><code>quantamind/calibration/executor.py</code> · <code>lease.py</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>12.3 文档说明</h3>
+        <p>本文基于 2026-11-06 的工作副本整理，结论以代码为准。前端 README 与 <code>BACKEND_INTEGRATION.md</code> 记录了更多接口细节与版本演进；两者与实现存在少量漂移，已在第 11 节列出。QuantaMind 位于独立仓库 <code>E:\work\QuantaMind</code>，本文只覆盖与校准链路相关的部分。</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <span>QuantaMind · 详细设计 · 2026-11-06</span>
+    <span>模拟闭环 · 非真机性能结论</span>
+  </footer>
+</div>
