@@ -24,6 +24,8 @@ const SESSION_KEY = "qcal-demo-session-v1";
 
 let server;
 let App;
+let WorkspaceApp;
+let createMockGateway;
 let ParameterPanel;
 let createWorkflow;
 let publishWorkflowParameters;
@@ -81,10 +83,11 @@ test.before(async () => {
     logLevel: "silent",
     server: { middlewareMode: true, hmr: false },
   });
-  ({ default: App } = await server.ssrLoadModule("/src/App.tsx"));
+  ({ default: App, WorkspaceApp } = await server.ssrLoadModule("/src/App.tsx"));
   ({ default: ParameterPanel } = await server.ssrLoadModule(
     "/src/components/ParameterPanel.tsx",
   ));
+  ({ createMockGateway } = await server.ssrLoadModule("/src/lib/gateway.ts"));
   ({ createWorkflow } = await server.ssrLoadModule("/src/lib/simulator.ts"));
   ({ publishWorkflowParameters } = await server.ssrLoadModule(
     "/src/lib/remoteMeasurements.ts",
@@ -194,4 +197,13 @@ test("a readback mismatch is visible as a failure, not as success", () => {
   );
   assert.match(html, /回读不一致/);
   assert.match(html, /回读值与下发值不一致/);
+});
+
+for (const route of ["agent", "blueprint"]) test(`product ${route} renders without a login session`, () => {
+  logout();globalThis.location.hash = "#" + route;
+  const html = renderToString(React.createElement(WorkspaceApp, { productMode:true, gateway:createMockGateway(), user:{id:"leader",username:"leader",displayName:"演示",role:"leader"}, onLogout(){} }));
+  assert.match(html,/product-integrated/);
+  assert.doesNotMatch(html,/登录实验工作空间|公开演示账号/);
+  assert.match(html, route === "blueprint" ? /blueprint-page/ : /view-chat/);
+  globalThis.location.hash = "";
 });

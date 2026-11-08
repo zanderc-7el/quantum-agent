@@ -78,6 +78,7 @@ import ApiOnlyWorkbench from "./components/ApiOnlyWorkbench";
 import { buildExperimentCsv } from "./lib/experimentCsv";
 import { readSession, clearSession } from "./lib/auth";
 import type { User } from "./lib/auth";
+import { hasWorkspaceSession } from "./lib/workspaceSession";
 import {
   logoutRemote,
   onUnauthorized,
@@ -90,6 +91,7 @@ import { BLUEPRINTS, BLUEPRINT_STAGES } from "./lib/blueprints";
 import "./components/data-access.css";
 
 type View = "dashboard" | "blueprint" | "chat" | "api";
+
 const STATUS: Record<WorkflowStatus, string> = {
   draft: "草稿",
   queued: "排队中",
@@ -195,19 +197,24 @@ export default function App({ gateway }: { gateway?: WorkflowGateway } = {}) {
   return <><WorkspaceApp key={user.id} gateway={gateway} user={user} onLogout={logout} />{logoutError && <div className="toast" role="alert">{logoutError}</div>}</>;
 }
 
-function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; user: User; onLogout: () => void }) {
+export function WorkspaceApp({ gateway, user, onLogout, productMode = false }: { gateway?: WorkflowGateway; user: User; onLogout: () => void; productMode?: boolean }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const serverDemo = productMode && (gateway as WorkflowGateway & { execution?: string })?.execution === "server-simulator";
+  const sessionValid = () => hasWorkspaceSession(productMode, gateway?.mode, readSession()?.id, user.id);
   const [preferences, setPreferences] = useState(loadPreferences);
-  const roleGateway = useMemo(() => createRoleGateway(user, gateway), [user, gateway]);
+  const roleGateway = useMemo(() => createRoleGateway(user, gateway, undefined, sessionValid), [user, gateway, productMode]);
   const store = useWorkflowStore(roleGateway);
   const isLeader = canManageTeam(user);
   const [parameterTarget, setParameterTarget] = useState<{workflowId: string; nodeId?: string} | null>(null);
   const [settingsTab, setSettingsTab] = useState<"personal" | "data" | "team">("personal");
   const [scope, setScope] = useState(isLeader ? "all" : "mine");
   const { state } = store;
-  const [view, setView] = useState<View>(() => {
+  const [view, setInternalView] = useState<View>(() => {
+    if (productMode) return location.hash === "#blueprint" ? "blueprint" : "chat";
     const v = location.hash.slice(1);
     return ["chat", "blueprint", "api"].includes(v) ? (v as View) : "dashboard";
   });
+  const setView = (next: View) => setInternalView(productMode && !["chat", "blueprint"].includes(next) ? "chat" : next);
   const [selectedId, setSelectedId] = useState(
     () => (isLeader ? state.workflows[0] : state.workflows.find((w) => w.ownerId === user.id) || state.workflows[0])?.id || "",
   );
@@ -309,6 +316,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     setModal("create");
   };
   useEffect(() => {
+    if (productMode) return;
     document.documentElement.dataset.theme = preferences.theme;
     document.documentElement.style.colorScheme = preferences.theme;
   }, [preferences.theme]);
@@ -319,10 +327,25 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     return () => clearTimeout(t);
   }, [notify]);
   useEffect(() => {
-    location.hash = view;
-  }, [view]);
+    if (productMode) {
+      if (["agent", "blueprint"].includes(location.hash.slice(1)))
+        window.dispatchEvent(new CustomEvent("product:route", { detail: view }));
+    } else location.hash = view;
+  }, [view, productMode]);
+
+  useEffect(() => {
+    if (!productMode) return;
+    const navigate = (event: Event) => {
+      const route = (event as CustomEvent).detail;
+      if (route === "chat" || route === "blueprint") setInternalView(route);
+    };
+    window.addEventListener("product:navigate", navigate);
+    return () => window.removeEventListener("product:navigate", navigate);
+  }, [productMode]);
+
   useEffect(() => {
     const fn = () => {
+      if (productMode) return;
       const v = location.hash.slice(1);
       if (["dashboard", "blueprint", "chat", "api"].includes(v)) setView(v as View);
     };
@@ -330,13 +353,13 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     return () => window.removeEventListener("hashchange", fn);
   }, []);
   useEffect(() => {
-    if (!autoDemo) return;
+    if (!autoDemo || serverDemo) return;
     lastTick.current = performance.now();
     const id = setInterval(() => {
       const now = performance.now();
       const seconds = Math.min(1, Math.max(0, (now - lastTick.current) / 1000));
       lastTick.current = now;
-      if (readSession()?.id !== user.id) { onLogout(); return; }
+      if (!sessionValid()) { onLogout(); return; }
       if (document.visibilityState === "visible") store.advance(seconds);
     }, 1000);
     return () => clearInterval(id);
@@ -361,7 +384,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     setMenuId(null);
   };
   const action = async (a: WorkflowAction, id = workflow.id) => {
-    if (readSession()?.id !== user.id) { onLogout(); return; }
+    if (!sessionValid()) { onLogout(); return; }
     const target = state.workflows.find((w) => w.id === id);
     if (!target || !canPerformAction(user, target, a)) { toast("此操作需要任务所有者或团队负责人权限；审批仅限负责人。"); return; }
     if (a === "abort") {
@@ -406,7 +429,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     }
   };
   const create = async (input: CreateWorkflowInput) => {
-    if (readSession()?.id !== user.id) { onLogout(); return; }
+    if (!sessionValid()) { onLogout(); return; }
     if (lockedBlueprint && input.experiment !== lockedBlueprint) { toast("当前蓝图只能创建对应类型的校准工作流。"); return; }
     if (creating.current) return;
     creating.current = true;
@@ -428,8 +451,9 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   };
   useEffect(() => {
     if (!modal) return;
-    const prior = document.activeElement as HTMLElement | null;
-    const panel = document.querySelector<HTMLElement>(".modal");
+    const root = shellRef.current?.getRootNode() as Document | ShadowRoot;
+    const prior = root?.activeElement as HTMLElement | null;
+    const panel = shellRef.current?.querySelector<HTMLElement>(".modal");
     panel?.querySelector<HTMLElement>("input,select,button")?.focus();
     const trapFocus = (event: KeyboardEvent) => {
       if (event.key !== "Tab" || !panel) return;
@@ -440,10 +464,10 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
       ].filter((item) => item.getClientRects().length > 0);
       const first = controls[0],
         last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+      if (event.shiftKey && root?.activeElement === first) {
         event.preventDefault();
         last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && root?.activeElement === last) {
         event.preventDefault();
         first?.focus();
       }
@@ -564,16 +588,18 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
         {store.error && <p role="alert">{store.error}</p>}
         <button
           className="primary"
-          onClick={() =>
-            store.mode === "mock" ? store.resetDemo() : location.reload()
-          }
+          onClick={() => {
+            if (serverDemo && !store.error) void create({ name: "单比特校准演示", machine: "M7", experiment: "single", qubits: 1, target: "Q12", type: "adaptive", policy: "threshold", scenario: "normal" });
+            else if (store.mode === "mock" && !serverDemo) store.resetDemo();
+            else location.reload();
+          }}
         >
-          {store.mode === "mock" ? "载入演示任务" : "重新加载"}
+          {serverDemo && !store.error ? "创建单比特工作流" : store.mode === "mock" && !serverDemo ? "载入演示任务" : "重新连接"}
         </button>
       </div>
     );
   return (
-    <div className={`app-shell view-${view} role-${user.role}`}>
+    <div ref={shellRef} className={`app-shell view-${view} role-${user.role}${productMode ? " product-integrated" : ""}`}>
       <aside className="sidebar" inert={!!modal}>
         <button
           className="brand"
@@ -799,6 +825,14 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             </div>
           )}
         </header>
+        {productMode && <div className="product-taskbar">
+          <label htmlFor="product-workflow">当前工作流</label>
+          <select id="product-workflow" value={workflow.id} onChange={event => { setSelectedId(event.target.value); setSelectedNodeId(""); }}>
+            {state.workflows.map(item => <option key={item.id} value={item.id}>{item.name} · {STATUS[item.status]}</option>)}
+          </select>
+          <button className="primary" onClick={openCreate}><Plus size={15}/> 新建工作流</button>
+          {!serverDemo && <button className="secondary" onClick={() => savePreferences({ ...preferences, autoDemo: !autoDemo })}>{autoDemo ? "停止模拟时钟" : "启动模拟时钟"}</button>}
+        </div>}
         <section className={`role-workspace-banner ${user.role}`} aria-label="当前角色与权限">
           <span className="role-workspace-icon">{isLeader ? <ShieldCheck size={21}/> : <FlaskConical size={21}/>}</span>
           <div><strong>{isLeader ? "团队负责人工作空间" : "工作人员工作空间"}</strong><p>{isLeader ? "统筹全部实验，审批异常节点，管理策略与工作区数据。" : "执行本人实验；团队任务可查看与导出，异常节点等待负责人审批。"}</p></div>
@@ -1264,7 +1298,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                   onClick={() => setView("dashboard")}
                 >
                   <ArrowLeft size={13} />
-                  全部工作流
+                  {productMode ? "返回对话" : "全部工作流"}
                 </button>
                 <div className="blueprint-title">
                   <h1>{workflow.name}</h1>
@@ -1351,7 +1385,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                 <div className="canvas-top">
                   <div>
                     <span className="live-label">
-                      <i /> {store.mode === "remote" ? (workflow.status === "running" ? "服务器执行中" : "服务器已同步") : autoDemo ? "模拟引擎在线" : "模拟时钟已停止"}
+                      <i /> {serverDemo ? "服务端模拟引擎" : store.mode === "remote" ? (workflow.status === "running" ? "服务器执行中" : "服务器已同步") : autoDemo ? "模拟引擎在线" : "模拟时钟已停止"}
                     </span>
                     <span className="canvas-separator" />
                     <span>按原始实验流程编排</span>
@@ -1471,7 +1505,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                       <Radio size={14} />
                       运行动态
                     </h3>
-                    <small>{store.mode === "remote" ? "服务器事件 · 最新 4 条" : "前端模拟事件 · 最新 4 条"}</small>
+                    <small>{serverDemo ? "服务端模拟事件 · 最新 4 条" : store.mode === "remote" ? "服务器事件 · 最新 4 条" : "前端模拟事件 · 最新 4 条"}</small>
                   </div>
                   {workflow.events
                     .slice(-4)
@@ -1846,7 +1880,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                     onClick={async () => {
                       try {
                       if (modal === "reset") {
-                        if (readSession()?.id !== user.id) { onLogout(); return; }
+                        if (!sessionValid()) { onLogout(); return; }
                         if (!isLeader) throw new Error("只有团队负责人可以重置工作区");
                         await clearLocalConversations();
                         store.resetDemo();

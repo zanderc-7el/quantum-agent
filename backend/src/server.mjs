@@ -1,4 +1,5 @@
 import http from "node:http";
+import { makeDemoWorkflows, demoMetadata } from "./demo-workflows.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,12 @@ import { createSimulatedDevice } from "./device-adapter.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataFile = process.env.QCAL_DATA_FILE ?? path.join(root, "data", "state.json");
+const allowedOrigins = new Set((process.env.QCAL_ALLOWED_ORIGINS ?? "http://127.0.0.1:5286,http://localhost:5286,http://127.0.0.1:5173,http://localhost:5173").split(",").map(origin => origin.trim()).filter(Boolean));
+for (const origin of allowedOrigins) {
+  const parsed = new URL(origin);
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.origin !== origin) throw new Error("QCAL_ALLOWED_ORIGINS 必须是完整、精确的 HTTP(S) 来源");
+}
+const host = process.env.QCAL_HOST ?? "127.0.0.1";
 const port = Number(process.env.QCAL_PORT ?? 5290);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("QCAL_PORT 无效");
 const simulatedFault = process.env.QCAL_SIM_FAULT ?? null;
@@ -22,6 +29,17 @@ const service = makeService({
     const temp = `${dataFile}.${process.pid}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(state), { flag: "w" });
     fs.renameSync(temp, dataFile);
+  },
+});
+
+const demoDataFile = process.env.QCAL_DEMO_DATA_FILE ?? path.join(path.dirname(dataFile), "workflows.json");
+fs.mkdirSync(path.dirname(demoDataFile), { recursive: true });
+const demo = makeDemoWorkflows({
+  load: () => fs.existsSync(demoDataFile) ? JSON.parse(fs.readFileSync(demoDataFile, "utf8")) : null,
+  save: state => {
+    const temp = `${demoDataFile}.${process.pid}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(state));
+    fs.renameSync(temp, demoDataFile);
   },
 });
 
@@ -40,7 +58,7 @@ function send(res, status, value) {
 }
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin;
-  if (origin && !["http://127.0.0.1:5286", "http://127.0.0.1:5173"].includes(origin)) {
+  if (origin && !allowedOrigins.has(origin)) {
     send(res, 403, { error: { code: "FORBIDDEN", message: "来源未获准" } }); return;
   }
   if (origin) {
@@ -54,6 +72,18 @@ const server = http.createServer(async (req, res) => {
     const parts = url.pathname.split("/").filter(Boolean);
     if (req.method === "GET" && url.pathname === "/health") return send(res, 200, { status: "ok", mode: "simulated-device-gateway", hardwareConnected: false,
       controllerConnected: true, adapterId: service.device().adapterId });
+    if (parts[0] === "api" && parts[1] === "demo" && parts[2] === "workflows") {
+      if (parts.length === 3 && req.method === "GET") return send(res, 200, { ...demoMetadata, workflows: demo.list() });
+      if (parts.length === 3 && req.method === "POST") return send(res, 201, { ...demoMetadata, workflow: demo.create(await body(req)) });
+      if (parts.length === 4 && req.method === "GET") return send(res, 200, { ...demoMetadata, workflow: demo.get(parts[3]) });
+      if (parts.length === 5 && req.method === "POST") {
+        const input = await body(req);
+        if (!input || typeof input !== "object" || Array.isArray(input)) throw new ApiError("INVALID_INPUT", "请求必须是对象");
+        if (parts[4] === "actions") return send(res, 200, { ...demoMetadata, workflow: demo.act(parts[3], input.action) });
+        if (parts[4] === "policy") return send(res, 200, { ...demoMetadata, workflow: demo.policy(parts[3], input.policy) });
+      }
+      throw new ApiError("NOT_FOUND", "模拟工作流接口不存在", 404);
+    }
     if (req.method === "GET" && url.pathname === "/api/v1/device-profile") return send(res, 200, service.profile());
     if (req.method === "GET" && url.pathname === "/api/v1/device-adapter") return send(res, 200, service.device());
     if (req.method === "GET" && url.pathname === "/api/v1/skills/readout-s21") return send(res, 200, service.skill());
@@ -125,4 +155,7 @@ setInterval(() => {
     try { service.step(run.runId); } catch (error) { console.error("simulation step failed", error); }
   }
 }, 250);
-server.listen(port, "127.0.0.1", () => console.log(`QCal simulator API: http://127.0.0.1:${port}`));
+setInterval(() => {
+  try { demo.advance(1); } catch (error) { console.error("demo workflow step failed", error); }
+}, 1000);
+server.listen(port, host, () => console.log(`QCal simulator API: http://${host}:${port}`));

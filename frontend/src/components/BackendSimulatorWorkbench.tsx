@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const BASE = "http://127.0.0.1:5290";
+const BASE = ""; // Same-origin Docker proxy; no separate host port needed.
 type Point = { frequencyHz: number; magnitudeDb?: number; response?: number };
 type Analysis = { quality: string; candidateHz: number | null; reason: string | null; note?: string };
 type Decision = { action: string; reason: string; publishAllowed?: boolean };
@@ -171,7 +171,7 @@ export default function BackendSimulatorWorkbench() {
   }
   return <section className="api-card backend-simulator">
     <div className="api-section-head"><div><strong>服务端实验切片 · 确定性模拟</strong></div><small>独立于离线接口验证台</small></div>
-    <p className="api-note">连接本机 5290 端口，演练 Q12 读出 S21 扫频、模拟参数发布和依赖该版本的 F01 频谱。服务不连接 32 所接口或真机；S21 使用离散最小值、F01 使用离散峰值示例，均非真实物理拟合。</p>
+    <p className="api-note">通过同源代理连接 Docker 模拟后端，演练 Q12 读出 S21 扫频、模拟参数发布和依赖该版本的 F01 频谱。服务不连接 32 所接口或真机；S21 使用离散最小值、F01 使用离散峰值示例，均非真实物理拟合。</p>
     {deviceAdapter && <p className="api-note">设备适配器：{deviceAdapter.adapterId} · {deviceAdapter.connected ? "模拟控制器已连接" : "未连接"} · 真机连接：{deviceAdapter.hardwareConnected ? "是" : "否"} · 故障场景：{deviceAdapter.fault}</p>}
     <div className="backend-actions"><button className="primary" disabled={busy || Boolean(run && ["queued", "running", "stopping"].includes(run.status))} onClick={() => { void start(40_000_000, 41); }}>{busy ? "正在创建" : "运行正常扫描"}</button>
       <button disabled={busy || Boolean(run && ["queued", "running", "stopping"].includes(run.status))} onClick={() => { void start(1_000_000, 11); }}>模拟边界异常</button>

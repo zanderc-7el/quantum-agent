@@ -1,0 +1,33 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-5286}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [demo, preview]
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      QCAL_ALLOWED_ORIGINS: "http://127.0.0.1:${DEMO_PORT:-5286},http://localhost:${DEMO_PORT:-5286}"
+    volumes:
+      - demo-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5290/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks: [demo]
+volumes:
+  demo-data:
+networks:
+  demo:
+    internal: true
+  preview:
+    driver: bridge

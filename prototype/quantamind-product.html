@@ -23,6 +23,9 @@
     @media(max-width:1250px){.cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}.cols-3{grid-template-columns:repeat(2,minmax(0,1fr))}.step-list{grid-template-columns:repeat(2,minmax(0,1fr))}.chat-shell{grid-template-columns:minmax(0,1fr) 270px}}
     @media(max-width:900px){.shell{grid-template-columns:70px minmax(0,1fr)}.sidebar .brandtitle,.sidebar .nav-label,.sidebar .nav-item span:last-child,.side-foot{display:none}.brand{padding:0;justify-content:center}.side-scroll{padding:12px 8px}.nav-item{justify-content:center;padding:0}.nav-icon{font-size:18px}.content{padding:24px 20px 60px}.topbar{padding:0 20px}.split,.chat-shell{grid-template-columns:1fr}.chat-shell{min-height:0}.chat-messages{min-height:280px}.cols-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:600px){.top-date{display:none}.topbar{height:58px}.content{padding:19px 14px 65px}.page-head{flex-direction:column}.page-head h1{font-size:21px}.head-actions{justify-content:flex-start}.cols-2,.cols-3,.cols-4,.blueprint-grid,.form-grid,.step-list,.compare-kpis,.custom-list{grid-template-columns:1fr}.span-2,.field.full{grid-column:auto}.hero{padding:21px}.hero h2{font-size:20px}.chat-shell{display:block}.chat-shell>.panel:last-child{margin-top:16px}.ide{grid-template-columns:100px minmax(0,1fr)}.ide-tree{font-size:9px;padding:9px}.ide pre{font-size:10px;padding:11px}.topright{gap:5px}}
+
+    #product-module[hidden] { display:none; }
+    #product-module { min-height:calc(100vh - 70px); }
   </style>
 </head>
 <body>
@@ -35,13 +38,15 @@
     <div class="main">
       <header class="topbar"><div class="crumb">量智大脑&nbsp; / &nbsp;<b id="crumb">总览</b></div><div class="topright"><span class="pill amber">● 模拟演示</span><span class="top-date" id="date"></span><div class="avatar" title="演示用户">研</div></div></header>
       <main class="content" id="view"></main>
+      <section id="product-module" hidden aria-label="实验功能"><p>正在加载实验功能，请通过产品服务打开本页。</p></section>
     </div>
   </div>
   <div id="modal-root"></div><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script>
   (() => {
+    const moduleRoutes={agent:'chat',blueprint:'blueprint'};
     const navGroups=[
-      {label:'工作台',items:[['overview','◫','总览'],['agent','✦','Agent 控制台'],['blueprint','◈','校准流程'],['experiments','⚗','基础实验'],['tasks','▤','任务控制台'],['comparison','∿','结果对比'],['data','▥','实验数据']]},
+      {label:'实验中心',items:[['overview','◫','总览'],['agent','✦','对话式 Agent'],['blueprint','◈','蓝图版工作流'],['experiments','⚗','基础实验'],['tasks','▤','产品演示任务'],['comparison','∿','结果对比'],['data','▥','实验数据']]},
       {label:'能力中心',items:[['experts','♙','专家团队'],['skills','◇','实验 Skill'],['connectors','⚭','连接器']]},
       {label:'资源与工具',items:[['devices','▣','设备与配置'],['tools','⌁','脉冲与分析'],['compute','⬡','量子计算'],['circuit','⌘','线路编辑器'],['ide','▧','Cloud IDE'],['screen','▦','运维大屏']]},
       {label:'管理',items:[['admin','⚙','系统管理']]}
@@ -234,9 +239,21 @@
       const note=existing&&existing.status!=='draft'?'编辑已发布或历史版本会创建新的草稿版本；当前发布版仍保留。':'保存草稿可继续编辑；发布前会校验关键字段与流程适用范围。';
       $('#modal-root').innerHTML=`<div class="overlay" data-action="close-modal"><div class="modal builder" data-action="modal-surface" role="dialog" aria-modal="true" aria-label="${info.title}"><div class="modal-head"><div><strong>${existing?'编辑':'新建'}${info.singular}</strong><div class="muted tiny mono" style="margin-top:5px">${esc(e.logicalId||'新条目')} · v1.${version-1}</div></div><button type="button" class="btn small ghost" data-action="close-modal" aria-label="关闭">✕</button></div><div class="modal-body"><div class="builder-note">${note} 发布仅更新浏览器本地目录；不建立真机连接，也不授予设备权限。</div><form id="custom-form" class="form-grid" data-kind="${kind}" data-edit-id="${esc(e.id||'')}">${common}${extra}</form><div class="builder-actions">${button('取消','close-modal','','btn ghost')}${button('保存草稿','save-custom','','btn')}${button('校验并发布','publish-custom','','btn primary')}</div></div></div></div>`;
     }
-    const views={overview,agent,blueprint:()=>blueprint()+blueprintCustomBindings(),experiments,tasks,comparison,data,experts:()=>expertsView()+customRegistryPanel('experts'),skills:()=>skillsView()+customRegistryPanel('skills'),connectors:()=>connectorsView()+customRegistryPanel('connectors'),devices,tools:toolsView,compute,circuit,ide,screen,admin};
-    function render(){const nav=$('#nav');nav.innerHTML=navGroups.map(g=>`<div class="nav-group"><div class="nav-label">${g.label}</div>${g.items.map(i=>`<button class="nav-item ${state.view===i[0]?'active':''}" data-action="nav" data-id="${i[0]}" ${state.view===i[0]?'aria-current="page"':''}><span class="nav-icon">${i[1]}</span><span>${i[2]}</span></button>`).join('')}</div>`).join('');$('#crumb').textContent=names[state.view];$('#view').innerHTML=views[state.view]();document.title=`${names[state.view]} · QuantaMind 产品原型`;if(state.modal)(state.modal.type==='custom'?renderCustomModal():renderModal());}
-    function go(id){state.view=id;state.modal=null;$('#modal-root').innerHTML='';render();window.scrollTo({top:0,behavior:'smooth'});}
+    const views={overview,agent:()=>'',blueprint:()=>'',experiments,tasks,comparison,data,experts:()=>expertsView()+customRegistryPanel('experts'),skills:()=>skillsView()+customRegistryPanel('skills'),connectors:()=>connectorsView()+customRegistryPanel('connectors'),devices,tools:toolsView,compute,circuit,ide,screen,admin};
+    function render(){const nav=$('#nav');nav.innerHTML=navGroups.map(g=>`<div class="nav-group"><div class="nav-label">${g.label}</div>${g.items.map(i=>`<button class="nav-item ${state.view===i[0]?'active':''}" data-action="nav" data-id="${i[0]}" ${state.view===i[0]?'aria-current="page"':''}><span class="nav-icon">${i[1]}</span><span>${i[2]}</span></button>`).join('')}</div>`).join('');$('#crumb').textContent=names[state.view];$('#view').hidden=!!moduleRoutes[state.view];$('#view').innerHTML=views[state.view]();renderModule();document.title=`${names[state.view]} · QuantaMind 产品原型`;if(state.modal)(state.modal.type==='custom'?renderCustomModal():renderModal());}
+    function go(id){if(!views[id])return;if(location.hash.slice(1)!==id)history.pushState(null,'','#'+id);state.view=id;state.modal=null;$('#modal-root').innerHTML='';render();window.scrollTo({top:0,behavior:'smooth'});}
+
+    function renderModule(){
+      const host=$('#product-module'),route=moduleRoutes[state.view];
+      host.hidden=!route;
+      window.dispatchEvent(new CustomEvent('product:navigate',{detail:route||null}));
+    }
+    window.addEventListener('product:route',event=>{
+      const id=event.detail==='blueprint'?'blueprint':event.detail==='chat'?'agent':null;
+      if(id&&moduleRoutes[state.view]&&id!==state.view)go(id);
+    });
+    window.addEventListener('popstate',()=>{const id=location.hash.slice(1)||'overview';if(views[id]){state.view=id;state.modal=null;$('#modal-root').innerHTML='';render();}});
+    window.addEventListener('hashchange',()=>{const id=location.hash.slice(1)||'overview';if(views[id]&&state.view!==id){state.view=id;state.modal=null;$('#modal-root').innerHTML='';render();}});
     let toastTimer;function toast(message){const t=$('#toast');t.textContent=message;t.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.add('hidden'),3600)}
     function startRun(name,kind,target,total,expType=kind==='流程'?(name.includes('CZ')?'CZ 校准':'S21 扫频'):($('#experiment-form')?.elements.type.value||'S21 扫频')){const id='RUN-'+String(24019+state.tasks.length-3);const t={id,name,kind,target,status:'running',step:0,total,time:'刚刚',source:'模拟',expType,compareVariant:kind==='流程'?'nominal':'deviated'};state.tasks.unshift(t);state.comparisonRun=id;state.comparisonStep=null;let ticks=0;state.runTimers[id]=setInterval(()=>{ticks++;t.step=Math.min(total,ticks);if(t.step>=total){t.status='completed';clearInterval(state.runTimers[id]);delete state.runTimers[id];toast(`${name} 模拟运行完成`)}if(['overview','blueprint','tasks','comparison'].includes(state.view))render()},850);go('tasks');toast(`已启动模拟任务 ${id}`)}
     function download(name,content){const blob=new Blob([content],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
@@ -311,5 +328,6 @@
     render();
   })();
   </script>
+  <script type="module" src="/src/product.tsx"></script>
 </body>
 </html>
