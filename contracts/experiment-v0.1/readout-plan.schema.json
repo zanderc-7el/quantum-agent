@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.qcal.example/contracts/experiment-v0.1/readout-plan.schema.json",
+  "title": "Readout resonator scan plan, simulator profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["blueprintId", "blueprintVersion", "targetQubitId", "deviceId", "recipeId", "recipeVersion", "motivation", "parameters"],
+  "properties": {
+    "blueprintId": { "enum": ["single", "two"] },
+    "blueprintVersion": { "const": 1 },
+    "targetQubitId": { "const": "Q12" },
+    "deviceId": { "const": "sim-readout-v1" },
+    "recipeId": { "const": "readout_resonator_scan" },
+    "recipeVersion": { "const": 1 },
+    "motivation": { "type": "string", "minLength": 4, "maxLength": 500 },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["centerHz", "spanHz", "points"],
+      "properties": {
+        "centerHz": { "type": "number", "minimum": 5000000000, "maximum": 7000000000 },
+        "spanHz": { "type": "number", "exclusiveMinimum": 0 },
+        "points": { "type": "integer", "minimum": 3, "maximum": 601 }
+      }
+    }
+  },
+  "description": "The service also checks that centerHz ± spanHz/2 stays within the simulator profile. These limits are not hardware safety limits."
+}

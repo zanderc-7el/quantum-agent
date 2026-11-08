@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.qcal.example/contracts/experiment-v0.1/spectrum-plan.schema.json",
+  "title": "F01 spectroscopy plan, simulator profile v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["blueprintId", "blueprintVersion", "targetQubitId", "deviceId", "recipeId", "recipeVersion", "motivation", "sourceReadoutRevision", "parameters"],
+  "properties": {
+    "blueprintId": { "enum": ["single", "two"] },
+    "blueprintVersion": { "const": 1 },
+    "targetQubitId": { "const": "Q12" },
+    "deviceId": { "const": "sim-readout-v1" },
+    "recipeId": { "const": "f01_spectroscopy" },
+    "recipeVersion": { "const": 1 },
+    "motivation": { "type": "string", "minLength": 4, "maxLength": 500 },
+    "sourceReadoutRevision": { "type": "integer", "minimum": 2 },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["centerHz", "spanHz", "points"],
+      "properties": {
+        "centerHz": { "type": "number", "minimum": 4500000000, "maximum": 5800000000 },
+        "spanHz": { "type": "number", "exclusiveMinimum": 0 },
+        "points": { "type": "integer", "minimum": 3, "maximum": 601 }
+      }
+    }
+  },
+  "description": "The service requires a current published S21 revision with source measurement hash and checks centerHz ± spanHz/2. Values are simulator limits, not hardware safety limits."
+}
