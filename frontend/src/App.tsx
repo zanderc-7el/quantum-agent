@@ -31,6 +31,7 @@ import {
   Play,
   Plus,
   Radio,
+  RefreshCw,
   RotateCcw,
   Search,
   Settings2,
@@ -60,7 +61,12 @@ import {
 import ChatReport, { clearLocalConversations } from "./components/ChatReport";
 import FlowCanvas from "./components/FlowCanvas";
 import NodeInspector from "./components/NodeInspector";
+import DecisionTrail from "./components/DecisionTrail";
 import WorkspaceSettings from "./components/WorkspaceSettings";
+import { buildNodeDecisions } from "./lib/decisionTrail";
+import { useDecisionTrail } from "./lib/useDecisionTrail";
+import { useRemoteMeasurements } from "./lib/useRemoteMeasurements";
+import { useRemoteTargets } from "./lib/useRemoteTargets";
 import { loadPreferences, persistPreferences } from "./lib/preferences";
 import type { Preferences } from "./lib/preferences";
 import { exportWorkspace } from "./lib/workspaceTransfer";
@@ -68,14 +74,22 @@ import { PLATFORM_NAME } from "./lib/branding";
 
 import LoginScreen from "./components/LoginScreen";
 import ParameterDrawer from "./components/ParameterDrawer";
+import ApiOnlyWorkbench from "./components/ApiOnlyWorkbench";
 import { buildExperimentCsv } from "./lib/experimentCsv";
 import { readSession, clearSession } from "./lib/auth";
 import type { User } from "./lib/auth";
+import {
+  logoutRemote,
+  onUnauthorized,
+  readRemoteSession,
+  remoteEnabled,
+} from "./lib/apiClient";
 import { canPerformAction, canManageTeam, canOperateWorkflow } from "./lib/access";
 import { createRoleGateway } from "./lib/roleGateway";
+import { BLUEPRINTS, BLUEPRINT_STAGES } from "./lib/blueprints";
 import "./components/data-access.css";
 
-type View = "dashboard" | "blueprint" | "chat";
+type View = "dashboard" | "blueprint" | "chat" | "api";
 const STATUS: Record<WorkflowStatus, string> = {
   draft: "草稿",
   queued: "排队中",
@@ -95,6 +109,7 @@ const viewLabels: Record<View, string> = {
   dashboard: "工作看台",
   blueprint: "蓝图版工作流",
   chat: "对话式 Agent",
+  api: "接口验证台",
 };
 const pad = (n: number) => String(n).padStart(2, "0");
 const elapsed = (n: number) =>
@@ -132,9 +147,26 @@ function Sparkline({ index = 0 }: { index?: number }) {
 }
 
 export default function App({ gateway }: { gateway?: WorkflowGateway } = {}) {
-  const [user, setUser] = useState<User | null>(readSession);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = readSession();
+    if (stored && remoteEnabled() && !readRemoteSession()) {
+      // A local demo session without a backend token cannot open remote data.
+      clearSession();
+      return null;
+    }
+    return stored;
+  });
   const [loginPreferences, setLoginPreferences] = useState(loadPreferences);
   const [logoutError, setLogoutError] = useState("");
+  useEffect(
+    () =>
+      // Any 401 from the API ends the session rather than leaving a half-loaded UI.
+      onUnauthorized(() => {
+        clearSession();
+        setUser(null);
+      }),
+    [],
+  );
   useEffect(() => {
     document.documentElement.dataset.theme = loginPreferences.theme;
     document.documentElement.style.colorScheme = loginPreferences.theme;
@@ -148,6 +180,10 @@ export default function App({ gateway }: { gateway?: WorkflowGateway } = {}) {
   }, [user]);
   const logout = () => {
     const cleared = clearSession();
+    if (remoteEnabled())
+      // Revoke the server-side session (token version bump), then clear the
+      // local copy. The local UI does not wait for the network round trip.
+      void logoutRemote();
     setLoginPreferences(loadPreferences());
     setLogoutError(cleared ? "" : "已退出当前页面，但浏览器会话清理失败，请关闭此标签页。");
     setUser(null);
@@ -170,7 +206,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   const { state } = store;
   const [view, setView] = useState<View>(() => {
     const v = location.hash.slice(1);
-    return ["chat", "blueprint"].includes(v) ? (v as View) : "dashboard";
+    return ["chat", "blueprint", "api"].includes(v) ? (v as View) : "dashboard";
   });
   const [selectedId, setSelectedId] = useState(
     () => (isLeader ? state.workflows[0] : state.workflows.find((w) => w.ownerId === user.id) || state.workflows[0])?.id || "",
@@ -188,6 +224,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   >(null);
   const creating = useRef(false);
   const [createBusy, setCreateBusy] = useState(false);
+  const [lockedBlueprint, setLockedBlueprint] = useState<"single" | "two" | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [notify, setNotify] = useState("");
   const [notifications, setNotifications] = useState(false);
@@ -211,6 +248,25 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
       (n) => n.status === "running" || n.status === "attention",
     ) ||
     workflow?.nodes[0];
+  // Server audit is only available in remote mode and only rendered in the blueprint.
+  const decisionTrail = useDecisionTrail(
+    workflow,
+    store.mode === "remote" && view === "blueprint",
+  );
+  // Recorded node results replace the demo selectors in every view (metric
+  // tiles, inspector charts, report). A failed fetch keeps the last snapshot.
+  const remoteMeasurements = useRemoteMeasurements(
+    workflow,
+    store.mode === "remote",
+  );
+  // Design targets and acceptance floors bound to the workflow's Skill. The
+  // hook publishes to a module cache; the returned state drives the inline
+  // sync error and the manual retry.
+  const remoteTargets = useRemoteTargets(workflow, store.mode === "remote");
+  const nodeDecisions = useMemo(
+    () => buildNodeDecisions(decisionTrail.audit, decisionTrail.replay),
+    [decisionTrail.audit, decisionTrail.replay],
+  );
   const parameterWorkflow = parameterTarget ? state.workflows.find((w) => w.id === parameterTarget.workflowId) : undefined;
   const ownWorkflows = state.workflows.filter((w) => w.ownerId === user.id);
   const scopedWorkflows = scope === "mine" ? ownWorkflows : state.workflows;
@@ -219,6 +275,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   const closeParameters = () => setParameterTarget(null);
   const showSettings = (tab: "personal" | "data" | "team" = "personal") => { setSettingsTab(tab); setModal("settings"); setParameterTarget(null); };
   const copyWorkflow = (w: Workflow) => {
+    setLockedBlueprint(w.experiment);
     setForm({ name: `${w.name} · 副本`, machine: w.machine, qubits: w.qubits, target: w.target, type: w.type, policy: isLeader ? w.policy : "threshold", scenario: w.scenario, experiment: w.experiment });
     setModal("create"); setMenuId(null); setParameterTarget(null);
   };
@@ -233,6 +290,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     );
   };
   const openCreate = () => {
+    setLockedBlueprint(null);
     setForm((value) => ({
       ...value,
       name: /^M\d+ (单比特完整校准|双比特 CZ 校准)$/.test(value.name)
@@ -241,6 +299,13 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
       machine: preferences.defaultMachine,
       policy: user.role === "operator" ? "threshold" : preferences.defaultPolicy,
     }));
+    setModal("create");
+  };
+  const openBlueprint = (experiment: "single" | "two") => {
+    setLockedBlueprint(experiment);
+    setForm((value) => ({ ...value, experiment, qubits: experiment === "single" ? 1 : 2,
+      target: experiment === "single" ? "Q12" : "Q12–Q13",
+      name: `${value.machine} ${experiment === "single" ? "单比特完整校准" : "双比特 CZ 校准"}` }));
     setModal("create");
   };
   useEffect(() => {
@@ -259,7 +324,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   useEffect(() => {
     const fn = () => {
       const v = location.hash.slice(1);
-      if (["dashboard", "blueprint", "chat"].includes(v)) setView(v as View);
+      if (["dashboard", "blueprint", "chat", "api"].includes(v)) setView(v as View);
     };
     window.addEventListener("hashchange", fn);
     return () => window.removeEventListener("hashchange", fn);
@@ -288,6 +353,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
     return () => window.removeEventListener("keydown", key);
   }, []);
   const openWorkflow = (w: Workflow, target: View = "blueprint") => {
+    setLockedBlueprint(null);
     setSelectedId(w.id);
     setSelectedNodeId("");
     setParameterTarget(null);
@@ -341,6 +407,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   };
   const create = async (input: CreateWorkflowInput) => {
     if (readSession()?.id !== user.id) { onLogout(); return; }
+    if (lockedBlueprint && input.experiment !== lockedBlueprint) { toast("当前蓝图只能创建对应类型的校准工作流。"); return; }
     if (creating.current) return;
     creating.current = true;
     setCreateBusy(true);
@@ -350,6 +417,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
       setSelectedNodeId("");
       setView("blueprint");
       setModal(null);
+      setLockedBlueprint(null);
       toast("工作流已创建，点击“开始运行”体验完整流程。");
     } catch (e) {
       toast(e instanceof Error ? e.message : "创建失败，请检查参数");
@@ -450,6 +518,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
   const reported = workflow ? reportMeasurements(workflow) : null;
   const qmetric = qubitMeasurements(
     workflow?.target.match(/Q\d+/i)?.[0] || "Q12",
+    workflow,
   );
   const metricItems = [
     {
@@ -475,7 +544,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
       value:
         workflow?.experiment === "two"
           ? reported?.cz.toFixed(2)
-          : qmetric.rbFidelity.toFixed(2),
+          : (reported?.rb ?? qmetric.rbFidelity).toFixed(2),
       unit: "%",
       node:
         workflow?.experiment === "two" ? reported?.czNode : reported?.rbNode,
@@ -527,7 +596,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             <strong title={preferences.workspaceName}>
               {preferences.workspaceName}
             </strong>
-            <small>{isLeader ? "团队管理空间" : "个人实验空间"} · 演示</small>
+            <small>{isLeader ? "团队管理空间" : "个人实验空间"} · {store.mode === "remote" ? "远程" : "演示"}</small>
           </div>
           <span className="lab-green" />
         </div>
@@ -551,6 +620,11 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                 id: "dashboard",
                 icon: LayoutDashboard,
                 subtitle: "所有任务，一目了然",
+              },
+              {
+                id: "api",
+                icon: Radio,
+                subtitle: "离线接口与数据验证",
               },
             ] as const
           ).map(({ id, icon: Icon, subtitle }) => (
@@ -620,7 +694,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             </div>
             <div>
               <strong title={`${user.displayName} · ${user.username}`}>{user.displayName}</strong>
-              <small>{isLeader ? "团队负责人" : "工作人员"} · 演示账号</small>
+              <small>{isLeader ? "团队负责人" : "工作人员"} · {store.mode === "remote" ? "后端账号" : "演示账号"}</small>
             </div>
             <button className="icon-button" onClick={onLogout} aria-label="退出登录" title="退出登录"><LogOut size={16} /></button>
           </div>
@@ -676,7 +750,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             </span>
             <span className="demo-pill">
               <span />
-              模拟演示环境
+              {store.mode === "remote" ? "远程工作空间" : "模拟演示环境"}
             </span>
             <button
               className="icon-button"
@@ -1242,20 +1316,42 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                     查看报告
                   </button>
                 ) : (
-                  <button className="primary" onClick={openCreate}>
+                  <button className="primary" onClick={() => openBlueprint(workflow.experiment)}>
                     <Plus size={16} />
                     新建工作流
                   </button>
                 )}
               </div>
             </div>
+            <section className="blueprint-library" aria-label="校准蓝图选择">
+              <div><strong>选择校准蓝图</strong><span>当前任务按所选蓝图限定实验节点和对话计划</span></div>
+              <div className="blueprint-library-options">
+                {(["single", "two"] as const).map((kind) => <button key={kind} type="button"
+                  className={workflow.experiment === kind ? "active" : ""}
+                  onClick={() => openBlueprint(kind)}
+                  aria-label={`使用${BLUEPRINTS[kind].title}新建工作流`}>
+                  {kind === "single" ? <Activity size={20}/> : <GitBranch size={20}/>}
+                  <span><strong>{BLUEPRINTS[kind].title}</strong><small>{BLUEPRINTS[kind].description}</small></span>
+                  <em>{BLUEPRINTS[kind].nodeCount} 节点</em>
+                </button>)}
+              </div>
+            </section>
+            <section className="blueprint-stages" aria-label="当前蓝图阶段进度">
+              {BLUEPRINT_STAGES[workflow.experiment].map((stage) => {
+                const done = stage.nodes.filter((id) => workflow.nodes.find((node) => node.id === id)?.status === "success").length;
+                return <div className="blueprint-stage" key={stage.title}>
+                  <strong>{stage.title}</strong><span>{done}/{stage.nodes.length}</span>
+                  <div className="blueprint-stage-track"><i style={{ width: `${done / stage.nodes.length * 100}%` }} /></div>
+                </div>;
+              })}
+            </section>
             {!isLeader && <div className={`task-permission-banner ${canOperateWorkflow(user, workflow) ? "own" : "readonly"}`}><LockKeyhole size={16}/><div><strong>{canOperateWorkflow(user, workflow) ? workflow.status === "attention" ? "本人任务 · 等待负责人审批" : "本人任务 · 你有执行权限" : "团队任务 · 当前为只读模式"}</strong><span>{canOperateWorkflow(user, workflow) ? "可以运行、暂停或终止；审批与策略调整由团队负责人处理。" : `任务负责人：${workflow.owner}。你可查看参数、结果与记录；复制后可独立运行。`}</span></div>{!canOperateWorkflow(user, workflow) && <button className="secondary" onClick={() => copyWorkflow(workflow)}><Plus size={14}/> 复制为我的任务</button>}</div>}
             <div className="blueprint-body">
               <section className="blueprint-main">
                 <div className="canvas-top">
                   <div>
                     <span className="live-label">
-                      <i /> {autoDemo ? "模拟引擎在线" : "模拟时钟已停止"}
+                      <i /> {store.mode === "remote" ? (workflow.status === "running" ? "服务器执行中" : "服务器已同步") : autoDemo ? "模拟引擎在线" : "模拟时钟已停止"}
                     </span>
                     <span className="canvas-separator" />
                     <span>按原始实验流程编排</span>
@@ -1275,10 +1371,60 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                   workflow={workflow}
                   selectedNodeId={node.id}
                   onSelectNode={setSelectedNodeId}
+                  decisions={nodeDecisions}
                 />
+                {store.mode === "remote" && (
+                  <div
+                    className={
+                      remoteTargets.error ? "dt-sync dt-sync-error" : "dt-sync"
+                    }
+                    role={remoteTargets.error ? "alert" : "status"}
+                  >
+                    <span>
+                      {remoteTargets.error
+                        ? `设计目标同步失败：${remoteTargets.error}。当前沿用上次读取的绑定，不会回退到演示目标。`
+                        : "设计目标与验收下限取自当前工作流绑定的 Skill 与设备档案。"}
+                    </span>
+                    <button
+                      type="button"
+                      className="dt-replay-button"
+                      onClick={remoteTargets.refresh}
+                      disabled={remoteTargets.refreshing}
+                    >
+                      <RefreshCw size={12} />
+                      {remoteTargets.refreshing
+                        ? "刷新中…"
+                        : remoteTargets.error
+                          ? "重新读取"
+                          : "刷新绑定"}
+                    </button>
+                  </div>
+                )}
+                {store.mode === "remote" && (
+                  <DecisionTrail
+                    workflow={workflow}
+                    audit={decisionTrail.audit}
+                    replay={decisionTrail.replay}
+                    loading={decisionTrail.loading}
+                    error={decisionTrail.error}
+                    replayBusy={decisionTrail.replayBusy}
+                    replayError={decisionTrail.replayError}
+                    onReplay={decisionTrail.runReplay}
+                    selectedNodeId={node?.id ?? ""}
+                    onSelectNode={setSelectedNodeId}
+                  />
+                )}
                 <div className="metric-heading">
                   <span>实验指标概览</span>
-                  <small>模拟样本 · 随节点完成展示</small>
+                  <small>
+                    {reported?.source === "server"
+                      ? "服务端测量 · 随节点完成展示"
+                      : "模拟样本 · 随节点完成展示"}
+                    {remoteMeasurements.loading ? " · 同步中" : ""}
+                    {remoteMeasurements.parametersError
+                      ? " · 回读同步失败"
+                      : ""}
+                  </small>
                 </div>
                 <div className="metric-grid">
                   {metricItems.map((m, i) => {
@@ -1325,7 +1471,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                       <Radio size={14} />
                       运行动态
                     </h3>
-                    <small>前端模拟事件 · 最新 4 条</small>
+                    <small>{store.mode === "remote" ? "服务器事件 · 最新 4 条" : "前端模拟事件 · 最新 4 条"}</small>
                   </div>
                   {workflow.events
                     .slice(-4)
@@ -1345,6 +1491,19 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                       </p>
                     ))}
                 </div>
+                <details className="blueprint-timeline">
+                  <summary>节点执行时间线 · {workflow.nodes.filter((item) => item.status === "success").length}/{workflow.nodes.length} 已完成</summary>
+                  <ol>
+                    {workflow.nodes.map((item, index) => <li key={item.id} className={`timeline-${item.status}`}>
+                      <button type="button" onClick={() => setSelectedNodeId(item.id)}>
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <strong>{item.label}</strong>
+                        <em>{item.status === "success" ? "已完成" : item.status === "running" ? "运行中" : item.status === "attention" ? "待审批" : item.status === "abandoned" ? "已终止" : "待运行"}</em>
+                        {item.attempt > 0 && <small>第 {item.attempt} 次</small>}
+                      </button>
+                    </li>)}
+                  </ol>
+                </details>
               </section>
               <NodeInspector
                 workflow={workflow}
@@ -1359,11 +1518,15 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             </div>
           </main>
         )}
+        {view === "api" && <ApiOnlyWorkbench />}
         <div className="cr-host" hidden={view !== "chat"}>
           <ChatReport
             workflow={workflow}
             onOpenWorkflow={() => setView("blueprint")}
-            onCreateWorkflow={create}
+            onCreateWorkflow={(input) => {
+              if (input.experiment !== workflow.experiment) { toast("当前任务不能创建其他蓝图的工作流；请先切换蓝图。"); return; }
+              void create(input);
+            }}
             onNotify={toast}
             canEditConversation={canOperateWorkflow(user, workflow)}
           />
@@ -1373,7 +1536,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
             <i />
             {PLATFORM_NAME} <b>v1.3.1</b>
           </span>
-          <span>本地模拟 · 未连接真实设备或后端</span>
+          <span>{store.mode === "remote" ? "远程模式 · 数据由 QuantaMind 后端保存" : "本地模拟 · 未连接真实设备或后端"}</span>
           <button onClick={() => setModal("help")}>
             使用指南 <ArrowRight size={11} />
           </button>
@@ -1417,7 +1580,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                 <span className="eyebrow">NEW WORKFLOW</span>
                 <h2 id="modal-title">创建实验工作流</h2>
                 <p className="modal-description">
-                  选择实验路径，一次走通从校准到性能验证。
+                  {lockedBlueprint ? `已选择${BLUEPRINTS[lockedBlueprint].title}；此工作流仅包含对应的校准实验。` : "选择实验路径，一次走通从校准到性能验证。"}
                 </p>
                 <form
                   onSubmit={(e) => {
@@ -1426,7 +1589,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                   }}
                 >
                   <div className="experiment-choice">
-                    {(["single", "two"] as const).map((ex) => (
+                    {(["single", "two"] as const).filter((ex) => !lockedBlueprint || ex === lockedBlueprint).map((ex) => (
                       <button
                         type="button"
                         className={form.experiment === ex ? "chosen" : ""}
@@ -1597,6 +1760,7 @@ function WorkspaceApp({ gateway, user, onLogout }: { gateway?: WorkflowGateway; 
                 initialTab={settingsTab}
                 onReset={() => setModal("reset")}
                 onNotify={toast}
+                workflowId={workflow?.id}
               />
             )}
             {modal === "help" && (

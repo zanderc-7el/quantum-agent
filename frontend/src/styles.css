@@ -1134,6 +1134,57 @@ textarea::placeholder {
   gap: 12px;
   background: linear-gradient(120deg, #111a2a55, transparent);
 }
+.blueprint-library {
+  padding: 16px 25px;
+  border-bottom: 1px solid var(--line);
+}
+.blueprint-library > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.blueprint-library > div:first-child strong { font-size: 12px; }
+.blueprint-library > div:first-child span { color: var(--muted); font-size: 10px; }
+.blueprint-library-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.blueprint-library-options button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+}
+.blueprint-library-options button.active { border-color: #5b8cff; background: #5b8cff12; }
+.blueprint-library-options button:hover { border-color: #7b9fff; }
+.blueprint-library-options button > span { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.blueprint-library-options button strong { font-size: 12px; }
+.blueprint-library-options button small { color: var(--muted); font-size: 10px; }
+.blueprint-library-options button em { color: #8da6d0; font-size: 10px; font-style: normal; white-space: nowrap; }
+@media (max-width: 700px) { .blueprint-library-options { grid-template-columns: 1fr; } }
+.blueprint-stages { display: flex; gap: 10px; padding: 12px 25px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.blueprint-stage { flex: 1; min-width: 130px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.blueprint-stage strong { font-size: 11px; }
+.blueprint-stage > span { float: right; font-size: 10px; color: var(--muted); }
+.blueprint-stage-track { height: 4px; margin-top: 9px; border-radius: 4px; background: #38506a50; overflow: hidden; }
+.blueprint-stage-track i { display: block; height: 100%; background: #5b8cff; border-radius: 4px; }
+.blueprint-timeline { margin: 14px 20px 20px; border: 1px solid var(--line); border-radius: 10px; }
+.blueprint-timeline summary { padding: 12px 15px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.blueprint-timeline ol { list-style: none; margin: 0; padding: 0 15px 12px; max-height: 320px; overflow-y: auto; }
+.blueprint-timeline li { border-top: 1px solid var(--line); }
+.blueprint-timeline li button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 2px; text-align: left; border: 0; background: transparent; color: inherit; }
+.blueprint-timeline li button:hover { color: #8eb1ff; }
+.blueprint-timeline li span, .blueprint-timeline li small { color: var(--muted); font-size: 10px; }
+.blueprint-timeline li strong { flex: 1; font-size: 11px; font-weight: 500; }
+.blueprint-timeline li em { font-size: 10px; font-style: normal; color: var(--muted); }
+.blueprint-timeline .timeline-success em { color: #57cda7; }
+.blueprint-timeline .timeline-attention em { color: #e9bb6c; }
+.blueprint-timeline .timeline-running em { color: #7b9fff; }
 .back-link {
   padding: 0;
   font-size: 9px;

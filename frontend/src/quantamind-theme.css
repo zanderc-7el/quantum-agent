@@ -1,0 +1,165 @@
+/* QuantaMind's dark palette, scoped so the existing light theme remains usable. */
+:root:not([data-theme="light"]) {
+  color-scheme: dark;
+  color: #e6edf3;
+  background: #0d1117;
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-raised: #1c2129;
+  --line: #30363d;
+  --muted: #8b949e;
+  --text: #e6edf3;
+  --blue: #58a6ff;
+  --cyan: #58a6ff;
+  --green: #3fb950;
+  --amber: #d29922;
+  --qm-accent-dim: #388bfd26;
+}
+
+:root:not([data-theme="light"]) :is(body, .app-shell, .main-shell, .blueprint-page) {
+  background: var(--bg);
+  color: var(--text);
+}
+:root:not([data-theme="light"]) :is(.sidebar, .global-bar) {
+  background: var(--panel);
+  border-color: var(--line);
+}
+:root:not([data-theme="light"]) :is(input, select, textarea) {
+  background: var(--bg);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root:not([data-theme="light"]) :is(input, textarea)::placeholder { color: var(--muted); }
+:root:not([data-theme="light"]) select option { background: var(--panel); }
+:root:not([data-theme="light"]) :is(button, a, input, select, textarea):focus-visible { outline-color: var(--blue); }
+:root:not([data-theme="light"]) ::selection { background: #388bfd55; }
+:root:not([data-theme="light"]) ::-webkit-scrollbar-thumb { background: #484f58; }
+
+/* Shell, navigation and primary controls. */
+:root:not([data-theme="light"]) .brand-mark {
+  color: var(--blue);
+  background: var(--qm-accent-dim);
+  border-color: #388bfd44;
+  box-shadow: none;
+}
+:root:not([data-theme="light"]) :is(.brand strong, .breadcrumb-task) { color: var(--blue); }
+:root:not([data-theme="light"]) :is(.lab-select, .recent-list button.chosen, .secondary, .filter-selects select) {
+  background: var(--panel-raised);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root:not([data-theme="light"]) :is(.main-nav > button, .recent-list button, .nav-label, .breadcrumb) { color: var(--muted); }
+:root:not([data-theme="light"]) .main-nav > button.active {
+  background: var(--qm-accent-dim);
+  border-color: transparent;
+  color: var(--blue);
+}
+:root:not([data-theme="light"]) .main-nav > button.active::before { background: var(--blue); }
+:root:not([data-theme="light"]) :is(.main-nav > button:hover, .recent-list button:hover) { background: var(--qm-accent-dim); color: var(--text); }
+:root:not([data-theme="light"]) :is(.primary, .auth-submit, .cr-input-bottom > button, .cr-primary-button) {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #0d1117;
+  box-shadow: none;
+}
+:root:not([data-theme="light"]) .secondary:hover { background: var(--qm-accent-dim); border-color: var(--blue); color: var(--blue); }
+
+/* Workbench surfaces: cards, tables, blueprint and dialogs. */
+:root:not([data-theme="light"]) :is(
+  .overview-stats, .workflow-table-wrap, .blueprint-promo, .metric-card, .events-panel,
+  .blueprint-library-options button, .blueprint-stage, .blueprint-timeline, .modal,
+  .popover, .api-card, .api-overview > div
+) {
+  background: var(--panel);
+  border-color: var(--line);
+  box-shadow: none;
+}
+:root:not([data-theme="light"]) :is(.blueprint-header, .canvas-top, .workflow-table th, .status-tabs button.selected, .experiment-choice button) {
+  background: var(--panel-raised);
+  border-color: var(--line);
+}
+:root:not([data-theme="light"]) :is(.workflow-table tbody tr:hover, .row-menu button:hover, .experiment-choice button:hover) { background: var(--panel-raised); }
+:root:not([data-theme="light"]) :is(.workflow-table th, .workflow-table td, .workflow-table-wrap, .metric-card, .events-panel, .blueprint-kind) { border-color: var(--line); }
+:root:not([data-theme="light"]) :is(.workflow-table td, .workflow-name strong, .blueprint-title h1, .metric-card strong) { color: var(--text); }
+:root:not([data-theme="light"]) :is(.workflow-table th, .blueprint-meta, .metric-heading small, .events-panel small) { color: var(--muted); }
+:root:not([data-theme="light"]) .status-tabs button.selected { background: var(--qm-accent-dim); color: var(--blue); }
+:root:not([data-theme="light"]) .blueprint-library-options button.active {
+  background: var(--qm-accent-dim);
+  border-color: var(--blue);
+}
+:root:not([data-theme="light"]) :is(.blueprint-library-options button:hover, .experiment-choice button.chosen) {
+  border-color: var(--blue);
+}
+:root:not([data-theme="light"]) :is(.blueprint-stage-track i, .mini-progress i, .progress-track i) { background: var(--blue); }
+:root:not([data-theme="light"]) .modal-backdrop { background: #010409bb; }
+:root:not([data-theme="light"]) .form-note { background: var(--qm-accent-dim); border-color: #388bfd44; color: #b9d8ff; }
+
+/* Blueprint canvas and node inspector. Status hues remain distinct. */
+:root:not([data-theme="light"]) .fc-root {
+  --fc-surface: #0d1117;
+  --fc-border: #30363d;
+  --fc-text: #e6edf3;
+  --fc-muted: #8b949e;
+  --fc-blue: #58a6ff;
+  --fc-green: #3fb950;
+  --fc-cyan: #58a6ff;
+}
+:root:not([data-theme="light"]) :is(.fc-toolbar, .fc-footer, .ni-inspector, .ni-heading) {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+:root:not([data-theme="light"]) .fc-viewport {
+  background-color: var(--bg);
+  background-image: radial-gradient(#30363d99 0.75px, transparent 0.75px);
+  scrollbar-color: #484f58 var(--bg);
+}
+:root:not([data-theme="light"]) :is(.fc-group > span, .fc-parameter-note, .fc-loop-note, .fc-zoom-controls) {
+  background: var(--bg);
+  border-color: var(--line);
+}
+:root:not([data-theme="light"]) .fc-node { background: var(--panel); border-color: #484f58; box-shadow: none; }
+:root:not([data-theme="light"]) .fc-node:hover { background: var(--panel-raised); border-color: var(--blue); }
+:root:not([data-theme="light"]) .fc-node--success { background: #14241b; border-color: #2d6b3d; }
+:root:not([data-theme="light"]) .fc-node--running { background: #152436; border-color: var(--blue); }
+:root:not([data-theme="light"]) .fc-node--attention { background: #292419; border-color: var(--amber); }
+:root:not([data-theme="light"]) .fc-node--pending { background: var(--panel); border-color: var(--line); }
+:root:not([data-theme="light"]) .fc-node--selected { background: #1b2b3d; border-color: var(--blue); box-shadow: 0 0 0 2px #388bfd44; }
+:root:not([data-theme="light"]) .fc-stage-tabs button.fc-stage-active { background: var(--qm-accent-dim); border-color: var(--blue); color: var(--text); }
+:root:not([data-theme="light"]) .ni-heading { color: var(--text); }
+
+/* Chat, report, parameters and API workbench. */
+:root:not([data-theme="light"]) .cr-workspace { color: var(--text); }
+:root:not([data-theme="light"]) :is(.cr-chat-panel, .cr-report-panel, .cr-panel-header, .cr-chat-composer,
+  .cr-result-card, .cr-plan-card, .cr-input-box, .cr-button, .cr-quick-commands button,
+  .cr-message-text, .cr-conclusion, .cr-context-strip, .cr-report-version,
+  .cr-quality-table, .cr-readonly-banner) {
+  background: var(--panel);
+  border-color: var(--line);
+}
+:root:not([data-theme="light"]) :is(.cr-panel-header, .cr-chat-composer, .cr-result-card, .cr-plan-card, .cr-conclusion) { background: var(--panel-raised); }
+:root:not([data-theme="light"]) .cr-message-user .cr-message-text { background: var(--qm-accent-dim); border-color: #388bfd44; }
+:root:not([data-theme="light"]) :is(.cr-heading-icon, .cr-icon-button:hover, .cr-quick-commands button:hover) {
+  background: var(--qm-accent-dim);
+  border-color: #388bfd44;
+  color: var(--blue);
+}
+:root:not([data-theme="light"]) .parameter-drawer {
+  --pd-bg: #161b22;
+  --pd-surface: #1c2129;
+  --pd-line: #30363d;
+  --pd-text: #e6edf3;
+  --pd-muted: #8b949e;
+  --pd-accent: #58a6ff;
+}
+:root:not([data-theme="light"]) .pp-panel {
+  --pp-bg: #161b22;
+  --pp-surface: #1c2129;
+  --pp-line: #30363d;
+  --pp-text: #e6edf3;
+  --pp-muted: #8b949e;
+  --pp-blue: #58a6ff;
+  --pp-code: #0d1117;
+}
+:root:not([data-theme="light"]) .pd-view-switch button.is-active { background: var(--qm-accent-dim); color: var(--blue); }
+:root:not([data-theme="light"]) .api-note { background: #292419; border-color: #5d4b25; color: #e3c78a; }
