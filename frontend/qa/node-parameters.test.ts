@@ -4,6 +4,9 @@ import type { Workflow } from '../src/types.ts';
 import { applyAction, createWorkflow, tickWorkflow } from '../src/lib/simulator.ts';
 import { buildNodeParameters, selectParameterNode } from '../src/lib/nodeParameters.ts';
 import { nodeMeasurements } from '../src/lib/measurements.ts';
+import { clearWorkflowTargets, publishWorkflowBinding } from '../src/lib/remoteTargets.ts';
+import { clearWorkflowResults, publishWorkflowResults } from '../src/lib/remoteMeasurements.ts';
+import type { SkillBinding } from '../src/lib/remoteInsights.ts';
 
 function fresh(experiment: Workflow['experiment'] = 'single', anomaly = false): Workflow {
   return createWorkflow({ name: '参数展示验收', machine: 'M7', experiment, qubits: experiment === 'single' ? 1 : 2, target: experiment === 'single' ? 'Q12' : 'Q12–Q13', type: 'adaptive', policy: 'threshold', scenario: anomaly ? 'anomaly' : 'normal' });
@@ -109,6 +112,53 @@ test('completed metric values share measurement source and preserve correct unit
   assert.equal(width.value, 60);
   assert.equal(width.unit, 'ns');
   assert.equal(width.source, '参考流程指定值');
+});
+
+function deviceBinding(nodeId: string, floorRatio: number, idealRatio: number): SkillBinding {
+  const criterion = (threshold: number) => ({ metric: 'fidelity', comparator: '>=', threshold, unit: 'ratio', description: '' });
+  const target = { metric: 'fidelity', ideal: idealRatio, unit: 'ratio', direction: 'higher' as const, tolerance: null, description: '' };
+  const step = {
+    nodeId, name: nodeId, label: nodeId,
+    acceptance: criterion(0.98), target,
+    onFail: 'escalate', maxAttempts: 2,
+    effectiveAcceptance: criterion(floorRatio), deviceOverride: true,
+    effectiveTarget: target, targetSource: 'device' as const,
+  };
+  return {
+    workflowId: '', revision: 1,
+    binding: { skillId: 'single-qubit-calibration', version: '1.1.0', source: 'builtin' },
+    autonomy: { level: 'L2', name: '阈值内自主', policy: 'threshold', description: '' },
+    skill: { skillId: 'single-qubit-calibration', version: '1.1.0', name: '单比特', experiment: 'single', description: '', steps: [step], autonomyLevels: [] },
+    effectiveSteps: [step],
+  };
+}
+
+test('the parameter bottom line follows the device acceptance floor instead of the demo constant', () => {
+  const workflow = tickWorkflow(applyAction(fresh(), 'start'), 1000);
+  const node = workflow.nodes.find(item => item.id === 'IqToProbability')!;
+  publishWorkflowBinding(workflow.id, deviceBinding('IqToProbability', 0.995, 0.999));
+  const snapshot = buildNodeParameters(workflow, node)!;
+  assert.equal(snapshot.comparisons[0].thresholdSource, 'device');
+  assert.match(snapshot.threshold, /99\.50%/);
+  assert.match(snapshot.threshold, /设备验收下限/);
+  assert.equal(snapshot.assessment, '未达设备验收下限，等待处理');
+  assert.doesNotMatch(snapshot.assessment, /演示/);
+  clearWorkflowTargets(workflow.id);
+});
+
+test('a server result without a frozen criterion says the floor is unset and never scores the demo floor', () => {
+  const workflow = tickWorkflow(applyAction(fresh(), 'start'), 1000);
+  const node = workflow.nodes.find(item => item.id === 'IqToProbability')!;
+  publishWorkflowResults(workflow.id, [{
+    id: 'result-no-criterion', workflowId: workflow.id, nodeId: node.id, attempt: node.attempt,
+    stage: 'completed', metrics: { fidelity: 0.985 }, rawRef: null,
+    createdAt: '2026-11-05T00:00:00.000Z',
+  }]);
+  const snapshot = buildNodeParameters(workflow, node)!;
+  assert.equal(snapshot.comparisons[0].thresholdSource, 'none');
+  assert.match(snapshot.threshold, /未设验收下限/);
+  assert.equal(snapshot.assessment, '已执行 · 未设验收下限');
+  clearWorkflowResults(workflow.id);
 });
 
 test('snapshot generation preserves inputs, yields serializable JSON and handles empty task data', () => {

@@ -124,6 +124,56 @@ test("forged users and invalid time cannot be persisted", () => {
   assert.equal(storage.values.size, 0);
 });
 
+const remoteOperator: User = {
+  id: "user-directory-7",
+  username: "alice",
+  displayName: "Alice · 操作员",
+  role: "operator",
+  source: "remote",
+};
+
+test("remote identities round-trip through the session store", () => {
+  const storage = memoryStorage();
+  assert.equal(saveSession(remoteOperator, now, storage), true);
+  assert.deepEqual(JSON.parse(storage.values.get(SESSION_KEY)!), {
+    userId: "user-directory-7",
+    loggedInAt: now,
+    account: { username: "alice", displayName: "Alice · 操作员", role: "operator" },
+  });
+  assert.equal(storage.values.get(SESSION_KEY)!.includes("source"), false);
+  assert.deepEqual(readSession(now + 1, storage), remoteOperator);
+  assert.equal(readSession(now + SESSION_TTL_MS, storage), null);
+});
+
+test("a malformed stored remote account invalidates the session", () => {
+  const bad = [
+    { username: "", displayName: "Alice", role: "operator" },
+    { username: "alice", displayName: "Alice", role: "guest" },
+    { username: "alice", displayName: "Alice" },
+    { username: "alice", displayName: "Alice", role: "operator", extra: 1 },
+  ];
+  for (const account of bad) {
+    const storage = memoryStorage(
+      JSON.stringify({ userId: "user-directory-7", loggedInAt: now, account }),
+    );
+    assert.equal(readSession(now, storage), null, JSON.stringify(account));
+    assert.equal(storage.values.has(SESSION_KEY), false);
+  }
+});
+
+test("remote identities are validated by shape, and only remote shape grants access", () => {
+  assert.equal(canCreateWorkflow(remoteOperator), true);
+  assert.equal(canManageTeam(remoteOperator), false);
+  const remoteLeader: User = { ...remoteOperator, role: "leader" };
+  assert.equal(canManageTeam(remoteLeader), true);
+  // A user cannot be turned into a directory member by relabelling the source.
+  assert.equal(canManageTeam({ ...remoteLeader, source: "demo" }), false);
+  // The remote shim must be structurally complete.
+  assert.equal(canCreateWorkflow({ ...remoteLeader, displayName: 7 } as unknown as User), false);
+  const storage = memoryStorage();
+  assert.equal(saveSession({ ...remoteLeader, username: "" }, now, storage), false);
+});
+
 test("both accounts may create and read/export team data; guests may not", () => {
   for (const user of [leader, operator]) {
     assert.equal(canCreateWorkflow(user), true);

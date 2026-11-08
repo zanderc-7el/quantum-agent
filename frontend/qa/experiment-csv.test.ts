@@ -29,7 +29,7 @@ function parseCsv(text: string): Record<string, string>[] {
   assert.equal(cell, '');
   assert.equal(row.length, 0);
   const [header, ...body] = records;
-  assert.equal(header.length, 50);
+  assert.equal(header.length, 53);
   assert.equal(new Set(header).size, header.length);
   return body.map(record => {
     assert.equal(record.length, header.length);
