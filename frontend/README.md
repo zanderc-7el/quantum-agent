@@ -1,6 +1,6 @@
 # 超导量子自进化测控平台
 
-可本地试用的量子校准界面，包含「对话式 Agent」「蓝图版工作流」「工作看台」三个入口。当前仅演示单比特和双比特校准；不连接真实后端、量子设备、通用AI或数值拟合服务。曲线、报告、质量阈值和实验耗时均明确标识为模拟数据。
+可本地试用的量子校准界面，包含「对话式 Agent」「蓝图版工作流」「工作看台」三个入口。当前仅演示单比特和双比特校准；默认不连接真实后端、量子设备、通用AI或数值拟合服务。曲线、报告、质量阈值和实验耗时均明确标识为模拟数据。设置 `VITE_GATEWAY_MODE=remote` 后，任务、审批与事件改由 QuantaMind 校准 API 提供（见文末 v1.4 与 [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)）。
 
 ## 本地启动
 
@@ -20,7 +20,7 @@ node scripts/start-preview.mjs
 | 入口 | 本地地址 | 可试用内容 |
 | --- | --- | --- |
 | 对话式 Agent | [http://127.0.0.1:5286/#chat](http://127.0.0.1:5286/#chat) | 规则指令、单/双比特计划、任务分析、模拟曲线和报告下载 |
-| 蓝图版工作流 | [http://127.0.0.1:5286/#blueprint](http://127.0.0.1:5286/#blueprint) | 节点选择、阶段切换、缩放、观测、审批、重试、暂停与终止 |
+| 蓝图版工作流 | [http://127.0.0.1:5286/#blueprint](http://127.0.0.1:5286/#blueprint) | 节点选择、阶段切换、缩放、观测、审批、重试、暂停与终止；远程模式另有服务端决策轨迹与重放 |
 | 工作看台 | [http://127.0.0.1:5286/#dashboard](http://127.0.0.1:5286/#dashboard) | 搜索、状态/机器/实验筛选、分页、创建、复制及任务记录导出 |
 
 这些链接切换视图，三个入口共享当前任务。选择另一条任务可使用工作看台的任务名称或左侧最近工作流。刷新后恢复已保存的任务数据，初始选中第一条任务。开发服务器若需要同一端口，可运行 `npm run dev -- --port 5286 --strictPort`；预览与开发服务器不要同时占用该端口。
@@ -30,7 +30,7 @@ node scripts/start-preview.mjs
 
 - 本机持久存储：工作流、节点状态、事件和设置保存至 localStorage，对话、输入草稿和原始附件保存至 IndexedDB。单附件仍为 10 MB，全部对话附件共 100 MB；保存状态、错误与重试可见。不同网址/浏览器/设备不共享，清理站点数据会删除记录。工作区 JSON 备份仍仅包含工作流，重要附件可下载副本。
 - 工作看台每条任务可“展开实时参数”；蓝图节点提供参数页和折叠入口，展示配置、单位、进度、次数、演示采样及原始 JSON，模拟运行过程中持续更新。尚未执行值明确标为示例。
-- 登录支持两种公开演示账号：团队负责人 `leader` / `Leader123!`，工作人员 `operator` / `Operator123!`。会话在当前标签页内有效 8 小时，退出即撤销；存储不包含密码。
+- 本地模拟模式支持两种公开演示账号：团队负责人 `leader` / `Leader123!`，工作人员 `operator` / `Operator123!`（远程模式改用后端账号目录，见 v1.7）。会话在当前标签页内有效 8 小时，退出即撤销；存储不包含密码。
 - 负责人可操作和审批所有任务、修改策略、导入和重置工作区。工作人员可查看团队结果，创建和操作自己的任务；新建采用异常审批，异常决定交由负责人。旧任务没有账号归属，仅负责人可操作；可复制为本人新任务。所有变更在 Gateway 层二次检查权限。
 - 这是前端身份与权限演示，不具备服务端安全隔离；不要输入真实账号密码。后端同事按 BACKEND_INTEGRATION.md 接入正式认证、账号管理、共享数据库和实时事件。
 
@@ -68,15 +68,20 @@ node scripts/start-preview.mjs
 ## 代码与接入
 
 - `src/lib/simulator.ts`：任务状态机、演示时钟及持久化验证。
-- `src/lib/gateway.ts`：默认mock的适配器，可注入后续真实后端实现。
+- `src/lib/gateway.ts`：默认mock的适配器，可注入其他实现。
+- `src/lib/apiClient.ts` / `src/lib/remoteGateway.ts`：远程模式的HTTP客户端与 `WorkflowGateway` 实现（Bearer 鉴权、revision 乐观锁、409 自动重试、SSE 订阅）。
 - `src/lib/useWorkflowStore.ts`：React数据入口，通过Gateway加载、订阅与操作任务；真实模式不启用模拟计时和重置。
-- `src/lib/measurements.ts`：三个视图共同使用的演示参数、曲线、节点结果阶段和报告判定。
+- `src/lib/measurements.ts`：三个视图共同使用的参数、曲线、节点结果阶段和报告判定；远程模式下自动叠加服务端测量（见 v1.5）。
+- `src/lib/remoteMeasurements.ts` / `src/lib/useRemoteMeasurements.ts`：拉取并缓存服务端节点结果与 `/parameters` 参数/回读快照，按节点最新 `attempt` 归一化指标；缓存为空时所有选择器保持原有演示值。
 - `src/App.tsx`：三个入口及交互，通过 `useWorkflowStore(gateway)` 调用 Gateway，支持 `<App gateway={adapter} />` 注入适配器。
 - `src/components/ChatReport.tsx`：规则驱动的演示对话、曲线和报告导出。
 - `qa/simulator.test.ts`：独立状态不变量、流程顺序和持久化边界测试。
+- `qa/server-measurements.test.ts`、`qa/api-client.test.ts`：服务端测量归一化与令牌刷新/注销测试。
+- `qa/e2e-remote.test.ts`：可选跨仓 HTTP 端到端测试（登录→创建→运行→读测量→刷新→注销），未设置 `QUANTAMIND_E2E_BASE_URL` 时跳过。
+- `qa/render-smoke.test.mjs`：无浏览器渲染层冒烟测试。通过 Vite SSR 加载真实组件并用 `react-dom/server` 渲染登录页、负责人/工作人员工作台和参数侧栏，断言可见文案与下发回读结论；不执行 effect，因此不覆盖定时器、SSE、拖拽等客户端交互（这些仍由 Gateway 与测量测试覆盖）。
 - [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)：拟定接口合同、操作语义和联调验收要求。
 
-UI 的任务加载与操作已经经过 Gateway；未传 `gateway` 时使用本地 mock。后端同事实现 `WorkflowGateway` 后，可在应用入口传入 `<App gateway={adapter} />`。目前没有真实后端实现，接口地址与协议尚未确定；注入任务适配器也不代表模拟图表、报告或规则助手已经成为真实服务。正式联调还须用服务端结果替代 `measurements.ts` 的模拟参数，并补齐鉴权、幂等、版本顺序、断线重连和错误处理，详见对接说明。
+UI 的任务加载与操作已经经过 Gateway；未传 `gateway` 且未开启远程模式时使用本地 mock，也可在应用入口传入 `<App gateway={adapter} />`。远程模式已实现 QuantaMind 校准 API 适配器；v1.5 起图表、节点详情与报告在服务端返回测量后改用服务端数值，规则助手仍是本地规则而非模型服务。服务端当前也只生成模拟测量结果，接入真实设备前不得把界面指标当作硬件性能依据。
 
 ## v1.3 参数侧栏、角色工作区与 CSV
 
@@ -87,4 +92,104 @@ UI 的任务加载与操作已经经过 Gateway；未传 `gateway` 时使用本�
 - 当前存储仅保留节点最新状态和有限事件；无法恢复已删除任务、被覆盖的历史重试测量或已裁剪旧事件。需要逐次测量历史时由后端提供不可覆盖的运行记录。
 
 ## v1.3.1 实时参数代码视图
-参数侧栏默认以只读 JSONC 代码行呈现，包含行号、语法高亮、单位注释和实时变更标记。顶部可切换/固定节点，复制按钮复制完整源码，不含行号。未执行或采集中 results 为 null，禁止将预览值误作实测值；明暗主题均适配。
+参数侧栏默认以参数表呈现：输入配置、执行状态、进度与结果分块展示；顶部「参数 / 代码」可切换到只读 JSONC 视图（含行号、语法高亮、单位注释和实时变更标记），复制按钮复制完整源码、不含行号。顶部可切换/固定节点。未执行或采集中 results 为 null，禁止将预览值误作实测值；明暗主题均适配。
+
+## v1.4 远程后端模式（可选）
+
+默认仍为纯前端模拟。与 `E:\work\QuantaMind` 后端联调时：
+
+```powershell
+# 1) 启动后端（单独终端，工作目录 E:\work\QuantaMind）
+$env:QUANTAMIND_CALIBRATION_WORKER = "true"
+$env:QUANTAMIND_DATABASE_URL = "sqlite:///./data/quantamind.db"
+python -m backend.quantamind_api.app
+
+# 2) 前端目录：复制 .env.example 为 .env.local，写入
+#    VITE_GATEWAY_MODE=remote
+#    VITE_API_BASE_URL=http://127.0.0.1:18789
+npm run dev
+```
+
+- 登录会请求后端 `/api/v1/auth/login`；任何后端账号目录中的账号均可登录，本地开发种子账号 `leader / Leader123!`、`operator / Operator123!` 仅限本地，部署前必须更换或删除。
+- 任务由服务端执行引擎推进，前端通过 SSE 接收 `workflow.updated`；审批/重试绑定当前节点与 `attempt`，冲突时自动用权威快照重试一次。
+- 远程模式禁用“重置演示数据”；工作区 JSON 导入走服务端原子合并，导出仍可在浏览器内完成。
+- 设置 →「Skill 与审计」可查看任务绑定的 Skill 版本、设备档案、自主等级（L1–L3）、设备生效的节点验收标准与不可变审计时间线；阈值随测量结果冻结，修改 Skill 或设备阈值不改写历史。「重放校验」用当前 Skill 重新判定已记录测量，并分别标出结论不同的“标准漂移”和设计目标已变化的“目标漂移”；早期没有目标基线的结果不计为漂移。
+- 蓝图画布下方的「决策轨迹」在远程模式下展示同样的服务端记录：节点卡片标注最新验收结论，列表按时间给出测量与人工命令，点击可定位节点；「重放校验」结果会以“标准漂移”或“目标漂移”覆盖对应节点徽标。该面板只读，本地模拟模式不显示。
+- 后端默认 CORS 已允许 `http://127.0.0.1:5286`，可用 `QUANTAMIND_CORS_ORIGINS` 覆盖。完整差异见 [BACKEND_INTEGRATION.md](./BACKEND_INTEGRATION.md)。
+
+## v1.5 服务端测量与账号生命周期
+
+远程模式下，任务完成节点后前端会调用 `GET /api/v1/calibration/workflows/{id}/results` 读取服务端测量，并调用 `GET /api/v1/calibration/workflows/{id}/parameters` 读取参数快照与下发回读记录，叠加到蓝图指标、节点详情、实时参数侧栏与报告中。
+
+- **数据来源可辨**：节点、报告和参数侧栏分别标注「服务端」或「模拟」；未返回测量前继续显示原演示值，不会把预览值当成实测。
+- **只认当前尝试**：节点结果与参数快照都按 `attempt` 匹配；已重试但新尝试尚未产生结果时，旧尝试的数值不会显示。同一节点多次结果取最新一次。
+- **服务端判定优先**：结果带 `evaluation.passed` 时以冻结判定为准，不被前端演示的 98% 阈值覆盖；`fidelity` 若为 0–1 小数会换算为百分比，`parameters.Q12.t1Us/t2Us` 等参数同步到参数侧栏与报告。
+- **下发回读可见**：参数侧栏的「下发与回读」显示适配器、控制器、下发字段数与逐项差异；`publicationVerified === false` 时标明即使质量指标达标也不视为已接受，并列出 `value_mismatch` / `qubit_missing` / `readback_missing` / `readback_unavailable` 原因。
+- **失败不影响任务操作**：结果拉取失败保留上一次快照并允许继续操作，不会回退成伪造的服务端数据；参数接口失败时指标区标注「回读同步失败」，不影响其他视图。
+
+令牌生命周期：
+
+- 登录同时保存 access token 与 refresh token（`qcal-remote-session-v1`，仅当前标签页）。任意请求收到 401 时自动调用 `POST /api/v1/auth/refresh` 并用新令牌重放一次；刷新被拒则清除会话并返回登录页，不会无限重试。
+- 退出登录先调用 `POST /api/v1/auth/logout`（服务端提升 `token_version`，已签发令牌立即作废）再清除本地会话；调用失败也仍清除本地会话。
+- 修改密码走 `POST /api/v1/auth/password`，同样会作废该账号此前的全部令牌。
+
+账号管理（仅负责人，需 `calibration:manage_users`）：
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /api/v1/users` | 列出账号（含角色、启用状态） |
+| `POST /api/v1/users` | 创建账号（用户名、初始密码、显示名、角色） |
+| `PATCH /api/v1/users/{id}` | 修改显示名、角色或启用状态 |
+| `POST /api/v1/users/{id}/password` | 管理员重置密码 |
+
+禁用账号或调整角色会立即提升 `token_version`，该账号的下一次请求即失效。服务端阻止负责人禁用或降级自己，也阻止移除最后一个可用负责人。生产环境（`QUANTAMIND_ENV=production`）不再写入演示账号；若仍存在演示口令，服务拒绝以生产模式启动。
+
+真机控制语义（P8）：
+
+- 部署级开关 `QUANTAMIND_DEVICE_CONTROL` 默认为 `dry_run`，真实适配器在此模式下拒绝启动。
+- 切到 `live` 后，`start` 仍需请求体携带 `confirm=true` 才会向硬件下发；终止真实设备上的任务同样要求 `confirm=true`，确认硬件确已停止（设备回执不等于停止证据）。
+- 启动时校验设备能力：实验类型与比特数超出设备档案限制会被拒绝，不会回退到仿真执行。
+
+测试与 CI：
+
+```powershell
+npm test                       # 全部单元、合同与渲染层冒烟测试
+npm run test:render            # 只跑渲染层冒烟（Vite SSR + react-dom/server）
+$env:QUANTAMIND_E2E_BASE_URL = 'http://127.0.0.1:18789'
+node --experimental-strip-types --test qa/e2e-remote.test.ts   # 跨仓 HTTP E2E
+```
+
+Playwright 与 jsdom 在当前环境不可用，`test:render` 是渲染层的替代方案：它不启动浏览器，因此只能证明组件能渲染、关键文案与下发结论正确，不能替代真实点击流程；需要交互验证时仍用上面的跨仓 HTTP E2E 加手工验收清单（`qa/acceptance-checklist.md`）。
+
+跨仓 HTTP E2E 需要后端启用执行引擎（`QUANTAMIND_CALIBRATION_WORKER=true`）并提供演示账号。GitHub Actions 中 `.github/workflows/ci.yml` 的 `backend-e2e` job 默认跳过，设置仓库变量 `QUANTAMIND_BACKEND_REPOSITORY` 与 `QUANTAMIND_BACKEND_TOKEN` 后启用。
+
+已知限制（v1.7 起已接入后端账号目录，保留以下边界）：网页只映射 `calibration_leader` / `calibration_operator` 两种后端角色，其他角色会被明确拒绝；账号只能停用、不能删除；离开的成员应停用并重置密码。
+
+## v1.6 理想值与实测值对比
+
+参数侧栏、节点检查器的「观测」指标卡和「决策」页现在会区分三个不同的数：
+
+- **理想目标**：设备设计期望值，例如读取判别保真度 99.5%、T1 60 μs。它是“好结果长什么样”，不是验收线。
+- **验收下限**：低于该值需要人工决策的门槛，例如保真度 98%、相干时间 30 μs。优先级为：服务端冻结的 `evaluation.criterion`（「服务端冻结标准」）→ 工作流绑定的设备/Skill 验收标准（「设备验收下限」/「Skill 验收下限」）→ 演示下限（仅用于前端模拟测量）。
+- **实测值**：仅在本节点完成（`success` / `attention`）后显示；预览、执行中和已终止节点只显示参考值，实测为 “—”，差距文案会明确写“尚未采集 / 采集中 / 已终止”。
+
+对比卡同时给出距理想的差值（百分比指标以 pp 表示）、达标状态和双刻度进度条（细线为验收下限，粗线为理想目标）。远程模式下实测值只采用与当前 `attempt` 匹配、且由服务端返回的字段；字段缺失时显示“无有效数据”，不会回退成演示值。频率扫描、Rabi 幅度等控制参数节点没有质量指标，因此不显示对比卡。
+
+远程模式下，理想目标与验收下限随 Skill/设备档案下发：`useRemoteTargets` 读取 `GET /workflows/{id}/skill` 并缓存到 `src/lib/remoteTargets.ts`。目标解析顺序为「评估记录中冻结的目标」→「当前 Skill/设备绑定」→「前端演示参考常量」。冻结目标来自本 attempt 的 `evaluation.target`，因此历史判定即使遇到策略变更也仍按当时的理想值解释；过期 attempt 的冻结值不会被借用。服务端结果没有冻结验收标准、且绑定尚未加载时，验收下限显示为「未设验收下限」，不会回退成演示阈值。绑定返回的 ratio 理想值/阈值会换算为百分比显示，设备档案的 `targetOverrides` 只改变设计目标，不改变验收线。
+
+`DEMO_METRIC_TARGETS` 仍保留为 mock 模式与后端不可达时的兜底，并在界面上明确标记为「演示参考目标」。
+
+参数面板底部的阈值与判定、对话报告的指标表、MD/HTML/CSV 报告导出以及全量实验 CSV 共用同一份 `buildNodeComparisons` 解析结果，因此设备验收下限（例如 97%）不会与演示常量（98%）同时出现。服务端结果没有冻结标准时，这些位置统一显示「未设验收下限」，不做数值判定。全量实验 CSV 另增「阈值来源 / 设计目标 / 目标来源」列，供表格程序区分设备、Skill 与演示来源。
+
+设置 →「Skill 与审计」的节点表、审计时间线、蓝图决策轨迹与重放条目也调用同一套 `src/lib/metricFormat.ts`：ratio 一律换算为百分比，T1 保留一位小数、保真度与 T2 保留两位，因此设置页不会再出现 `0.995 ratio` 而参数面板显示 `99.50%`。审计时间线同时列出冻结的验收下限和设计目标，并注明目标来源。参数面板的对比条对 `higher` / `lower` 使用零基线刻度，对 `band` 指标改为以设计值为中心的容差窗口（阴影为容差带，两条细线为验收边界，竖线为实测值）。蓝图远程模式常驻「刷新绑定」按钮，工作流空闲时也能立即重新读取 Skill/设备目标。
+
+测试：`qa/metric-comparison.test.ts` 覆盖高于理想、达标未达理想、低于验收、lower/band 方向、预览与终止、服务端 0–1 阈值换算、过期 attempt、格式化以及三种方向的对比条几何；`qa/metric-format.test.ts` 覆盖 ratio→百分比、按指标取小数、band 容差与比较符符号；`qa/remote-targets.test.ts` 覆盖设备/Skill 目标覆盖、冻结目标优先、过期 attempt、无冻结标准时不借用演示下限，以及旧绑定缺少 `effectiveSteps` 时的扁平索引回退；`qa/node-parameters.test.ts` 覆盖设备下限进入参数面板底部判定、以及无冻结标准时的「未设验收下限」；`qa/remote-insights.test.ts` 覆盖目标漂移、无基线旧结果，以及审计行同时列出下限与设计目标。
+
+## v1.7 后端账号目录与账号管理
+
+- 远程登录不再要求账号出现在前端演示目录中：`loginWithBackend` 将用户名提交给后端，使用后端返回的 `user_id`、显示名与角色；`calibration_leader` / `calibration_operator` 映射为界面角色，其他角色明确拒绝并提示联系管理员。后端新建的账号现在可以直接在网页登录。
+- 远程会话记录 ID、登录时间以及 `account`（用户名、显示名、界面角色），刷新页面或切换标签页后可恢复身份；本地模拟会话仍只保存 `{userId, loggedInAt}`，不写入角色或密码。前端只校验远程身份的字段结构，权限仍由服务端逐请求校验。
+- 设置 →「账号与权限」在远程模式提供账号管理：负责人可列出账号、停用/启用、调整角色、重置密码与创建账号；所有远程账号都可使用「修改我的密码」。修改本人密码后自动续用后端返回的新令牌，其他标签页与设备上的登录立即失效。
+- 登录页在远程模式不再展示或预填演示凭据，改为提示账号由负责人创建、忘记密码联系负责人；演示账号卡片只在本地模拟模式出现。
+
+测试：`qa/account-admin.test.ts` 覆盖账号列表、创建、局部更新、管理员重置密码与本人改密后的令牌续期；`qa/auth-access.test.ts` 覆盖远程身份的会话往返、损坏账号记录清理与权限判断；`qa/remote-gateway.test.ts` 覆盖服务端身份与角色映射、拒绝不支持的角色。
