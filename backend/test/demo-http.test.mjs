@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
@@ -55,4 +55,46 @@ test('HTTP demo lifecycle, server clock, validation and original API remain avai
   assert.equal((await request('/api/demo/workflows', 'POST', null)).status, 400);
   const forbidden = await fetch(base + '/api/demo/workflows', { headers: { Origin: 'https://untrusted.example' } });
   assert.equal(forbidden.status, 403);
+
+  // Verify persisted data rather than treating a live process as durable storage.
+  await request(url + '/actions', 'POST', { action: 'abort' });
+  const workflowFile = path.join(directory, 'workflows.json');
+  const experimentFile = path.join(directory, 'state.json');
+  const savedWorkflows = await readFile(workflowFile, 'utf8');
+  const savedExperiments = await readFile(experimentFile, 'utf8');
+  const storage = await request('/api/demo/storage-status');
+  assert.equal(storage.status, 200);
+  assert.equal(storage.data.status, 'ok');
+  assert.equal(storage.data.storageType, 'json-files');
+  assert.equal(storage.data.databaseConfigured, false);
+  assert.equal(storage.data.stores.workflows.matchesMemory, true);
+  assert.equal(storage.data.stores.workflows.counts.total, 3);
+  assert.equal(storage.data.stores.experiments.counts.plans, 0);
+  assert.ok(Number.isFinite(Date.parse(storage.data.stores.workflows.lastSavedAt)));
+  assert.equal(storage.data.stores.workflows.bytes, Buffer.byteLength(savedWorkflows));
+  assert.equal((await readFile(workflowFile, 'utf8')), savedWorkflows);
+  assert.ok(!JSON.stringify(storage.data).includes(directory));
+  assert.ok(!JSON.stringify(storage.data).includes(created.data.workflow.id));
+
+  await writeFile(workflowFile, JSON.stringify({ version: 1, workflows: [] }));
+  const mismatch = await request('/api/demo/storage-status');
+  assert.equal(mismatch.status, 503);
+  assert.equal(mismatch.data.stores.workflows.errorCode, 'STATE_MISMATCH');
+  assert.equal((await request('/api/demo/workflows')).data.workflows.length, 3);
+
+  await writeFile(workflowFile, '{invalid');
+  const corrupt = await request('/api/demo/storage-status');
+  assert.equal(corrupt.status, 503);
+  assert.equal(corrupt.data.stores.workflows.errorCode, 'INVALID_JSON');
+  assert.equal(await readFile(workflowFile, 'utf8'), '{invalid');
+  await writeFile(workflowFile, savedWorkflows);
+
+  await unlink(experimentFile);
+  const missing = await request('/api/demo/storage-status');
+  assert.equal(missing.status, 503);
+  assert.equal(missing.data.stores.experiments.errorCode, 'FILE_MISSING');
+  assert.equal((await request('/health')).status, 200);
+  await writeFile(experimentFile, savedExperiments);
+  assert.equal((await request('/api/demo/storage-status')).status, 200);
+  assert.equal((await fetch(base + '/api/demo/storage-status', { headers: { Origin: 'https://untrusted.example' } })).status, 403);
 });

@@ -32,4 +32,10 @@ F01 模拟演练顺序：先完成正常 S21 扫描，生成读出候选、模�
 
 第一次启动的全新工作区会创建单比特、双比特两个未启动的演示草稿。已有持久化状态（包括空列表）不会被重置或补入示例。
 
+### 持久化数据自检
+
+`GET /api/demo/storage-status` 只读检查实验与工作流存储文件，返回任务/计划/运行数量、文件大小、最后保存时间，以及磁盘内容是否与当前服务状态一致。两份文件均可解析且一致时返回 HTTP 200 / `status: "ok"`；文件缺失、JSON 损坏、读取失败或内容不一致时返回 HTTP 503 / `status: "degraded"`，并分别标记 `FILE_MISSING`、`INVALID_JSON`、`READ_ERROR` 或 `STATE_MISMATCH`。自检不会修复、重置或覆盖任何数据，也不返回任务明细或服务器文件路径。
+
+例如 `curl -fsS http://127.0.0.1:5288/api/demo/storage-status`（开发版使用 5289）。该接口沿用现有同源代理和来源限制；`/health` 仍只用于进程存活检查。当前响应明确标注 `storageType: "json-files"`、`databaseConfigured: false`，表示完成了文件持久化读回检查，**不表示 SQL 数据库、后续写入可用性、备份恢复或正式权限已经验收**。
+
 宿主端口可通过 `DEMO_PORT=5287 docker compose up --build` 修改。Compose 同时设置精确的 `QCAL_ALLOWED_ORIGINS`（逗号分隔），允许该端口上的 `127.0.0.1` 和 `localhost` 页面访问，不使用通配来源，也不移除浏览器 Origin。

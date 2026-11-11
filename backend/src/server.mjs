@@ -7,6 +7,7 @@ import { makeService, ApiError } from "./core.mjs";
 import { SIM_RECIPES, SIM_TOPOLOGY, selectBatch } from "./recipes.mjs";
 import { AGENT_TOOLS, previewAgentGoal, reviewAgentProposal } from "./agent.mjs";
 import { createSimulatedDevice } from "./device-adapter.mjs";
+import { storageStatus } from "./storage-status.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataFile = process.env.QCAL_DATA_FILE ?? path.join(root, "data", "state.json");
@@ -72,6 +73,10 @@ const server = http.createServer(async (req, res) => {
     const parts = url.pathname.split("/").filter(Boolean);
     if (req.method === "GET" && url.pathname === "/health") return send(res, 200, { status: "ok", mode: "simulated-device-gateway", hardwareConnected: false,
       controllerConnected: true, adapterId: service.device().adapterId });
+    if (req.method === "GET" && url.pathname === "/api/demo/storage-status") {
+      const status = storageStatus({ dataFile, demoDataFile, experimentState: service.snapshot(), workflows: demo.list() });
+      return send(res, status.status === "ok" ? 200 : 503, { ...demoMetadata, ...status });
+    }
     if (parts[0] === "api" && parts[1] === "demo" && parts[2] === "workflows") {
       if (parts.length === 3 && req.method === "GET") return send(res, 200, { ...demoMetadata, workflows: demo.list() });
       if (parts.length === 3 && req.method === "POST") return send(res, 201, { ...demoMetadata, workflow: demo.create(await body(req)) });
