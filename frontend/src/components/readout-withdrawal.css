@@ -1,0 +1,7 @@
+.rp-readout-withdrawal { font-size:11px; line-height:1.7; }
+.rp-readout-source { overflow-wrap:anywhere; color:var(--muted); }
+.rp-readout-receipt { margin-top:12px; }
+.rp-readout-receipt summary { cursor:pointer; }
+.rp-readout-receipt table { width:100%; border-collapse:collapse; margin:10px 0; table-layout:fixed; }
+.rp-readout-receipt th,.rp-readout-receipt td { text-align:left; border:1px solid var(--line); padding:7px 9px; overflow-wrap:anywhere; font-size:11px; font-weight:400; }
+.rp-readout-receipt thead th { color:var(--muted); }

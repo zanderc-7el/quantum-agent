@@ -1,0 +1,5 @@
+node_modules/
+dist/
+runtime/
+resources/node/
+resources/desktop.config.json

@@ -1,0 +1,32 @@
+{
+  "model_requests": {
+    "s01_readout_frequency": {
+      "role_experience_embedded": true,
+      "instruction_chars": 2354,
+      "network_called": false
+    },
+    "s02_qubit_frequency": {
+      "role_experience_embedded": true,
+      "instruction_chars": 2448,
+      "network_called": false
+    },
+    "s03_rabi_amplitude": {
+      "role_experience_embedded": true,
+      "instruction_chars": 2426,
+      "network_called": false
+    },
+    "s05_readout_optimization": {
+      "role_experience_embedded": true,
+      "instruction_chars": 2367,
+      "network_called": false
+    },
+    "supervisor": {
+      "role_experience_embedded": true,
+      "instruction_chars": 2287,
+      "network_called": false
+    }
+  },
+  "source_files_verified": 31,
+  "knowledge_local_links_ok": true,
+  "hardware_or_network_actions": false
+}

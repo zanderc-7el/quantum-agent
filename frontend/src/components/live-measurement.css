@@ -1,0 +1,18 @@
+.rp-live-measurement { margin:16px 17px; padding:16px; border:1px solid #4acac14a; border-radius:7px; background:#4acac107; }
+.rp-live-measurement header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.rp-live-measurement header strong { display:flex; align-items:center; gap:8px; color:var(--cyan); font-size:13px; }
+.rp-live-measurement header>span, .rp-live-note, .rp-live-empty, .rp-live-measurement footer { font-size:11px; line-height:1.7; color:var(--muted); }
+.rp-live-note { margin:12px 0; }.rp-live-empty { padding:25px 0; text-align:center; }
+.rp-live-error { font-size:11px; color:#ffb35c; line-height:1.7; }
+.rp-live-options { display:flex; flex-wrap:wrap; gap:12px 22px; margin:14px 0 0; }
+.rp-live-options label { display:flex; align-items:center; gap:9px; font-size:11px; color:var(--muted); }
+.rp-live-options select { max-width:310px; padding:7px 9px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:4px; font-size:11px; }
+.rp-live-scatter { display:block; width:100%; min-height:220px; max-height:440px; }
+.rp-live-scatter line { stroke:var(--muted); stroke-width:.7; }.rp-live-scatter .grid { opacity:.22; }
+.rp-live-scatter text { fill:var(--muted); font-size:10px; }.rp-live-legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 14px; }
+.rp-live-legend>span { display:flex; align-items:center; gap:7px; min-width:0; font-size:10px; color:var(--muted); }
+.rp-live-legend i { width:7px; height:7px; border-radius:50%; flex-shrink:0; }.rp-live-legend>span>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rp-live-pagination { display:flex; align-items:center; justify-content:flex-end; gap:9px; margin-top:12px; color:var(--muted); font-size:11px; }
+.rp-live-pagination button { display:grid; place-items:center; border:1px solid var(--border); border-radius:4px; padding:4px; color:var(--text); background:transparent; cursor:pointer; }.rp-live-pagination button:disabled { opacity:.3; cursor:default; }
+.rp-live-measurement footer { margin-top:15px; padding-top:10px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; gap:7px; font-size:10px; }.rp-live-measurement footer summary { cursor:pointer; }.rp-live-measurement code { overflow-wrap:anywhere; }
+@media(max-width:900px) { .rp-live-legend { grid-template-columns:1fr; }.rp-live-options select { max-width:220px; } }

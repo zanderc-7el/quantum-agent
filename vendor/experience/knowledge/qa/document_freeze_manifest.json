@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "edition": "original_workflow_15_steps",
+  "created_at": "2026-10-24T03:21:29.208856+00:00",
+  "scope": "18份活跃文档；排除本manifest和QA记录自身，整包冻结由根验收执行",
+  "sha256": {
+    "README.md": "8b8364cc1de7eca80e920c6aa64747f51e516036b5fb8906e61a7c6a93607b01",
+    "resources/SOURCE_NOTES.md": "f268413143fac24b505f306828b9bfcebc265c94bcf23fc6411b51a1c83fc81e",
+    "output/README.md": "f835284cdbf4c4bdc6d3e70a9041aab8a796bd41cab58744e54f540119ae2e17",
+    "docs/architecture.md": "ec94c5548d3808dc7a6015fb994de16cfce15e3fb39efeaa0fd7c5b10e208f97",
+    "docs/supervisor_policy.md": "bc9eec550efc2b71d9dc5313956dbf2fcd18ffd7f753a8dd49b0da147a6a180c",
+    "docs/hardware_adapter.md": "ad2befb84921363f7a142f5997d7b6afa61e9a1d39cc3430d7d9f9ff0ee55b5c",
+    "docs/validation_strategy.md": "da83937766ac0acc0cb0f424e50722c3f96fd2dea996b8c80ec263367d1bcec5",
+    "docs/usage_walkthrough.md": "e21175ded8ca5d1faa7b6bc7afc8d0c7de51d884abf64ae9c27920c0208cc9aa",
+    "docs/build_record.md": "e7c247f6aed7dd6da28f0c0e9050783deeb3803c727b3848ec0c70875821ea2c",
+    "docs/reorganization.md": "1b1d453ac84c0be1cb61fa72071f82c2c3d18c52c12b7b80ce226a6e4b00bcc7",
+    "knowledge/parameter_dependencies.md": "aa6836a0bbf28350a4a5dedb7aa545a3009b846ceb85490d92570dfa6df88f69",
+    "knowledge/single_qubit_diagnostics.md": "753efe0b20e9a0ca4ed4d9bb77bf1aaaf3fc10bef31c0c745ae8f0cdaf694b2f",
+    "knowledge/two_qubit_diagnostics.md": "a5b8d44c4bf4c938f88c898240020d21a18a1ebda0f42f412e73bb73534b02e5",
+    "knowledge/worked_cases.md": "8f894a1f27b7bdf61c00052ccf892f95668c1ea993a2f049b20b5eee03a1d810",
+    "knowledge/known_limitations.md": "c69aee07bc4bd4e909bcd195e41e136933e0486273ffb4f814e906b433b62f63",
+    "knowledge/evidence_index.md": "0c5a3bdb75a28d2480c601d658ff10fc56ba2e06ccdbfe13f47b881e0b10b1fe",
+    "knowledge/procedure_ownership.md": "169b87921e0e0a8d44a2477c70761b330585518acbfb55dd8d9733a5b4a92eb6",
+    "knowledge/agent_internal_loop.md": "e46c185c8b33c9b399413960cbf2df88809e15b8909911c6d2e2866b795bcaf9"
+  }
+}

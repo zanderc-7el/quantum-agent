@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "task": "Original flow 15 experiment owners + one supervisor: catalog/card/procedure generation",
+  "attempt_class": "scoreable_test_result",
+  "decision": "PASS",
+  "utc_time": "2026-10-24T03:19:11.947002+00:00",
+  "identity": {
+    "pid": 50882,
+    "python": "3.14.5",
+    "platform": "macOS-26.3-arm64-arm-64bit-Mach-O",
+    "cwd": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024",
+    "command": [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/agents/verify_catalog.py"
+    ],
+    "phase": "catalog_acceptance"
+  },
+  "checks": {
+    "active_agents": 16,
+    "experiment_agents": 15,
+    "supervisor_agents": 1,
+    "internal_procedures": 44,
+    "card_prompt_files": 32,
+    "old_fields_preserved_exactly": 1013,
+    "procedure_detail_values_present_in_owner_cards": 2286,
+    "public_module_detail_values_preserved": 286,
+    "valid_prompt_examples": 16,
+    "owner_dag": "acyclic_exact_requested_chain",
+    "return_routes_not_dag_edges": 2
+  },
+  "runs": [
+    {
+      "kind": "cold-1",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/var/folders/fv/j0lryyz54ysctk4mgvsjr0vr0000gp/T/qcal-15step-cold-1-zbh0ttjl/agents/build_catalog.py"
+      ],
+      "result": "byte_identical_and_independently_valid",
+      "stdout": "{\"schema_version\": 2, \"active_agents\": 16, \"experiment_agents\": 15, \"supervisors\": 1, \"internal_procedures\": 44, \"card_prompt_files\": 32, \"root\": \"/private/var/folders/fv/j0lryyz54ysctk4mgvsjr0vr0000gp/T/qcal-15step-cold-1-zbh0ttjl\"}",
+      "exit_code": 0,
+      "temporary_workspace_removed": true
+    },
+    {
+      "kind": "cold-2",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/var/folders/fv/j0lryyz54ysctk4mgvsjr0vr0000gp/T/qcal-15step-cold-2-zzckqrxi/agents/build_catalog.py"
+      ],
+      "result": "byte_identical_and_independently_valid",
+      "stdout": "{\"schema_version\": 2, \"active_agents\": 16, \"experiment_agents\": 15, \"supervisors\": 1, \"internal_procedures\": 44, \"card_prompt_files\": 32, \"root\": \"/private/var/folders/fv/j0lryyz54ysctk4mgvsjr0vr0000gp/T/qcal-15step-cold-2-zzckqrxi\"}",
+      "exit_code": 0,
+      "temporary_workspace_removed": true
+    },
+    {
+      "kind": "same_workspace_repeat_from_other_cwd",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/agents/build_catalog.py"
+      ],
+      "result": "byte_identical_and_independently_valid",
+      "exit_code": 0
+    }
+  ],
+  "gates": [
+    {
+      "name": "target_identity",
+      "status": "pass",
+      "evidence": [
+        "Fresh independent Python process inspects this 15-step package and captures PID/runtime/cwd; no previous acceptance reused."
+      ]
+    },
+    {
+      "name": "exact_contract",
+      "status": "pass",
+      "evidence": [
+        "Exactly 15 experiment owners + 1 supervisor, 44 unique internal procedures, 32 actual card/prompt files, original box/function mapping and main procedures checked.",
+        "All 16 JSON examples parse and match the unchanged seven-field proposal contract."
+      ]
+    },
+    {
+      "name": "independent_oracle",
+      "status": "pass",
+      "evidence": [
+        "Serialized artifacts compared against archived source and ownership without importing generator: 1013 original fields exact; 2286 method details present in their owner's method section.",
+        "All 286 public-module details embedded in sole supervisor card; exact DAG and non-DAG return routes checked."
+      ]
+    },
+    {
+      "name": "clean_rerun",
+      "status": "pass",
+      "evidence": [
+        "Two fresh temporary roots with only shipped generator, immutable ownership and archived catalog regenerated all 35 outputs; independent validation and byte equality passed."
+      ]
+    },
+    {
+      "name": "idempotence",
+      "status": "pass",
+      "evidence": [
+        "Same-workspace repeat from /tmp preserved all 35 output bytes and all checked immutable source inputs."
+      ]
+    },
+    {
+      "name": "artifact_integrity",
+      "status": "pass",
+      "evidence": [
+        "35 output hashes, sizes and file modes frozen in agents/catalog_artifacts.json; source and archived card paths exist."
+      ]
+    },
+    {
+      "name": "residual_health",
+      "status": "pass",
+      "evidence": [
+        "All generator subprocesses exited; temporary roots removed; no service, background process, port or model request launched."
+      ]
+    },
+    {
+      "name": "authoritative_result",
+      "status": "pass",
+      "evidence": [
+        "This record follows independent assertions against serialized artifacts and actual cold/repeat execution; it claims static catalog acceptance only."
+      ]
+    }
+  ],
+  "not_applicable": [
+    {
+      "gate": "service_liveness",
+      "reason": "Static JSON/Markdown generation; no server or VM."
+    },
+    {
+      "gate": "performance_margin",
+      "reason": "No speed claim; declared budgets are resource ceilings, not benchmark results."
+    },
+    {
+      "gate": "physical_execution",
+      "reason": "Backend and hardware validation are parent task scope; this acceptance cannot declare any experiment physically passed."
+    }
+  ],
+  "limitations": [
+    "Partial simulator support does not mean the original main procedure is bound.",
+    "Rabi time is auxiliary to amplitude Rabi; Ramsey does not replace CPMG; tomography/Bell do not replace XEB.",
+    "Previous detailed procedure metadata is preserved as provenance and is not an active-agent API."
+  ],
+  "elapsed_seconds": 0.13972437474876642
+}

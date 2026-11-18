@@ -1,0 +1,72 @@
+Q11 local PowerPoint report export
+
+This is an offline export tool. It does not import Controller/Store, change the
+platform database, call a model, connect instruments, or alter native figures.
+The local desktop Report button remains the existing HTML report.
+
+1. Freeze the desired workflow at one consistent read-only database revision:
+
+   python scripts/export_report_snapshot.py --db data/platform.sqlite --workflow WORKFLOW_ID --artifact-root data/runs --output reports/NEW_EXPORT/report.json
+
+   To compare the same Q11 across independent tasks or adapter profiles, add an
+   explicit --additional-workflow NEW_WORKFLOW_ID (repeat for more tasks):
+
+   python scripts/export_report_snapshot.py --db data/platform.sqlite --workflow OLD_WORKFLOW_ID --additional-workflow NEW_WORKFLOW_ID --artifact-root data/runs --output reports/NEW_COMPARISON/report.json
+
+   All requested tasks are read in the same read-only SQLite transaction. The
+   bundle preserves a complete qcal-report/1 per task. Unknown or duplicate IDs
+   stop export. Without additional IDs, the existing qcal-report/1 stays unchanged.
+
+2. Use Codex load_workspace_dependencies to locate bundled Node.js packages and
+   Python. Set RUNTIME_NODE_MODULES to the returned Node.js packages directory.
+   Run the bundled Node.js executable:
+
+   node scripts/export_report_pptx.mjs --snapshot reports/NEW_EXPORT/report.json --template scripts/report_assets/quantum_red_six_plot_template.pptx --build-dir reports/NEW_EXPORT/build --appendix-count 16
+
+   appendix-count accepts 16 or 64. Main result pages contain at most six figures.
+   Keep 16 as the default for readable appendix images. All images retain their
+   source bytes, aspect ratio, full axes, and native fit annotations.
+
+3. Review every PNG in reports/NEW_EXPORT/build/renders. The source_coverage.json
+   records image IDs, paths, registered SHA256, attempt, acquisition role and
+   quality. Multi-task decks also have a comparison table and separate sections
+   and full appendices for each task, with visible workflow ID and profile hash.
+   Acquisition timestamps and full hashes remain in notes and source_coverage.
+   An old task's passed nodes never count toward another task's progress; there
+   is no combined pass status. Failed and partial figures remain in each task's
+   appendix. It is not a substitute for visually checking scientific plots.
+
+4. Set PRESENTATION_SKILL_DIR to the installed presentations SKILL.md directory
+   and RUNTIME_PYTHON to the bundled Python executable. Finalize with bundled Node:
+
+   node scripts/finalize_report_pptx.mjs --workspace PROJECT_ABSOLUTE_PATH --build-dir reports/NEW_EXPORT/build --output reports/NEW_EXPORT/output/Q11_report.pptx
+
+Snapshot, build and final paths must be new. The exporter never overwrites an
+existing snapshot or candidate. Use a new export directory for later measurements.
+It does not label a workflow complete unless the saved workflow and every current
+node confirm fresh, nonstale real results with independent verification passed.
+
+Stopped partial attempts, failed full acquisitions and the currently running
+attempt remain separate. The known legacy model evidence error on power attempt 3
+does not erase or relabel its acquired failed-quality data. No unregistered images
+are silently substituted. Missing files or SHA mismatches stop export.
+
+The reviewed template is a copied existing red CETC/Guoji Quantum template.
+Its original is unchanged. source_template.json records its exact source and hash.
+This version is intentionally scoped to Q11 and 1280x720 slides.
+
+Offline regression checks:
+  python -m unittest discover -s tests -p "test_report_snapshot*.py" -v
+  node --test tests/report_pptx_model.test.mjs
+
+Opt-in real PPT export test (synthetic fixtures only): set REPORT_PPTX_INTEGRATION=1,
+RUNTIME_NODE_MODULES and RUNTIME_PYTHON, then run:
+  node --test tests/report_pptx_export.integration.test.mjs
+It retains visibly named OFFLINE-FIXTURE files under reports/offline-tests, checks
+embedded PNG hashes, workflow/profile notes, per-task pass counts, failure and
+partial-image coverage, and both 16-image bundle / 64-image single-task layouts.
+
+Verified example, a stage report at 2026-11-18 06:50:14 Beijing time:
+reports/pptx-stage-20261118-01/output/Q11_ArcLight_阶段报告_Agent_20261118_v2.pptx
+Reports 1/13 verified nodes and 10 stored images. It is not the final full-chain
+deliverable. Later live data require a new snapshot and export.

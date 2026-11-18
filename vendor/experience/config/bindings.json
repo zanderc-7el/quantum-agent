@@ -1,0 +1,355 @@
+{
+  "schema_version": 2,
+  "data_kind": "simulated",
+  "profile": "p0_two_qubit_atomic",
+  "hardware_enabled": false,
+  "catalog_is_executable_workflow": false,
+  "note": "15个原流程角色+1总控；下列5种方法仅是内部物理仿真程序，共11个实例，不是11个agent。所有绑定仅有局部证据，不能宣称原流程完成。",
+  "bindings": [
+    {
+      "step_ids": [
+        "ro_resonator_survey"
+      ],
+      "writes": {
+        "readout.frequency_hz": "readout.resonance_hz"
+      },
+      "analysis_only": [
+        "readout.linewidth_hz"
+      ],
+      "unsupported": [
+        "多腔分峰与峰归属",
+        "功率和偏置扫描"
+      ],
+      "measure_points": 121,
+      "verify_points": 121,
+      "owner_agent_id": "s01_readout_frequency",
+      "procedure_id": "ro_resonator_survey",
+      "purpose": "main_method_partial",
+      "original_step_complete": false,
+      "step_contracts": {
+        "ro_resonator_survey": {
+          "depends_on": [],
+          "reads": [],
+          "writes": [
+            "readout.frequency_hz"
+          ]
+        }
+      },
+      "parameter_limits": {
+        "readout.frequency_hz": {
+          "min": 1000000000.0,
+          "max": 10000000000.0,
+          "unit": "Hz",
+          "scope": "simulator_profile_only"
+        }
+      },
+      "parameter_limits_note": "仅虚拟profile的候选范围；不构成任何实机DAC/幅度授权。T1/T2为表征记录范围。"
+    },
+    {
+      "step_ids": [
+        "sq_spectroscopy:q0",
+        "sq_spectroscopy:q1"
+      ],
+      "writes": {
+        "qN.frequency_coarse_hz": "qubit.f01_coarse_hz"
+      },
+      "analysis_only": [
+        "qubit.spectroscopy_width_hz"
+      ],
+      "unsupported": [
+        "实机频率路由",
+        "高阶谱线选择"
+      ],
+      "measure_points": 121,
+      "verify_points": 121,
+      "owner_agent_id": "s02_qubit_frequency",
+      "procedure_id": "sq_spectroscopy",
+      "purpose": "main_method_partial",
+      "original_step_complete": false,
+      "step_contracts": {
+        "sq_spectroscopy:q0": {
+          "depends_on": [
+            "ro_resonator_survey"
+          ],
+          "reads": [],
+          "writes": [
+            "q0.frequency_coarse_hz"
+          ]
+        },
+        "sq_spectroscopy:q1": {
+          "depends_on": [
+            "ro_resonator_survey"
+          ],
+          "reads": [],
+          "writes": [
+            "q1.frequency_coarse_hz"
+          ]
+        }
+      },
+      "parameter_limits": {
+        "qN.frequency_coarse_hz": {
+          "min": 1000000000.0,
+          "max": 10000000000.0,
+          "unit": "Hz",
+          "scope": "simulator_profile_only"
+        }
+      },
+      "parameter_limits_note": "仅虚拟profile的候选范围；不构成任何实机DAC/幅度授权。T1/T2为表征记录范围。"
+    },
+    {
+      "step_ids": [
+        "sq_rabi_time:q0:seed",
+        "sq_rabi_time:q1:seed",
+        "sq_rabi_time:q0:final",
+        "sq_rabi_time:q1:final"
+      ],
+      "writes": {
+        "qN.pi_seed_duration_s": "qubit.pi_duration_s（初始）",
+        "qN.rabi_seed_hz_per_amp": "qubit.rabi_hz_per_amp（初始）",
+        "qN.pi_duration_s": "qubit.pi_duration_s（细频率后复测）",
+        "qN.rabi_hz_per_amp": "qubit.rabi_hz_per_amp（细频率后复测）"
+      },
+      "analysis_only": [],
+      "unsupported": [
+        "幅度Rabi",
+        "完整单比特门保真度",
+        "DRAG"
+      ],
+      "measure_points": 161,
+      "verify_points": 165,
+      "owner_agent_id": "s03_rabi_amplitude",
+      "procedure_id": "sq_rabi_time",
+      "purpose": "auxiliary",
+      "original_step_complete": false,
+      "step_contracts": {
+        "sq_rabi_time:q0:seed": {
+          "depends_on": [
+            "sq_spectroscopy:q0"
+          ],
+          "reads": [
+            "q0.frequency_coarse_hz"
+          ],
+          "writes": [
+            "q0.pi_seed_duration_s",
+            "q0.rabi_seed_hz_per_amp"
+          ]
+        },
+        "sq_rabi_time:q1:seed": {
+          "depends_on": [
+            "sq_spectroscopy:q1"
+          ],
+          "reads": [
+            "q1.frequency_coarse_hz"
+          ],
+          "writes": [
+            "q1.pi_seed_duration_s",
+            "q1.rabi_seed_hz_per_amp"
+          ]
+        },
+        "sq_rabi_time:q0:final": {
+          "depends_on": [
+            "sq_ramsey:q0"
+          ],
+          "reads": [
+            "q0.frequency_hz"
+          ],
+          "writes": [
+            "q0.pi_duration_s",
+            "q0.rabi_hz_per_amp"
+          ]
+        },
+        "sq_rabi_time:q1:final": {
+          "depends_on": [
+            "sq_ramsey:q1"
+          ],
+          "reads": [
+            "q1.frequency_hz"
+          ],
+          "writes": [
+            "q1.pi_duration_s",
+            "q1.rabi_hz_per_amp"
+          ]
+        }
+      },
+      "parameter_limits": {
+        "qN.pi_seed_duration_s": {
+          "min": 1e-09,
+          "max": 1e-05,
+          "unit": "s",
+          "scope": "simulator_profile_only"
+        },
+        "qN.rabi_seed_hz_per_amp": {
+          "min": 1000.0,
+          "max": 1000000000.0,
+          "unit": "Hz/amplitude",
+          "scope": "simulator_profile_only"
+        },
+        "qN.pi_duration_s": {
+          "min": 1e-09,
+          "max": 1e-05,
+          "unit": "s",
+          "scope": "simulator_profile_only"
+        },
+        "qN.rabi_hz_per_amp": {
+          "min": 1000.0,
+          "max": 1000000000.0,
+          "unit": "Hz/amplitude",
+          "scope": "simulator_profile_only"
+        }
+      },
+      "parameter_limits_note": "仅虚拟profile的候选范围；不构成任何实机DAC/幅度授权。T1/T2为表征记录范围。"
+    },
+    {
+      "step_ids": [
+        "sq_ramsey:q0",
+        "sq_ramsey:q1"
+      ],
+      "writes": {
+        "qN.frequency_hz": "qubit.f01_candidate_hz / qubit.f01_hz",
+        "qN.t2_s": "qubit.t2_ramsey_s"
+      },
+      "analysis_only": [
+        "qubit.ramsey_detuning_hz"
+      ],
+      "unsupported": [
+        "实机符号约定尚未标定",
+        "非Markov噪声模型"
+      ],
+      "measure_points": 322,
+      "verify_points": 322,
+      "owner_agent_id": "s07_t2",
+      "procedure_id": "sq_ramsey",
+      "purpose": "diagnostic",
+      "original_step_complete": false,
+      "step_contracts": {
+        "sq_ramsey:q0": {
+          "depends_on": [
+            "sq_rabi_time:q0:seed"
+          ],
+          "reads": [
+            "q0.frequency_coarse_hz",
+            "q0.pi_seed_duration_s"
+          ],
+          "writes": [
+            "q0.frequency_hz",
+            "q0.t2_s"
+          ]
+        },
+        "sq_ramsey:q1": {
+          "depends_on": [
+            "sq_rabi_time:q1:seed"
+          ],
+          "reads": [
+            "q1.frequency_coarse_hz",
+            "q1.pi_seed_duration_s"
+          ],
+          "writes": [
+            "q1.frequency_hz",
+            "q1.t2_s"
+          ]
+        }
+      },
+      "parameter_limits": {
+        "qN.frequency_hz": {
+          "min": 1000000000.0,
+          "max": 10000000000.0,
+          "unit": "Hz",
+          "scope": "simulator_profile_only"
+        },
+        "qN.t2_s": {
+          "min": 1e-09,
+          "max": 1.0,
+          "unit": "s",
+          "scope": "simulator_profile_only"
+        }
+      },
+      "parameter_limits_note": "仅虚拟profile的候选范围；不构成任何实机DAC/幅度授权。T1/T2为表征记录范围。"
+    },
+    {
+      "step_ids": [
+        "sq_t1:q0",
+        "sq_t1:q1"
+      ],
+      "writes": {
+        "qN.t1_s": "qubit.t1_s"
+      },
+      "analysis_only": [
+        "qubit.t1_model_diagnostics"
+      ],
+      "unsupported": [
+        "多指数/热激发模型选择",
+        "完整频率切片图"
+      ],
+      "measure_points": 81,
+      "verify_points": 81,
+      "owner_agent_id": "s06_t1",
+      "procedure_id": "sq_t1",
+      "purpose": "main_method_partial",
+      "original_step_complete": false,
+      "step_contracts": {
+        "sq_t1:q0": {
+          "depends_on": [
+            "sq_rabi_time:q0:final"
+          ],
+          "reads": [
+            "q0.frequency_hz",
+            "q0.pi_duration_s"
+          ],
+          "writes": [
+            "q0.t1_s"
+          ]
+        },
+        "sq_t1:q1": {
+          "depends_on": [
+            "sq_rabi_time:q1:final"
+          ],
+          "reads": [
+            "q1.frequency_hz",
+            "q1.pi_duration_s"
+          ],
+          "writes": [
+            "q1.t1_s"
+          ]
+        }
+      },
+      "parameter_limits": {
+        "qN.t1_s": {
+          "min": 1e-09,
+          "max": 1.0,
+          "unit": "s",
+          "scope": "simulator_profile_only"
+        }
+      },
+      "parameter_limits_note": "仅虚拟profile的候选范围；不构成任何实机DAC/幅度授权。T1/T2为表征记录范围。"
+    }
+  ],
+  "fixed_defaults": {
+    "drive_amplitude": 0.2,
+    "ramsey_reference_offset_hz": 400000,
+    "shots_per_acquisition": 2048,
+    "max_attempts": 2,
+    "verification_requires_fresh_data": true
+  },
+  "cz_suite": {
+    "entrypoint": "python3 -m quantum_agents cz --output NEW_DIRECTORY",
+    "execution_status": "source_suite_only",
+    "atomic_transactions": false,
+    "resume_supported": false,
+    "guarded_required_checks": 17,
+    "owner_agents": [
+      "d02_idle_interaction",
+      "d03_cz_width",
+      "d05_cz_detuning",
+      "d06_cz_xeb"
+    ],
+    "original_step_complete": false,
+    "not_implemented": [
+      "tq_xeb",
+      "tq_process_tomography",
+      "tq_cz_amplitude_fine"
+    ]
+  },
+  "planning_aliases_note": "runtime qN键先映射到procedure读写，再归属15 owner并传播下游；仅保守规划，不改变Runtime的精确依赖。",
+  "public_agent_count": 16,
+  "procedure_catalog": "config/procedure_catalog.json"
+}

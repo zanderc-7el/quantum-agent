@@ -1,0 +1,196 @@
+{
+  "schema_version": 2,
+  "artifacts": {
+    "config/agent_catalog.json": {
+      "sha256": "65979549c7844d64c0c9ff182473cb63d6bbdacb341e58f8c6106e7fafed38e7",
+      "bytes": 208513,
+      "mode": "0o644"
+    },
+    "config/procedure_catalog.json": {
+      "sha256": "a6a3a2039368dfa3d7494cedb3508390b5095ce71f1b509790fd89f27857e0ef",
+      "bytes": 149162,
+      "mode": "0o644"
+    },
+    "docs/experiment_coverage.md": {
+      "sha256": "3d56eb5bb1b76887a0e47edf1d53ad18f07b30c830ff48b627a2a49121f6652e",
+      "bytes": 13096,
+      "mode": "0o644"
+    },
+    "agents/s01_readout_frequency/card.md": {
+      "sha256": "04dd962fec65cf657982006552891ce8b7645e1ef16bbd92e1c7698f50aea937",
+      "bytes": 12352,
+      "mode": "0o644"
+    },
+    "agents/s01_readout_frequency/prompt.md": {
+      "sha256": "4babf5248267da8799b5360fd90d8ac050968950ad964e0afb643724a0f47ec8",
+      "bytes": 3389,
+      "mode": "0o644"
+    },
+    "agents/s02_qubit_frequency/card.md": {
+      "sha256": "7ecf2f010c059caed0a1c7c7d3c9466c73452d02e4e8670bb54e990d22a883c9",
+      "bytes": 11360,
+      "mode": "0o644"
+    },
+    "agents/s02_qubit_frequency/prompt.md": {
+      "sha256": "7f3fb03ad25c46846bf4e0d2c839877afed7ba6b368798c5e1d3452e04f9d8a4",
+      "bytes": 3384,
+      "mode": "0o644"
+    },
+    "agents/s03_rabi_amplitude/card.md": {
+      "sha256": "254385bd231dc98bc2af63e70f721314122c22312909f2289342cd014dde0711",
+      "bytes": 19469,
+      "mode": "0o644"
+    },
+    "agents/s03_rabi_amplitude/prompt.md": {
+      "sha256": "dd979221248b487b26fa50cf5e0f4f5dfb9680cdd0062c63d52022953d86c739",
+      "bytes": 3494,
+      "mode": "0o644"
+    },
+    "agents/s04_readout_fidelity/card.md": {
+      "sha256": "f9286c43bd1d2f2c067ca2071134f4d4a8ecb5c07a9a80de49846915668b69d2",
+      "bytes": 9282,
+      "mode": "0o644"
+    },
+    "agents/s04_readout_fidelity/prompt.md": {
+      "sha256": "1fa35fe2eaa19d8c2ab4634e62dd10660bfc80f8e178bbbefb527c7fb3e418b4",
+      "bytes": 3356,
+      "mode": "0o644"
+    },
+    "agents/s05_readout_optimization/card.md": {
+      "sha256": "83df62e56e886c270d5dedec36387fefcb1c042026076734c0822d95915fca8c",
+      "bytes": 6416,
+      "mode": "0o644"
+    },
+    "agents/s05_readout_optimization/prompt.md": {
+      "sha256": "a94cc18c912efe52447430fefe6a3023857789d2388abaf199340d3934e1b95b",
+      "bytes": 3401,
+      "mode": "0o644"
+    },
+    "agents/s06_t1/card.md": {
+      "sha256": "4962058c639494aca6db63094afe3a381f11e9f918e399eccdefae3720b99ebc",
+      "bytes": 8564,
+      "mode": "0o644"
+    },
+    "agents/s06_t1/prompt.md": {
+      "sha256": "24696e3af743c0251cd82968c9f7ddc91313cdab24e54082f9ddd032a3878e5b",
+      "bytes": 3222,
+      "mode": "0o644"
+    },
+    "agents/s07_t2/card.md": {
+      "sha256": "9cdeced2124d36ea6ac0f0ba76d11e34c9874a81ce6622efec917ed6d80603e6",
+      "bytes": 9388,
+      "mode": "0o644"
+    },
+    "agents/s07_t2/prompt.md": {
+      "sha256": "28b7708ec1734c5070db625b8849886663911bf50d0550e78dd07236d8be31de",
+      "bytes": 3283,
+      "mode": "0o644"
+    },
+    "agents/s08_single_qubit_rb/card.md": {
+      "sha256": "dd234eb4940952e5d4e0d7a7cbba3997c66fb25bdf4b4bf372eaf4c94db38439",
+      "bytes": 8851,
+      "mode": "0o644"
+    },
+    "agents/s08_single_qubit_rb/prompt.md": {
+      "sha256": "e12ffa23fa2b3c09415800a20364f5d6408d436476d8c93390c09345ec577692",
+      "bytes": 3316,
+      "mode": "0o644"
+    },
+    "agents/d01_flux_spectroscopy/card.md": {
+      "sha256": "2250fc40c1fe5a2ecaba2807e246f1650cf0548fcad40d5f93e2758c0b76f694",
+      "bytes": 6463,
+      "mode": "0o644"
+    },
+    "agents/d01_flux_spectroscopy/prompt.md": {
+      "sha256": "968b5804ae6b732cbb4d48a5deb87bc377061ac7cae8c8d2c1ac7fdcf8efe07b",
+      "bytes": 3369,
+      "mode": "0o644"
+    },
+    "agents/d02_idle_interaction/card.md": {
+      "sha256": "86f2568ab76115106ce4dae958bfc08c8c6ac885e53ecafcd41e66b7d7e9de51",
+      "bytes": 18513,
+      "mode": "0o644"
+    },
+    "agents/d02_idle_interaction/prompt.md": {
+      "sha256": "27c8cc37d7422d404543f186771e8361e3f0e55c91e5802f7c21b75d2408ba22",
+      "bytes": 3504,
+      "mode": "0o644"
+    },
+    "agents/d03_cz_width/card.md": {
+      "sha256": "f2e40a376dbc598fb983500939233c0477799ee366d74d1a24b810fd5839f104",
+      "bytes": 17208,
+      "mode": "0o644"
+    },
+    "agents/d03_cz_width/prompt.md": {
+      "sha256": "a49849c0fa67b3bc2585f7311c8af196fb4bc309c8298b0981cbd1d21a83bee1",
+      "bytes": 3428,
+      "mode": "0o644"
+    },
+    "agents/d04_cz_amplitude/card.md": {
+      "sha256": "1dddc8c6356d2d570328af90c3e5f1bbe84d837cce6e431d8587212bb0b6ff95",
+      "bytes": 6441,
+      "mode": "0o644"
+    },
+    "agents/d04_cz_amplitude/prompt.md": {
+      "sha256": "84586b1c2450d825f76544142055cd041c1e8ff9ff9f58f24b5e026549925195",
+      "bytes": 3336,
+      "mode": "0o644"
+    },
+    "agents/d05_cz_detuning/card.md": {
+      "sha256": "acfdd2ec9ae9d540295f203387bf10bc2563666984a64b3941aca4a21ea25ab5",
+      "bytes": 15272,
+      "mode": "0o644"
+    },
+    "agents/d05_cz_detuning/prompt.md": {
+      "sha256": "3c6e4a7b706254f4c10e14ab10b8d5a928c6ba3a5d5f65320f497f5a4de99c3c",
+      "bytes": 3505,
+      "mode": "0o644"
+    },
+    "agents/d06_cz_xeb/card.md": {
+      "sha256": "a6d9b6c31cc68981eedd52f98b495a6e848cd5168b5ddbb918b81349b24ad738",
+      "bytes": 20058,
+      "mode": "0o644"
+    },
+    "agents/d06_cz_xeb/prompt.md": {
+      "sha256": "63bb512887ad2462814d880b40a247a63e3a7b78986a2b7ed65e408ac05dd4dd",
+      "bytes": 3422,
+      "mode": "0o644"
+    },
+    "agents/d07_cz_optimizer/card.md": {
+      "sha256": "46bc8af7fd929426b20511e9c537e0b6d79eada1cf3747604cefb56363bc77fc",
+      "bytes": 6776,
+      "mode": "0o644"
+    },
+    "agents/d07_cz_optimizer/prompt.md": {
+      "sha256": "99f52e65edb431644e1a2461602da1c3c2d42423fbe3f0485a3cbcaacdc85f08",
+      "bytes": 3372,
+      "mode": "0o644"
+    },
+    "agents/supervisor/card.md": {
+      "sha256": "ddc15651f4957a40da2926bdcf48fd3b9091ec478722fb980b9018b346db70ab",
+      "bytes": 20007,
+      "mode": "0o644"
+    },
+    "agents/supervisor/prompt.md": {
+      "sha256": "0c2fb4ab4efd019724dff64e9cded1418dfef420063b1b26cc7c5cb7fb1483ec",
+      "bytes": 3351,
+      "mode": "0o644"
+    }
+  },
+  "immutable_inputs": {
+    "agents/build_catalog.py": "aebc05090e268df16e0036bf74591d4a7a42bbdc2210ebedb3d7d50851e2760f",
+    "config/workflow_ownership.json": "971300fcd720949d7fed3bf7a8c715976ed18f6b19365ef1e6a02f6ac9d09baa",
+    "resources/new_attachments/p0-report-extracted.txt": "1c55a0a5857183276e282986726d69bfd08b40cef1014ef12e97ac00f5747189",
+    "resources/new_attachments/双比特测试.pdf": "70e8bc67f379de4f167fcb05e4275daef58ce61196500230b658e53630d01a12",
+    "resources/previous_edition/agents/capability_router/card.md": "96b4b4e22a5c3589afea11b03ff06d9e9db9ca4b5940141bed9935e76b427595",
+    "resources/previous_edition/agents/evidence_steward/card.md": "db64c354069a57a6aeeb7059b495e917e9c1b89fc22ff77dc8352d5227789d6a",
+    "resources/previous_edition/agents/fit_diagnostics/card.md": "c5653e448ba0a36edd6f6113ae2f1b4be894780743a272e13016536ce9392668",
+    "resources/previous_edition/agents/independent_acceptance/card.md": "c893f09f03bf522c74f18368d8ab83e8f135cb7d458ccf2535b9ac9cdfe9287f",
+    "resources/previous_edition/agents/mission_supervisor/card.md": "3d6a4cb616d10db05cb6ad57bc1aacd0ffde2cc42254a402c7fdacd3e596fb95",
+    "resources/previous_edition/agents/parameter_registry/card.md": "65d83d19e795aef1b656f4097f5130b5ecaec8884e81390a7ff7c748b61a4346",
+    "resources/previous_edition/config/agent_catalog.json": "db0584a8301cfc4bb6da8946e50a60a53e930e8075df34e04ba8631d24164463",
+    "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md": "2b31666cc901283cf3de756569082077ae7118b4e27824ec50024253bf5442da",
+    "resources/source_materials/two-qubit-page-1.txt": "22359a01ba77bb3f1891eb23ecac1c2e48003e7b4069e5c708cac55288b735af",
+    "resources/source_materials/two-qubit-page-2.txt": "e7f71819519e272c8815185aef7b5be3fb158c29f6fee7373f35cb706116f650"
+  }
+}

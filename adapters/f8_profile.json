@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "id": "f8-native-cy8",
+  "enabled": false,
+  "python": "D:/Python312/python.exe",
+  "basePath": "D:/coding_tgqos_test",
+  "runner": "adapters/f8_runtime/run_f8_worker.py",
+  "runnerSha256": "d92aeb3eb374442a07dbe0c010e2a983dbee1c23cd85260a3b46b5fc79447017",
+  "configurationDir": "adapters/f8_runtime/F8_copy",
+  "sourceManifest": "adapters/f8_runtime/source_manifest.json",
+  "hardwareLock": "D:/总体-8号机测试/ADC_Agent.lock",
+  "visaLibrary": "C:/Windows/System32/visa64.dll",
+  "instrument": {
+    "id": "CY_Station1",
+    "address": "TCPIP::10.100.16.105::7110::SOCKET",
+    "xy": [
+      0,
+      0
+    ],
+    "readout": [
+      15,
+      0
+    ],
+    "adc": [
+      14,
+      0
+    ],
+    "resourceGroup": "CY8_SHARED_BUS1"
+  },
+  "shutdownReadbackVerified": false,
+  "cancelGraceSeconds": 20,
+  "maximumRunSeconds": 3600,
+  "maximumTotalShots": 8000000,
+  "resources": {
+    "Q11": {
+      "q": "Q11",
+      "readout_hz": 7009160000.0,
+      "readout_amp": 0.75,
+      "drive_hz": 4862690000.0,
+      "drive_amp": 0.98,
+      "drive_length_s": 3.2e-07,
+      "half_pi_amp": 0.49,
+      "xy_delay_s": 1e-07,
+      "calibrationStatus": "historical_seed_requires_current_verification"
+    },
+    "Q18": {
+      "q": "Q18",
+      "readout_hz": 7358766666.666667,
+      "readout_amp": 0.8,
+      "drive_hz": 4678120000.0,
+      "drive_amp": 0.98,
+      "drive_length_s": 4.88e-07,
+      "half_pi_amp": 0.49,
+      "xy_delay_s": 3e-07,
+      "calibrationStatus": "historical_trial_requires_current_verification"
+    }
+  },
+  "parameterBounds": {
+    "readout_hz": [
+      6900000000.0,
+      7500000000.0
+    ],
+    "readout_amp": [
+      0,
+      0.8
+    ],
+    "drive_hz": [
+      4000000000.0,
+      5500000000.0
+    ],
+    "drive_amp": [
+      0,
+      0.98
+    ],
+    "drive_length_s": [
+      4e-09,
+      5e-06
+    ],
+    "half_pi_amp": [
+      0,
+      0.98
+    ],
+    "xy_delay_s": [
+      0,
+      3e-06
+    ],
+    "shots": [
+      1,
+      2000
+    ],
+    "capture_repeats": [
+      1,
+      16
+    ],
+    "points": [
+      2,
+      2001
+    ],
+    "start_s": [
+      0,
+      0.0001
+    ],
+    "stop_s": [
+      4e-09,
+      0.0001
+    ],
+    "span_hz": [
+      1000.0,
+      100000000.0
+    ],
+    "rotation_hz": [
+      -2000000.0,
+      2000000.0
+    ],
+    "pi_pulses": [
+      1,
+      32
+    ]
+  },
+  "capabilityNotes": [
+    "Profile enabled is set by the single authorized hardware controller after ownership/connection handoff, not by a model.",
+    "No import or connection occurs during preflight.",
+    "Shutdown commands/zero waveforms do not prove unvalidated firmware state-query semantics.",
+    "Native same-duration half-amplitude XY/2; no historical short-half monkeypatch.",
+    "Q11/Q18 are ascending readout-frequency labels, not verified physical-layout identities."
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-11-16T20:15:55.957579+00:00",
+  "kind": "offline_documentation_and_existing_evidence_archival_only",
+  "passed": true,
+  "knowledge_files": [
+    {
+      "path": "knowledge/field_case_20261117_q11.md",
+      "sha256": "7a42786801de9ca26fac65297804615cf339c3a8327e03026f7d50bcffa2783b"
+    },
+    {
+      "path": "knowledge/field_case_20261117_q18_q19.md",
+      "sha256": "01938b69e457c2c2942ce31735ea9604c2467c99aa4640317b814573cbba0833"
+    }
+  ],
+  "knowledge_local_links_verified": 78,
+  "archive_hash_checks": [
+    {
+      "manifest": "resources/field_updates/20261117/intake_manifest.json",
+      "checked": 30,
+      "sha256": "ab77a5fcfe68586a281251632da7f8a9a92426b0facfab79ecf82dcf3d8ea076"
+    },
+    {
+      "manifest": "resources/field_updates/20261117/final_q11/intake_manifest.json",
+      "checked": 59,
+      "sha256": "aef8951cedc38b3216534a3cd9373f366b529a0ca6cdeb5252aca5e88de7a5b7"
+    },
+    {
+      "manifest": "resources/field_updates/20261117/q18_q19/intake_manifest.json",
+      "checked": 236,
+      "sha256": "0acb8813ca7b8e96e012f1b96a3a7ad15a99314bca9dea58b77ddcd30d4b8b7f"
+    },
+    {
+      "manifest": "resources/field_updates/20261117/q18_q19/rb_final/intake_manifest.json",
+      "checked": 46,
+      "sha256": "71e663f3d12235e74bff595c672fe8def10b2fc7df10cbb56f006344a011a62e"
+    }
+  ],
+  "protected_initial_package_files_unchanged": 1751,
+  "protected_scope": "Package files only. Does not establish original external F8 files unchanged over the experiment session.",
+  "prior_Q11_final_evidence_files_unchanged": 1850,
+  "source_reference_snapshots": {
+    "stage": {
+      "checked": 1550,
+      "matched": 1546,
+      "historical_or_live_copy_differences": 4
+    },
+    "final_Q18_RB": {
+      "checked": 512,
+      "matched": 512,
+      "unmatched": 0
+    }
+  },
+  "original_F8_scope": "Original config/notebook differ from 18:07 copy baseline. Observed mtime predates first successful isolated ADC connection; author unknown; read-only snapshots retained, no restoration. This documentation editor did not modify originals.",
+  "final_Q18_session": {
+    "path": "resources/field_updates/20261117/q18_q19/rb_final/calibration/Q18_validated_session_20261117.json",
+    "sha256": "a053131955c0575de95245d9127b194df6721e931e6081c6a006d56d52705cf7",
+    "status": "VALIDATED_ON_HARDWARE_FOR_THIS_SESSION"
+  },
+  "scientific_audit_scope": "Existing independent audits archived and their hashes verified; not re-executed by this documentation update.",
+  "final_Q18_RB_audit_status": "PASS_CONDITIONAL_IRB_WITH_DRIFT_CAVEATS_AND_NONCRITICAL_READOUT_METADATA_CORRECTION",
+  "documentation": {
+    "passed": true,
+    "checks": 639,
+    "characters": 70448
+  },
+  "catalog": {
+    "schema_version": 1,
+    "mode": "catalog",
+    "passed": true,
+    "details": {
+      "catalog": {
+        "agents": 16,
+        "experiments": 15,
+        "single_qubit_steps": 8,
+        "two_qubit_steps": 7,
+        "supervisors": 1,
+        "cards_and_prompts": 32,
+        "internal_procedures": 44,
+        "preserved_detail_strings": 1892,
+        "public_module_details": 268,
+        "cycles": 0
+      },
+      "previous_edition": {
+        "previous_files_preserved": 1442,
+        "errors": []
+      }
+    },
+    "errors": [],
+    "scope": "read-only artifact/evidence verification; no experiments or network calls"
+  },
+  "portal": {
+    "html_files": 57,
+    "agent_ids": 16,
+    "all_local_file_links_exist": true,
+    "local_links_checked": 685,
+    "exact_markdown_text_preserved": 56,
+    "javascript_syntax": "pass",
+    "remote_embedded_assets": 0
+  },
+  "visual_review": {
+    "status": "not_performed",
+    "reason": "This build validates HTML structure and links; visual inspection was not performed."
+  },
+  "hardware_actions": false,
+  "instrument_connections": false,
+  "runtime_and_driver_changes_by_documentation_editor": false,
+  "existing_changed_before_manifest_update": [
+    "index.html",
+    "MANIFEST.json",
+    "README.md",
+    "knowledge/evidence_index.md",
+    "knowledge/single_qubit_diagnostics.md",
+    "portal_docs/build_manifest.json",
+    "portal_docs/README.html",
+    "knowledge/qa/README.md",
+    "portal_docs/knowledge/evidence_index.html",
+    "portal_docs/knowledge/single_qubit_diagnostics.html"
+  ],
+  "failures": []
+}

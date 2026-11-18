@@ -1,0 +1,219 @@
+{
+  "schema_version": 2,
+  "source": "双比特测试.pdf 两页，按功能方框计数；箭头的回测编号不另算步骤",
+  "experiment_agents": 15,
+  "supervisor_agents": 1,
+  "single_qubit_steps": 8,
+  "two_qubit_steps": 7,
+  "agents": [
+    {
+      "id": "s01_readout_frequency",
+      "name": "读取腔定频",
+      "source_function": "ReadoutFreqDip",
+      "source_page": 1,
+      "source_box_index": 1,
+      "procedure_ids": [
+        "ro_resonator_survey",
+        "ro_power_shift",
+        "ro_bias_map"
+      ],
+      "main_procedure_id": "ro_resonator_survey"
+    },
+    {
+      "id": "s02_qubit_frequency",
+      "name": "比特定频",
+      "source_function": "F01Spectroscopy",
+      "source_page": 1,
+      "source_box_index": 2,
+      "procedure_ids": [
+        "sq_spectroscopy",
+        "sq_anharmonicity",
+        "sq_frequency_fine"
+      ],
+      "main_procedure_id": "sq_spectroscopy"
+    },
+    {
+      "id": "s03_rabi_amplitude",
+      "name": "Rabi定幅",
+      "source_function": "XYGateAmpRabiImpl",
+      "source_page": 1,
+      "source_box_index": 3,
+      "procedure_ids": [
+        "sq_rabi_amplitude",
+        "sq_rabi_time",
+        "sq_rabi12",
+        "sq_amplitude_fine",
+        "sq_drag",
+        "sq_xy_z_timing"
+      ],
+      "main_procedure_id": "sq_rabi_amplitude"
+    },
+    {
+      "id": "s04_readout_fidelity",
+      "name": "读取保真度测试",
+      "source_function": "IqToProbability",
+      "source_page": 1,
+      "source_box_index": 4,
+      "procedure_ids": [
+        "ro_iq01",
+        "ro_iq012"
+      ],
+      "main_procedure_id": "ro_iq01"
+    },
+    {
+      "id": "s05_readout_optimization",
+      "name": "读取参数优化",
+      "source_function": "ReadoutParaSweepByIQProb",
+      "source_page": 1,
+      "source_box_index": 5,
+      "procedure_ids": [
+        "ro_optimize"
+      ],
+      "main_procedure_id": "ro_optimize"
+    },
+    {
+      "id": "s06_t1",
+      "name": "T1测试",
+      "source_function": "T1Idle",
+      "source_page": 1,
+      "source_box_index": 6,
+      "procedure_ids": [
+        "sq_t1",
+        "sq_t1_frequency"
+      ],
+      "main_procedure_id": "sq_t1"
+    },
+    {
+      "id": "s07_t2",
+      "name": "T2测试",
+      "source_function": "T2CPMG",
+      "source_page": 1,
+      "source_box_index": 7,
+      "procedure_ids": [
+        "sq_cpmg",
+        "sq_ramsey"
+      ],
+      "main_procedure_id": "sq_cpmg"
+    },
+    {
+      "id": "s08_single_qubit_rb",
+      "name": "单比特RB测试",
+      "source_function": "RB1QCal",
+      "source_page": 1,
+      "source_box_index": 8,
+      "procedure_ids": [
+        "sq_rb",
+        "sq_xeb"
+      ],
+      "main_procedure_id": "sq_rb"
+    },
+    {
+      "id": "d01_flux_spectroscopy",
+      "name": "二维比特能谱",
+      "source_function": "F01ZPulseDependency",
+      "source_page": 2,
+      "source_box_index": 1,
+      "procedure_ids": [
+        "sq_flux_map"
+      ],
+      "main_procedure_id": "sq_flux_map"
+    },
+    {
+      "id": "d02_idle_interaction",
+      "name": "两比特闲置工作点",
+      "source_function": "ZeroPointFinderByQQSwap",
+      "source_page": 2,
+      "source_box_index": 2,
+      "procedure_ids": [
+        "tq_exchange_off",
+        "tq_residual_zz",
+        "tq_dressed_zz",
+        "tq_coupler_resonator_map",
+        "tq_iswap"
+      ],
+      "main_procedure_id": "tq_exchange_off"
+    },
+    {
+      "id": "d03_cz_width",
+      "name": "CZ宽度粗扫",
+      "source_function": "CZSwapSweepZPulse",
+      "source_page": 2,
+      "source_box_index": 3,
+      "procedure_ids": [
+        "tq_cz_setup",
+        "tq_cz_chevron",
+        "tq_cz_return",
+        "tq_cz_rough",
+        "tq_qz_cz_timing"
+      ],
+      "main_procedure_id": "tq_cz_chevron"
+    },
+    {
+      "id": "d04_cz_amplitude",
+      "name": "CZ幅度精调",
+      "source_function": "TTGAczDelicateG",
+      "source_page": 2,
+      "source_box_index": 4,
+      "procedure_ids": [
+        "tq_cz_amplitude_fine"
+      ],
+      "main_procedure_id": "tq_cz_amplitude_fine"
+    },
+    {
+      "id": "d05_cz_detuning",
+      "name": "CZ失谐与条件相位精调",
+      "source_function": "TTGAczDelicateDetune",
+      "source_page": 2,
+      "source_box_index": 5,
+      "procedure_ids": [
+        "tq_cz_detune_fine",
+        "tq_gateoff_reference",
+        "tq_cz_phase_verify",
+        "tq_local_phase"
+      ],
+      "main_procedure_id": "tq_cz_detune_fine"
+    },
+    {
+      "id": "d06_cz_xeb",
+      "name": "CZ XEB测试",
+      "source_function": "CZXEBCal",
+      "source_page": 2,
+      "source_box_index": 6,
+      "procedure_ids": [
+        "tq_xeb",
+        "tq_leakage",
+        "tq_truth_table",
+        "tq_state_tomography",
+        "tq_process_tomography",
+        "p0_bell"
+      ],
+      "main_procedure_id": "tq_xeb"
+    },
+    {
+      "id": "d07_cz_optimizer",
+      "name": "CZ参数优化",
+      "source_function": "CZParaOptimizer",
+      "source_page": 2,
+      "source_box_index": 7,
+      "procedure_ids": [
+        "tq_optimizer"
+      ],
+      "main_procedure_id": "tq_optimizer"
+    }
+  ],
+  "supervisor_id": "supervisor",
+  "former_support_roles": [
+    "mission_supervisor",
+    "capability_router",
+    "evidence_steward",
+    "fit_diagnostics",
+    "parameter_registry",
+    "independent_acceptance"
+  ],
+  "former_support_disposition": "总控职责及公共模块，不再独立注册智能体",
+  "source_corrections": [
+    "QQswap交换关断与条件Ramsey ZZ验证保留在d02内部，不能等同",
+    "Rabi幅度原流程未由时长Rabi绑定实现；T2CPMG原流程未由Ramsey绑定实现",
+    "RB/XEB/层析/Bell指标各自保留含义，扩展方法不是原步骤替代实现"
+  ]
+}

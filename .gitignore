@@ -1,0 +1,42 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.local.json
+agent/local.env
+agent/runtime/
+*.sealed
+*.pem
+*.key
+# Data, reports, receipts and databases
+data/
+logs/
+reports/
+adapters/arclight_runtime/offline_rb_analysis/
+adapters/arclight_runtime/offline_validation/
+*.sqlite*
+*.db
+*.npz
+*.npy
+*.log
+*.jsonl
+*.pid
+*.lock
+!package-lock.json
+!**/package-lock.json
+# Rebuildable dependencies and output
+**/node_modules/
+frontend/dist/
+frontend/qa-artifacts/
+desktop/dist*/
+desktop/runtime/
+desktop/resources/
+desktop/release.json
+**/__pycache__/
+*.py[cod]
+*.tsbuildinfo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

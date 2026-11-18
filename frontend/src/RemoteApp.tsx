@@ -1,0 +1,124 @@
+import SupplementalAcceptance from "./components/SupplementalAcceptance";
+import ReadoutWithdrawal from "./components/ReadoutWithdrawal";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, ArrowLeft, ArrowRight, Atom, Boxes, CheckCheck, ChevronRight, Download, Folder, GitBranch, LayoutDashboard, MessageSquare, Moon, Pause, Play, Plus, Radio, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Square, Sun, X } from "lucide-react";
+import type { Catalog, CreateWorkflowInput, Policy, RemoteAction, Workflow } from "./types";
+import { createRemoteGateway, reportUrl } from "./lib/remoteGateway";
+import type { ConnectionState, Health, LocalSession } from "./lib/remoteGateway";
+import MembershipAccount, { MembershipEntry } from "./components/MembershipAccount";
+import { modelProviderName } from "./lib/account";
+import type { MembershipStatus } from "./lib/account";
+import { useWorkflowStore } from "./lib/useWorkflowStore";
+import WorkflowBudget from "./components/WorkflowBudget";
+import WorkflowElapsed from "./components/WorkflowElapsed";
+import { adapterIdentity, selectableResources } from "./lib/workflowResources";
+import { workflowControls } from "./lib/workflowControls";
+import { loadPreferences, persistPreferences } from "./lib/preferences";
+import { RealFlowCanvas, RealNodeInspector, RealChatReport, RealResult, HardwareStatus, StageSummary, MeasurementProgress, EmptyState, jsonText } from "./components/RemotePanels";
+import LiveMeasurementSeries from "./components/LiveMeasurementSeries";
+import { WorkingPointScope, WorkflowCoverageSelect } from "./components/WorkflowCoverage";
+import { defaultCoverage, workflowCoverageError } from "./lib/workflowCoverage";
+
+type View = "dashboard" | "blueprint" | "chat";
+const titles = { dashboard: "工作看台", blueprint: "蓝图版工作流", chat: "对话式 Agent" };
+const statusNames: Record<string, string> = { draft: "草稿", queued: "排队中", running: "运行中", attention: "待决策", paused: "已暂停", completed: "已完成", failed: "失败", aborted: "已终止" };
+export const engineLabel = (state?: string) => ({ readout_withdrawal_pending: "已撤回读出候选，等待重新验证", execution_failed: "执行记录待处理", supplemental_acceptance_mismatch: "补充验收版本不一致", acquiring: "正在采集", verifying: "正在独立复测", retry_queued: "等待复测执行", budget_exhausted: "任务预算已用尽", budget_updated: "预算已调整 · 等待继续", parameters_updated: "参数已保存 · 等待运行", decision_queued: "等待智能体决策", deciding: "智能体正在决策", preflight_failed: "执行器预检未通过", adapter_changed: "执行器与任务不一致", awaiting_acceptance: "等待确认通过", pausing_at_checkpoint: "正在暂停至检查点", stopping_at_checkpoint: "正在终止至检查点", needs_reconciliation: "等待核查执行回执", replay_completed: "历史回放已完成", historical: "历史数据已载入", verified: "校准已验证", quality_attention: "质量待确认", waiting_hardware: "等待接线确认", waiting_model: "等待智能体决策", stale: "依赖已变化 · 待复测", unknown: "执行状态待核实", completed: "执行完成", running: "采集中", pending: "等待执行", queued: "等待资源", paused: "已暂停", failed: "执行失败", aborted: "已终止", draft: "尚未启动", unavailable: "执行器未就绪", replayed: "历史证据已载入", succeeded: "执行完成" }[state ?? ""] ?? state ?? "等待执行");
+function Badge({ workflow }: { workflow: Workflow }) { return <span className={`status status-${workflow.status}`}><i />{workflow.mode === "replay" && workflow.status === "completed" ? "回放已完成" : workflow.coverage === "working_point" && workflow.status === "completed" ? `所选 ${workflow.completionScope?.selectedNodeCount ?? workflow.nodes.length} 项已完成` : statusNames[workflow.status] ?? workflow.status}</span>; }
+
+export default function RemoteApp() {
+  const gateway = useMemo(() => createRemoteGateway(), []);
+  const store = useWorkflowStore(gateway);
+  const [session, setSession] = useState<LocalSession>();
+  const [catalog, setCatalog] = useState<Catalog>();
+  const [health, setHealth] = useState<Health>();
+  const [account, setAccount] = useState<MembershipStatus>();
+  const [connection, setConnection] = useState<ConnectionState>("connecting");
+  const [error, setError] = useState("");
+  const [preferences, setPreferences] = useState(loadPreferences);
+  const [view, setView] = useState<View>(() => ["chat", "blueprint"].includes(location.hash.slice(1)) ? location.hash.slice(1) as View : "dashboard");
+  const [selectedId, setSelectedId] = useState("");
+  const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState<"create" | "settings" | "account" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<CreateWorkflowInput>({ name: "", machine: "八号机", qubits: 1, target: "", type: "adaptive", policy: "threshold", scenario: "normal", experiment: "single", mode: "replay", coverage: "main", resourceIds: [] });
+  const availableResources = selectableResources(catalog, form.mode);
+  const coverageError = workflowCoverageError(catalog, form);
+  const workflows = store.state.workflows;
+  const workflow = workflows.find(item => item.id === selectedId) ?? workflows[0];
+  const node = workflow?.nodes.find(item => item.id === selectedNodeId) ?? workflow?.nodes.find(item => item.id === workflow.currentNodeId) ?? workflow?.nodes.find(item => ["running", "attention"].includes(item.status)) ?? workflow?.nodes[0];
+  const reload = () => {
+    setError("");
+    void gateway.session().then(setSession).catch(cause => setError(String(cause.message)));
+    void gateway.catalog().then(setCatalog).catch(cause => setError(String(cause.message)));
+    void gateway.health().then(setHealth).catch(cause => setError(String(cause.message)));
+    void gateway.accountStatus().then(setAccount).catch(() => {});
+  };
+  useEffect(() => { reload(); return gateway.connection(setConnection); }, [gateway]);
+  useEffect(() => { const timer = setInterval(() => { void gateway.health().then(setHealth).catch(() => {}); }, 15000); return () => clearInterval(timer); }, [gateway]);
+  useEffect(() => { location.hash = view; }, [view]);
+  useEffect(() => {
+    if (modal !== "create" || !catalog) return;
+    setForm(current => {
+      const available = selectableResources(catalog, current.mode);
+      const selected = (current.resourceIds ?? []).filter(id => available.some(resource => resource.id === id));
+      const ids = selected.length ? selected : available[0] ? [available[0].id] : [];
+      if (JSON.stringify(ids) === JSON.stringify(current.resourceIds)) return current;
+      return { ...current, resourceIds: ids, target: ids.map(id => available.find(resource => resource.id === id)?.label ?? id).join(" / ") };
+    });
+  }, [catalog, form.mode, modal]);
+  useEffect(() => { const onEscape = (event: KeyboardEvent) => { if (event.key === "Escape" && modal !== "account") setModal(null); }; window.addEventListener("keydown", onEscape); return () => window.removeEventListener("keydown", onEscape); }, [modal]);
+  useEffect(() => { document.documentElement.dataset.theme = preferences.theme; document.documentElement.style.colorScheme = preferences.theme; }, [preferences.theme]);
+  const toggleTheme = () => { const next = { ...preferences, theme: preferences.theme === "dark" ? "light" as const : "dark" as const }; setPreferences(next); persistPreferences(next); };
+  const open = (item: Workflow) => { setSelectedId(item.id); setSelectedNodeId(""); setView("blueprint"); };
+  const action = async (action: RemoteAction, targetNodeId?: string) => {
+    if (!workflow || busy) return;
+    setBusy(true); setError("");
+    try { await gateway.command(workflow.id, action, targetNodeId); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  };
+  const policy = async (value: Policy) => { if (!workflow || busy) return; setBusy(true); setError(""); try { await store.policy(workflow.id, value); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); } };
+  const openCreate = () => {
+    const first = selectableResources(catalog, form.mode)[0];
+    setForm(current => ({ ...current, coverage: defaultCoverage(current.mode), experiment: "single", qubits: 1, name: "", target: first?.label ?? "", resourceIds: first ? [first.id] : [] }));
+    setModal("create");
+  };
+  const create = async () => {
+    if (coverageError || !form.resourceIds?.length || form.resourceIds.some(id => !availableResources.some(resource => resource.id === id)) || (form.experiment === "two" && form.resourceIds.length !== 2) || busy) return;
+    setBusy(true); setError("");
+    try { const created = await store.create({ ...form, name: form.name.trim() || `${form.target} · ${form.mode === "replay" ? "历史实测回放" : form.coverage === "working_point" ? "已有工作点复刻" : "单比特测控"}` }); setModal(null); open(created); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  };
+  const controls = workflow ? workflowControls(workflow) : undefined;
+  const adapter = adapterIdentity(catalog, workflow, health);
+  const activeAdapter = adapterIdentity(catalog, undefined, health);
+  const filtered = workflows.filter(item => `${item.name} ${item.target} ${item.machine}`.toLowerCase().includes(search.toLowerCase()));
+  const selectedResults = workflow?.nodes.filter(item => item.result) ?? [];
+  const agentState = health?.agent as { status?: string; configured?: boolean; model?: string; provider?: string } | undefined;
+  const actualConnection = account?.modelConnection;
+  const modelActive = actualConnection ? actualConnection.active : agentState?.configured;
+  const accountUpdated = (next: MembershipStatus) => { setAccount(next); void gateway.health().then(setHealth).catch(() => {}); };
+  return <div className={`app-shell view-${view} role-leader remote-app`}>
+    <aside className="sidebar">
+      <button className="brand" onClick={() => setView("dashboard")}><div className="brand-mark"><Atom size={28} /></div><span className="brand-name"><strong><span>超导量子</span><span>自进化测控平台</span></strong></span></button>
+      <div className="lab-select"><span className="lab-icon"><Boxes size={18} /></span><div><strong>八号机 · 测控工作空间</strong><small>实际任务与历史证据</small></div><span className={connection === "live" ? "lab-green" : "rp-connection-dot"} /></div>
+      <div className="nav-label">工作空间 <span>WORKSPACE</span></div>
+      <nav className="main-nav">{([{ id: "chat", icon: MessageSquare, subtitle: "与智能体一起开展实验" }, { id: "blueprint", icon: GitBranch, subtitle: "实时观测、判断与回退" }, { id: "dashboard", icon: LayoutDashboard, subtitle: "所有任务，一目了然" }] as const).map(({ id, icon: Icon, subtitle }) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}><Icon size={19} /><span><strong>{titles[id]}</strong><small>{subtitle}</small></span></button>)}</nav>
+      <div className="sidebar-divider" /><div className="nav-label">最近工作流<button aria-label="新建工作流" onClick={openCreate}><Plus size={15} /></button></div>
+      <div className="recent-list">{workflows.slice(0, 5).map(item => <button key={item.id} className={workflow?.id === item.id ? "chosen" : ""} onClick={() => open(item)} title={item.name}><Folder size={15} /><span>{item.name}</span><i className={`dot dot-${item.status}`} /></button>)}{!workflows.length && <p className="recent-empty">创建一个任务，开始查看实验。</p>}</div>
+      <div className="sidebar-bottom"><div className="sandbox-card"><Sparkles size={17} /><strong>{modelActive ? `${modelProviderName(actualConnection?.provider ?? agentState?.provider)} · 已连接` : "智能体等待模型连接"}</strong><p>{modelActive ? actualConnection?.model ?? agentState?.model ?? "模型服务在线" : "可先回放实测证据，连接模型后继续决策。"}</p><button onClick={() => setModal("settings")}>查看运行环境 <ArrowRight size={13} /></button></div><MembershipEntry status={account} onOpen={() => setModal("account")} /><button className="settings-link" onClick={() => setModal("settings")}><Settings2 size={17} /><span>工作空间与连接</span><ChevronRight size={14} /></button><div className="profile"><div className="avatar">{session?.actor.displayName.slice(0, 2) ?? "本地"}</div><div><strong>{session?.actor.displayName ?? "正在获取会话"}</strong><small>后端本地会话 · {session?.actor.role === "leader" ? "管理权限" : "操作权限"}</small></div></div></div>
+    </aside>
+    <div className="main-shell">
+      <header className="global-bar"><div className="breadcrumb"><span>工作空间</span><ChevronRight size={13} /><b>{titles[view]}</b></div><div className="bar-actions"><span className={`rp-live ${connection}`}><i />{({ connecting: "连接中", live: "事件流在线", reconnecting: "正在重连", offline: "连接中断" })[connection]}</span><button className="icon-button" onClick={reload} aria-label="刷新连接"><RefreshCw size={17} /></button><button className="icon-button" onClick={toggleTheme} aria-label="切换主题">{preferences.theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</button></div></header>
+      {(error || store.error) && <div className="rp-error" role="alert"><span>{error || store.error}</span><button onClick={() => setError("")} aria-label="关闭错误"><X size={15} /></button></div>}
+      {view === "dashboard" && <main className="rp-dashboard page-enter"><div className="page-heading"><div><div className="rp-eyebrow">EXPERIMENT WORKSPACE</div><h1>让每一步实验都有据可循</h1><p>运行进度、测量结果与每一次决策，汇聚在同一个工作空间。</p></div><button className="primary" onClick={openCreate} disabled={!session}><Plus size={16} />新建工作流</button></div><div className="rp-overview">{[{ label: "全部任务", value: workflows.length, icon: Boxes }, { label: "正在执行", value: workflows.filter(item => item.status === "running").length, icon: Activity }, { label: "等待决策", value: workflows.filter(item => item.status === "attention").length, icon: ShieldCheck }, { label: "任务完成", value: workflows.filter(item => item.status === "completed").length, icon: CheckCheck }].map(({ label, value, icon: Icon }) => <div className="rp-stat" key={label}><span>{label}<Icon size={18} /></span><strong>{value}</strong><small>来自后端运行状态</small></div>)}</div><section className="rp-workflow-list"><div className="rp-section-heading"><h2>实验工作流 <small>{workflows.length}</small></h2><label className="rp-search"><Search size={16} /><input aria-label="搜索任务" placeholder="搜索任务、比特或机器" value={search} onChange={event => setSearch(event.target.value)} /></label></div>{filtered.length ? <div className="rp-table-scroll"><table className="rp-table"><thead><tr><th>任务与目标</th><th>运行方式</th><th>状态</th><th>当前步骤</th><th>进度</th><th /></tr></thead><tbody>{filtered.map(item => <tr key={item.id}><td><button className="rp-task-link" onClick={() => open(item)}>{item.name}</button><small>{item.machine} · {item.target}</small></td><td><span className={`rp-mode ${item.mode}`}>{item.mode === "real" ? "真实测量" : "历史回放"}</span></td><td><Badge workflow={item} /></td><td>{item.nodes.find(n => n.id === item.currentNodeId)?.label ?? engineLabel(item.engineState)}</td><td><span>{Math.round(item.progress)}%</span><div className="rp-progress"><i style={{ width: `${item.progress}%` }} /></div></td><td><button className="icon-button" onClick={() => open(item)} aria-label={`打开 ${item.name}`}><ArrowRight size={17} /></button></td></tr>)}</tbody></table></div> : <EmptyState title={search ? "没有匹配的任务" : "工作空间已就绪"} text="创建历史回放任务，查看已有实测曲线与完整流程；也可创建真实测量任务。" action={<button className="primary" onClick={openCreate}><Plus size={15} />创建任务</button>} />}</section></main>}
+      {view === "blueprint" && (workflow && node ? <main className="blueprint-page page-enter"><div className="blueprint-header"><div><button className="back-link" onClick={() => setView("dashboard")}><ArrowLeft size={13} />全部工作流</button><div className="blueprint-title"><h1>{workflow.name}</h1><Badge workflow={workflow} /><span className={`rp-mode ${workflow.mode}`}>{workflow.mode === "real" ? "真实测量" : "历史实测回放"}</span></div><div className="blueprint-meta"><span><Boxes size={13} />{workflow.machine} / {workflow.target}</span><WorkflowElapsed workflow={workflow} /><span>版本 {workflow.revision} · {engineLabel(workflow.engineState)}</span></div></div><div className="heading-actions"><a className="secondary rp-link-button" href={reportUrl(workflow.id)} target="_blank" rel="noreferrer"><Download size={15} />图文报告</a><button className="secondary" onClick={() => setView("chat")}><MessageSquare size={15} />任务对话</button>{controls?.start && <button className="primary" disabled={busy} onClick={() => void action("start")}><Play size={15} />开始{workflow.mode === "replay" ? "回放" : "运行"}</button>}{controls?.pause && <button className="secondary" disabled={busy} onClick={() => void action("pause")}><Pause size={15} />暂停</button>}{controls?.resume && <button className="primary" disabled={busy} onClick={() => void action("resume")}><Play size={15} />继续</button>}{["running", "paused", "attention", "queued"].includes(workflow.status) && <button className="secondary" disabled={busy} onClick={() => void action("abort")}><Square size={13} />终止</button>}</div></div><StageSummary catalog={catalog} workflow={workflow} /><WorkingPointScope workflow={workflow} /><WorkflowBudget key={workflow.id} workflow={workflow} gateway={gateway} /><SupplementalAcceptance key={`rules-${workflow.id}`} workflow={workflow} gateway={gateway} /><ReadoutWithdrawal key={`readout-${workflow.id}`} workflow={workflow} gateway={gateway} />{workflow.mode === "real" && <HardwareStatus hardware={health?.hardware} adapter={adapter} action={controls?.hardware ? <button className="primary" disabled={busy} onClick={() => void action("confirm_hardware")}><CheckCheck size={14} />确认交接并继续</button> : undefined} />}<div className="blueprint-body"><section className="blueprint-main"><div className="canvas-top"><span className="live-label">{workflow.status !== "aborted" && <i />}{workflow.status === "aborted" ? "已终止任务 · 结果留档" : workflow.mode === "replay" ? "历史证据回放" : "测量执行引擎"}</span><span>{workflow.mode === "replay" ? `${workflow.nodes.filter(item => item.result).length} / ${workflow.nodes.length} 节点已载入 · ` : ""}{workflow.nodes.filter(item => item.status === "success").length} / {workflow.nodes.length} 节点已验证 · 蓝图 {workflow.blueprintVersion}</span></div><RealFlowCanvas workflow={workflow} selectedNodeId={node.id} onSelectNode={setSelectedNodeId} /><div className="rp-selected-result"><div className="rp-section-heading"><h2>{node.label} · 测量结果</h2><span>{node.result?.dataKind === "historical" ? "历史证据" : node.result ? "本轮采集" : "等待数据"}</span></div><MeasurementProgress node={node} workflow={workflow} />{workflow.mode === "real" && <LiveMeasurementSeries key={`${workflow.id}-${node.id}`} gateway={gateway} workflowId={workflow.id} node={node} archived={workflow.status === "aborted"} />}{node.engineState === "stale" && <div className="rp-info">{node.attempt === 0 && !node.result ? "等待前置测量完成后执行此节点。" : "前置参数已变化，以下为保留的历史结果；本轮需重新测量验证。"}</div>}<RealResult result={node.result} /></div><div className="events-panel"><div><h3><Radio size={14} />运行动态</h3><small>后端事件 · 最新 8 条</small></div>{workflow.events.slice(-8).reverse().map((event, index) => <p key={`${event.time}-${index}`}><time>{new Date(event.time).toLocaleTimeString("zh-CN")}</time><span className={`event-dot ${event.kind}`} /><span>{event.message}</span></p>)}</div></section><RealNodeInspector gateway={gateway} workflow={workflow} node={node} onAction={action} onPolicy={policy} busy={busy} hardware={health?.hardware} catalog={catalog} onBusy={setBusy} /></div></main> : <EmptyState title="选择一个工作流" text="蓝图将跟随后端执行状态更新，点击节点可查看参数、重试和回退依据。" action={<button className="primary" onClick={openCreate}>新建工作流</button>} />)}
+      {view === "chat" && <RealChatReport projectId={health?.projectId && health?.projectRoot ? `${health.projectId}:${health.projectRoot}` : undefined} gateway={gateway} workflow={workflow} onOpenWorkflow={() => setView("blueprint")} />}
+      <footer className="app-footer"><span><i />超导量子自进化测控平台 <b>v2 · Local</b></span><span>{selectedResults.length ? `${selectedResults.length} 个节点已有数据 · ` : ""}真实状态 · 可追溯证据</span><button onClick={() => setModal("settings")}>运行环境 <ArrowRight size={11} /></button></footer>
+    </div>
+    {modal && modal !== "account" && <div className="rp-modal-backdrop" onClick={event => { if (event.target === event.currentTarget) setModal(null); }}><section className="rp-modal" role="dialog" aria-modal="true" aria-label={modal === "create" ? "新建工作流" : "运行环境"}><button className="rp-modal-close icon-button" onClick={() => setModal(null)} aria-label="关闭"><X size={20} /></button>{modal === "create" ? <><div className="rp-eyebrow">NEW EXPERIMENT</div><h2>新建工作流</h2><p>选择实验资源与运行方式，创建后可在蓝图中启动。</p>{activeAdapter && <div className="rp-info">当前测量执行器：{activeAdapter.name ?? activeAdapter.id}</div>}<form onSubmit={event => { event.preventDefault(); void create(); }}><label>运行方式<select aria-label="运行方式" value={form.mode} onChange={event => setForm({ ...form, mode: event.target.value as "real" | "replay", coverage: defaultCoverage(event.target.value as "real" | "replay") })}><option value="replay">历史实测回放 · 不连接仪器</option><option value="real">真实测量 · 使用设备执行器</option></select></label><label>实验流程<select aria-label="实验流程" value={form.experiment} onChange={event => setForm({ ...form, experiment: event.target.value as "single" | "two", qubits: event.target.value === "two" ? 2 : 1, resourceIds: form.resourceIds?.slice(0, 1), target: catalog?.resources.find(resource => resource.id === form.resourceIds?.[0])?.label ?? "" })}><option value="single">单比特校准</option><option value="two">双比特校准（包含单比特前置）</option></select></label><label>目标资源<select aria-label="目标资源" required value={form.resourceIds?.[0] ?? ""} onChange={event => { const resource = catalog?.resources.find(item => item.id === event.target.value); setForm({ ...form, resourceIds: resource ? [resource.id] : [], target: resource?.label ?? "" }); }}><option value="" disabled>请选择后端登记的比特</option>{availableResources.map(resource => <option key={resource.id} value={resource.id}>{resource.label}{resource.engineKey ? ` · ${resource.engineKey}` : ""}</option>)}</select></label>{form.experiment === "two" && <label>第二个资源<select aria-label="第二个资源" required value={form.resourceIds?.[1] ?? ""} onChange={event => { const resource = catalog?.resources.find(item => item.id === event.target.value); const first = catalog?.resources.find(item => item.id === form.resourceIds?.[0]); setForm({ ...form, resourceIds: first && resource ? [first.id, resource.id] : [], target: first && resource ? `${first.label} / ${resource.label}` : "" }); }}><option value="" disabled>选择另一个已登记的比特</option>{availableResources.filter(resource => resource.id !== form.resourceIds?.[0]).map(resource => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>}{form.mode === "real" && <div className="rp-info">{availableResources.length ? `当前执行器已绑定：${availableResources.map(resource => resource.label).join("、")}` : "当前执行器尚未登记可用资源，暂不能创建真机任务。"}</div>}<WorkflowCoverageSelect catalog={catalog} form={form} onChange={coverage => setForm({ ...form, coverage })} /><label>任务名称<input value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} placeholder={`${form.target || "目标比特"} · ${form.coverage === "working_point" ? "已有工作点复刻" : "单比特测控"}`} maxLength={120} /></label><label>执行策略<select aria-label="执行策略" value={form.policy} onChange={event => setForm({ ...form, policy: event.target.value as Policy })}><option value="threshold">异常时决策</option><option value="strict">每步确认</option><option value="autopilot">自动执行与有界重试</option></select></label><div className="rp-info">{form.mode === "replay" ? "回放采用已登记的历史原始数据与图像，保留来源与采集时间。" : "任务由后端检查执行器、接线状态和参数范围后启动。缺少条件时显示具体等待原因。"}</div>{error && <p role="alert" className="rp-error">{error}</p>}<div className="rp-modal-actions"><button type="button" className="secondary" onClick={() => setModal(null)}>取消</button><button className="primary" type="submit" disabled={busy || Boolean(coverageError) || !form.resourceIds?.length || !availableResources.length || form.resourceIds.some(id => !availableResources.some(resource => resource.id === id)) || (form.experiment === "two" && form.resourceIds.length !== 2)}>{busy ? "正在创建…" : "创建工作流"}<ArrowRight size={15} /></button></div></form></> : <><div className="rp-eyebrow">RUNTIME STATUS</div><h2>运行环境与连接</h2><p>连接状态由本地服务返回；模型与测量执行器独立管理。</p><div className="rp-info">服务地址：{location.origin}/api · 事件流：{connection}</div><h3>智能体服务</h3><pre>{jsonText(health?.agent ?? { status: "正在检查" })}</pre><h3>测量执行器</h3><HardwareStatus hardware={health?.hardware} adapter={activeAdapter} /><pre>{jsonText(health?.hardware ?? { status: "正在检查" })}</pre><h3>登记资源</h3><p>{catalog?.resources.length ?? 0} 个资源 · 蓝图版本 {catalog?.blueprint.version ?? "—"}</p><button className="primary" onClick={reload}><RefreshCw size={15} />重新检查</button></>}</section></div>}
+    {modal === "account" && <MembershipAccount gateway={gateway} initialStatus={account} onStatus={accountUpdated} onClose={() => setModal(null)} />}
+  </div>;
+}

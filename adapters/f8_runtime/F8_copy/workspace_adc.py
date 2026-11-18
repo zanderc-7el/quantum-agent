@@ -1,0 +1,1 @@
+workspace = {'Name': 'F8_ADC_Agent_20261116', 'UManager': {'is_server': False, 'use_redis_backend': False, 'um_table': {'addr_table': {'CY_Station1': ('CeyearStation008', 'TCPIP::10.100.16.105::7110::SOCKET')}, 'ch_table': {'ADC': {'CH1': ('CY_Station1', (14, 0)), 'MASTER': ('CY_Station1', (0, 0))}, 'AWG': {'CY_R1': ('CY_Station1', (15, 0)), 'CY_XY1': ('CY_Station1', (0, 0))}}}}}

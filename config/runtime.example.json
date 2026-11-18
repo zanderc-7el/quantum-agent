@@ -1,0 +1,5 @@
+{
+  "agentPort": 8766,
+  "adapter": "arclight-native-cy8",
+  "profile": "adapters/arclight_profile_v2.json"
+}

@@ -1,0 +1,48 @@
+{
+  "sourceArchive": "Ziyor_完整版对应源码_20261113.zip",
+  "archiveSha256": "8b03c297a1dd678cf270c1732629ee11297b156e1135d813f6ca18f61aa95a4e",
+  "files": [
+    {
+      "path": "src/app/api/api-providers/zeelin-login/login/route.ts",
+      "sha256": "331e25c472d7f97bd45f1b8b014519f22e981e9ae6bc1e7d1e73a9ef13335f30",
+      "bytes": 1732
+    },
+    {
+      "path": "src/app/api/api-providers/zeelin-login/send-sms/route.ts",
+      "sha256": "6ed1b2728c012dc3ce9a1b8fdbf46a5101792da3b0a1731cee80ff17f7554457",
+      "bytes": 1413
+    },
+    {
+      "path": "src/feature/skill-license/account/infra/zeelin-api.ts",
+      "sha256": "9af00c15536cf2cc84a4fd1e8ef04bf5e2f61a640e5e04473ef60846d3ede075",
+      "bytes": 1128
+    },
+    {
+      "path": "src/feature/skill-license/account/application/user-auth-service.ts",
+      "sha256": "0b2461d1b2a2245ab68abf293e9dbc2dcb79f6edfbb2a65eca5a9bccec7891cb",
+      "bytes": 842
+    },
+    {
+      "path": "src/feature/skill-license/account/infra/api-providers-repo.ts",
+      "sha256": "61bc4b98f93e7c801ade94977ae8a377ec9ec5bb47107dc54da359477862e03c",
+      "bytes": 1083
+    },
+    {
+      "path": "src/lib/zeelin.ts",
+      "sha256": "5c7ab277a90f3e21ecaf91707b8941b9c9793d9eaac8cc62e45b617a4edbd341",
+      "bytes": 2869
+    },
+    {
+      "path": "src/lib/provider-catalog.ts",
+      "sha256": "9d2e26c149f94f5ce9c4495197c85ea87f74398a2c2bb9be2c41a2fdad32e4eb",
+      "bytes": 22003
+    },
+    {
+      "path": "src/app/api/provider-proxy/zeelin/v1/messages/route.ts",
+      "sha256": "457aa9ff169476d02e0cb6dfb278a3837bc7dd382f57ad8e83d23910a3e979c1",
+      "bytes": 2074
+    }
+  ],
+  "implementation": "Adapted official login, SMS, user_info, enabled zeelin token model directory and Anthropic Messages protocol. Source snapshots are not executed. Original plaintext/renderer API-key storage is deliberately replaced with DPAPI CurrentUser; no original credentials imported.",
+  "licenseDeclaredInUpstreamPackage": "Apache-2.0"
+}

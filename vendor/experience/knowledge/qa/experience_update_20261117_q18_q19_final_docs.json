@@ -1,0 +1,3224 @@
+{
+  "schema_version": 2,
+  "edition": "original_workflow_15_steps",
+  "scope": "18份活跃文档的静态结构、链接、归属、科学公式保留和边界核对；非运行/浏览器验收",
+  "passed": true,
+  "checks": [
+    {
+      "name": "nonempty:README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/field_review_20261116_152511.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/field_review_20261116.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s01_readout_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s02_qubit_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s04_readout_fidelity/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s05_readout_optimization/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s06_t1/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s07_t2/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/s08_single_qubit_rb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d01_flux_spectroscopy/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d04_cz_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d05_cz_detuning/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:agents/d07_cz_optimizer/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:docs/usage_walkthrough.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:docs/architecture.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:docs/runtime_contract.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:docs/model_interface.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:output/README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:resources/SOURCE_NOTES.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/field_case_20261117_q11.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/field_case_20261117_q11.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:resources/field_updates/20261117/final_q11/calibration/Q11_validated_session_20261117.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:knowledge/field_case_20261117_q18_q19.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:README.md:resources/field_updates/20261117/q18_q19/rb_final/calibration/Q18_validated_session_20261117.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:README.md:15",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:16",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:17",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:18",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:19",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:20",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:21",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:22",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:23",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:24",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:25",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:26",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:27",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:28",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:29",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:30",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:README.md:31",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "nonempty:resources/SOURCE_NOTES.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:resources/SOURCE_NOTES.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:resources/SOURCE_NOTES.md:../config/workflow_ownership.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:resources/SOURCE_NOTES.md:../docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:resources/SOURCE_NOTES.md:source_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:resources/SOURCE_NOTES.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "nonempty:output/README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:output/README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:output/README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:output/README.md:5",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:6",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:7",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:8",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:9",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:10",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:output/README.md:11",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:docs/architecture.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/architecture.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../knowledge/parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../quantum_agents/runtime.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../quantum_agents/twin.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../quantum_agents/cz_suite.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../resources/latest_architecture/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../resources/prior_knowledge/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:../resources/twin_source/docs/model_traceability.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/architecture.md:hardware_adapter.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/architecture.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:docs/architecture.md:7",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:8",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:9",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:10",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:11",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:12",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:13",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:14",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:15",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/architecture.md:38",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:39",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:40",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:41",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:42",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:43",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:44",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:45",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:46",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:47",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:48",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:77",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:78",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:79",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:80",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:81",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:82",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:83",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:84",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:85",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:86",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:106",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:107",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:108",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:109",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:110",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:111",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:112",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:113",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:114",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/architecture.md:115",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:docs/supervisor_policy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/supervisor_policy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/supervisor_policy.md:../knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/supervisor_policy.md:../knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/supervisor_policy.md:../knowledge/two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/supervisor_policy.md:../knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/supervisor_policy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:24",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:25",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:26",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:27",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:28",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:29",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:30",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:31",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:32",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:docs/supervisor_policy.md:33",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "nonempty:docs/hardware_adapter.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/hardware_adapter.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/hardware_adapter.md:runtime_contract.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/hardware_adapter.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/hardware_adapter.md:../resources/latest_architecture/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/hardware_adapter.md:../resources/prior_knowledge/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/hardware_adapter.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:31",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:32",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:33",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:34",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:35",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:36",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:37",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:38",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:39",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:40",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:41",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/hardware_adapter.md:42",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:docs/validation_strategy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/validation_strategy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/validation_strategy.md:../knowledge/known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/validation_strategy.md:../resources/prior_knowledge/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/validation_strategy.md:../resources/twin_source/docs/model_traceability.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/validation_strategy.md:../output/README.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/validation_strategy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:docs/validation_strategy.md:7",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:8",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:9",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:10",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:11",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:43",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:44",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:45",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:46",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:47",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:48",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:49",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/validation_strategy.md:50",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:docs/usage_walkthrough.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/usage_walkthrough.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/usage_walkthrough.md:model_interface.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/usage_walkthrough.md:../knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/usage_walkthrough.md:supervisor_policy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/usage_walkthrough.md:hardware_adapter.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/usage_walkthrough.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "nonempty:docs/build_record.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/build_record.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/build_record.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "nonempty:docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/reorganization.md:../config/workflow_ownership.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/reorganization.md:../knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/reorganization.md:../resources/previous_edition/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:docs/reorganization.md:validation_strategy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:docs/reorganization.md:23",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/reorganization.md:24",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/reorganization.md:25",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/reorganization.md:26",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:docs/reorganization.md:27",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:knowledge/parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/parameter_dependencies.md:procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/parameter_dependencies.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/parameter_dependencies.md:../resources/latest_architecture/report.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/parameter_dependencies.md:../resources/prior_knowledge/deep_study/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:11",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:12",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:13",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:14",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:15",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:16",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:17",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:18",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:19",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:20",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:21",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "table:knowledge/parameter_dependencies.md:22",
+      "passed": true,
+      "detail": "expected=5,actual=5"
+    },
+    {
+      "name": "nonempty:knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:field_review_20261116.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:../resources/twin_source/docs/model_traceability.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:../resources/prior_knowledge/deep_study/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:field_review_20261116_152511.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:field_case_20261117_q11.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:field_case_20261117_q11.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/single_qubit_diagnostics.md:field_case_20261117_q18_q19.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "nonempty:knowledge/two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/two_qubit_diagnostics.md:procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/two_qubit_diagnostics.md:known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/two_qubit_diagnostics.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/two_qubit_diagnostics.md:../resources/twin_source/docs/two_qubit_physics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/two_qubit_diagnostics.md:../resources/twin_source/docs/audit/two_qubit_physics.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:55",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:56",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:57",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:58",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:59",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:60",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:61",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/two_qubit_diagnostics.md:62",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "nonempty:knowledge/known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/known_limitations.md:../resources/twin_source/quantum_twin/analysis.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/known_limitations.md:../resources/twin_source/quantum_twin/two_qubit_cli.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/known_limitations.md:../resources/twin_source/outputs/audit/inference_repro.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/known_limitations.md:../resources/twin_source/outputs/audit/truncation_repro.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/known_limitations.md:../resources/prior_knowledge/review/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:5",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:6",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:7",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:8",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:9",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/known_limitations.md:10",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "nonempty:knowledge/evidence_index.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/evidence_index.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:field_review_20261116.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261116/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/source_materials/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/latest_architecture/report.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/twin_source/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/prior_knowledge/closed_loop/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/prior_knowledge/validation/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/prior_knowledge/deep_study/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/prior_knowledge/review/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/new_attachments/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/previous_edition/",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../config/workflow_ownership.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../docs/reorganization.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:agent_internal_loop.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../docs/architecture.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:parameter_dependencies.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:single_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:two_qubit_diagnostics.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../docs/supervisor_policy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:worked_cases.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../docs/validation_strategy.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:known_limitations.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../quantum_agents/twin.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../quantum_agents/cz_suite.py",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:field_review_20261116_152511.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261116_152511/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:field_case_20261117_q11.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/referenced_source_verification.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/final_q11/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/final_q11/calibration/Q11_validated_session_20261117.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/final_q11/referenced_source_verification.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:field_case_20261117_q18_q19.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/q18_q19/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/q18_q19/results/original_file_provenance_review.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/q18_q19/rb_final/intake_manifest.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/evidence_index.md:../resources/field_updates/20261117/q18_q19/rb_final/referenced_source_verification.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/evidence_index.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:7",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:8",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:9",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:10",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:11",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:12",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:13",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:14",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:15",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:16",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:17",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:18",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "table:knowledge/evidence_index.md:19",
+      "passed": true,
+      "detail": "expected=3,actual=3"
+    },
+    {
+      "name": "nonempty:knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s01_readout_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_resonator_survey/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s01_readout_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_power_shift/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s01_readout_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_bias_map/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s02_qubit_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_spectroscopy/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s02_qubit_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_anharmonicity/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s02_qubit_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_frequency_fine/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_rabi_time/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_rabi12/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_amplitude_fine/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_drag/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s03_rabi_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_xy_z_timing/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s04_readout_fidelity/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_iq01/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s04_readout_fidelity/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_iq012/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s05_readout_optimization/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/ro_optimize/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s06_t1/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_t1/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s06_t1/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_t1_frequency/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s07_t2/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_cpmg/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s07_t2/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_ramsey/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s08_single_qubit_rb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_rb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/s08_single_qubit_rb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d01_flux_spectroscopy/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/sq_flux_map/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_exchange_off/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_residual_zz/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_dressed_zz/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_coupler_resonator_map/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d02_idle_interaction/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_iswap/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_setup/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_chevron/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_return/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_rough/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d03_cz_width/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_qz_cz_timing/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d04_cz_amplitude/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_amplitude_fine/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d05_cz_detuning/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_detune_fine/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d05_cz_detuning/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_gateoff_reference/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d05_cz_detuning/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_cz_phase_verify/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d05_cz_detuning/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_local_phase/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_leakage/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_truth_table/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_state_tomography/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_process_tomography/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d06_cz_xeb/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/p0_bell/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../agents/d07_cz_optimizer/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/procedure_ownership.md:../resources/previous_edition/agents/tq_optimizer/card.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/procedure_ownership.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:7",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:8",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:9",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:10",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:11",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:12",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:13",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:14",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:15",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:16",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:17",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:18",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:19",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:20",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:21",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:22",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:23",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:24",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:25",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:26",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:27",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:28",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:29",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:30",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:31",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:32",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:33",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:34",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:35",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:36",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:37",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:38",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:39",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:40",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:41",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:42",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:43",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:44",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:45",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:46",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:47",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:48",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:49",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:50",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:51",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:52",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:56",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:57",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:58",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:59",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:60",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:61",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:62",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/procedure_ownership.md:63",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "nonempty:knowledge/agent_internal_loop.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "fences:knowledge/agent_internal_loop.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "link:knowledge/agent_internal_loop.md:../docs/runtime_contract.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_stale_report_field:knowledge/agent_internal_loop.md",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:11",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:12",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:13",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:14",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:15",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:16",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:17",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:18",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "table:knowledge/agent_internal_loop.md:19",
+      "passed": true,
+      "detail": "expected=4,actual=4"
+    },
+    {
+      "name": "15+1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "8+7",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "44_unique_procedures",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s01_readout_frequency",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s01_readout_frequency",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_resonator_survey",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_power_shift",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_bias_map",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s02_qubit_frequency",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s02_qubit_frequency",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_spectroscopy",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_anharmonicity",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_frequency_fine",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s03_rabi_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s03_rabi_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_rabi_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_rabi_time",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_rabi12",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_amplitude_fine",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_drag",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_xy_z_timing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s04_readout_fidelity",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s04_readout_fidelity",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_iq01",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_iq012",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s05_readout_optimization",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s05_readout_optimization",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:ro_optimize",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s06_t1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s06_t1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_t1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_t1_frequency",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s07_t2",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s07_t2",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_cpmg",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_ramsey",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:s08_single_qubit_rb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:s08_single_qubit_rb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_rb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d01_flux_spectroscopy",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d01_flux_spectroscopy",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:sq_flux_map",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d02_idle_interaction",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d02_idle_interaction",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_exchange_off",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_residual_zz",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_dressed_zz",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_coupler_resonator_map",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_iswap",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d03_cz_width",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d03_cz_width",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_setup",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_chevron",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_return",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_rough",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_qz_cz_timing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d04_cz_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d04_cz_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_amplitude_fine",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d05_cz_detuning",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d05_cz_detuning",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_detune_fine",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_gateoff_reference",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_cz_phase_verify",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_local_phase",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d06_cz_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d06_cz_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_leakage",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_truth_table",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_state_tomography",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_process_tomography",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:p0_bell",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "readme_owner:d07_cz_optimizer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "catalog_owner:d07_cz_optimizer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "indexed_primary_owner:tq_optimizer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "s04_s05",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "d03_scan_main",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "main_not_auxiliary:s03_rabi_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "main_not_auxiliary:s07_t2",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "main_not_auxiliary:d06_cz_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:parameter_dependencies:reads={parameter_id:version}",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:S21=1−d/[1+2i(f−fr)/κ]",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:P1=sin²(π fR t)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:tπ=1/(2 fR)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:z=(2Px−1)−i(2Py−1)≈C exp(−t/T2+i2πδt)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:P1=B+A exp(−t/T1)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:1/T2=1/(2T1)+γφ",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:single_qubit_diagnostics:Q(t)=β dI/dt",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:two_qubit_diagnostics:P01=sin²(2πg t)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:two_qubit_diagnostics:P02≈B+A·8g²/(Δ²+8g²)·sin²[π√(Δ²+8g²)t]",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:two_qubit_diagnostics:φcond=θ11−θ10−θ01+θ00",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:two_qubit_diagnostics:ζ=(E11−E10−E01+E00)/h",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "preserved_formula:two_qubit_diagnostics:Lcounts=含非计算态计数/全部有效shots",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "worked_case_numeric_examples_retained",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:caller_agent_id",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:primary_owner_id",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:procedure_runs",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:agent_execution_report.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:overall_workflow_complete",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/architecture.md:公共模块",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:s04",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:s05",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:d06",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:d07",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:DEVICE/UNKNOWN",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:STATISTICAL",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:DRIFT_OR_NONSTATIONARY",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/supervisor_policy.md:预算",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/hardware_adapter.md:不是32所",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/hardware_adapter.md:run-agent",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/hardware_adapter.md:软截止",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/hardware_adapter.md:reconcile",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/hardware_adapter.md:primary_owner_id",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/validation_strategy.md:Wilson",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/validation_strategy.md:alpha spending",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/validation_strategy.md:17",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/validation_strategy.md:15实验与1总控",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/validation_strategy.md:original_step_complete=false",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/usage_walkthrough.md:run-agent s03_rabi_amplitude",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/usage_walkthrough.md:--procedure sq_rabi_time",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/usage_walkthrough.md:s07_t2",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/usage_walkthrough.md:d06_cz_xeb",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/usage_walkthrough.md:source_suite_only",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:8个",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:7个",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:QQswap",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:60 ns",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:s03",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:s07",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:docs/reorganization.md:d06",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:采集",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:拟合",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:偏差",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:调参",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:重测",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/agent_internal_loop.md:公共模块",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:合成示例",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:非设备标准",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s02",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s03",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s04",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s05",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s07",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:s08",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d02",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d03",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d04",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d05",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d06",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:knowledge/worked_cases.md:d07",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:output/README.md:previous_edition",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:output/README.md:tests_run",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "coverage:output/README.md:原流程15步版_20261024_验收.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "old_QA_archived",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "active_no_old_QA_pass",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "characters": 70448,
+  "artifact_sha256": {
+    "README.md": "dfb36018f39fd3541862b45332a2cbef9e9bf3edc931521fedde3d5d55317322",
+    "resources/SOURCE_NOTES.md": "f268413143fac24b505f306828b9bfcebc265c94bcf23fc6411b51a1c83fc81e",
+    "output/README.md": "f835284cdbf4c4bdc6d3e70a9041aab8a796bd41cab58744e54f540119ae2e17",
+    "docs/architecture.md": "ec94c5548d3808dc7a6015fb994de16cfce15e3fb39efeaa0fd7c5b10e208f97",
+    "docs/supervisor_policy.md": "bc9eec550efc2b71d9dc5313956dbf2fcd18ffd7f753a8dd49b0da147a6a180c",
+    "docs/hardware_adapter.md": "ad2befb84921363f7a142f5997d7b6afa61e9a1d39cc3430d7d9f9ff0ee55b5c",
+    "docs/validation_strategy.md": "da83937766ac0acc0cb0f424e50722c3f96fd2dea996b8c80ec263367d1bcec5",
+    "docs/usage_walkthrough.md": "e21175ded8ca5d1faa7b6bc7afc8d0c7de51d884abf64ae9c27920c0208cc9aa",
+    "docs/build_record.md": "e7c247f6aed7dd6da28f0c0e9050783deeb3803c727b3848ec0c70875821ea2c",
+    "docs/reorganization.md": "1b1d453ac84c0be1cb61fa72071f82c2c3d18c52c12b7b80ce226a6e4b00bcc7",
+    "knowledge/parameter_dependencies.md": "aa6836a0bbf28350a4a5dedb7aa545a3009b846ceb85490d92570dfa6df88f69",
+    "knowledge/single_qubit_diagnostics.md": "bc2246bae8d648a0852860587169d95dee60d297923d9836751e3e88bf921832",
+    "knowledge/two_qubit_diagnostics.md": "a5b8d44c4bf4c938f88c898240020d21a18a1ebda0f42f412e73bb73534b02e5",
+    "knowledge/worked_cases.md": "8f894a1f27b7bdf61c00052ccf892f95668c1ea993a2f049b20b5eee03a1d810",
+    "knowledge/known_limitations.md": "c69aee07bc4bd4e909bcd195e41e136933e0486273ffb4f814e906b433b62f63",
+    "knowledge/evidence_index.md": "7b0f8ace1c8967d00ad57ea032570bf4fb0b0fadea37e74a8d37b6b2be2fb099",
+    "knowledge/procedure_ownership.md": "169b87921e0e0a8d44a2477c70761b330585518acbfb55dd8d9733a5b4a92eb6",
+    "knowledge/agent_internal_loop.md": "e46c185c8b33c9b399413960cbf2df88809e15b8909911c6d2e2866b795bcaf9"
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "source": "D:\\coding_tgqos_test\\MeasModule\\QOS\\Tools\\Fit\\fitclass.py",
+    "path": "adapters\\f8_runtime\\native_math\\fitclass.py",
+    "sha256": "dd318ecfaf2447dc9da934192ae6ba374b120c086f883c28c1210f12b6ac165c"
+  },
+  {
+    "source": "D:\\coding_tgqos_test\\MeasModule\\QOS\\Tools\\Fit\\function.py",
+    "path": "adapters\\f8_runtime\\native_math\\function.py",
+    "sha256": "ec9a9475570ccd69e048c70e6c29667a71fade86a162dd2fd5f63ffe7f072368"
+  },
+  {
+    "source": "D:\\总体-8号机测试\\20261117_Agent_F8_Q11_Q18复现\\F8_copy\\config_TGQ-TEST-F8.json",
+    "path": "adapters\\f8_runtime\\F8_copy\\config_TGQ-TEST-F8.json",
+    "sha256": "3006d599e17e85aa4ed47067bc6f2a1ff1594194af6ad9ac0792b9a4d7bbfbbd"
+  },
+  {
+    "source": "D:\\总体-8号机测试\\20261117_Agent_F8_Q11_Q18复现\\F8_copy\\filedict_TGQ-TEST-F8_Agent.json",
+    "path": "adapters\\f8_runtime\\F8_copy\\filedict_TGQ-TEST-F8_Agent.json",
+    "sha256": "9a83e2962236cf54bfdb51d7bc371d3b2d2a7f38e62e9a89517ae0d0724e5c01"
+  },
+  {
+    "source": "D:\\总体-8号机测试\\20261117_Agent_F8_Q11_Q18复现\\F8_copy\\workspace_adc.py",
+    "path": "adapters\\f8_runtime\\F8_copy\\workspace_adc.py",
+    "sha256": "8452b52dc8eb5f89a35596e5d29b7fdb79593fb832790aa073e7d63d2f6dcdbd"
+  },
+  {
+    "source": "D:\\总体-8号机测试\\20261117_Agent_F8_Q11_Q18复现\\native_rb_pairing.py",
+    "path": "adapters\\f8_runtime\\native_rb_pairing.py",
+    "sha256": "5f7386b96b7bd18dc0ea3e13e5a031d4e0b066d47774fad36cf5673b595c5e5b"
+  },
+  {
+    "source": "D:\\总体-8号机测试\\20261117_Agent_F8_Q11_Q18复现\\run_f8_native_v5.py",
+    "sourceSha256": "3fa7435fc371c2adc1b06d9bf9e0cc697ef8bf433e3aeace9ab34874e09937a4",
+    "path": "adapters\\f8_runtime\\run_f8_worker.py",
+    "sha256": "d92aeb3eb374442a07dbe0c010e2a983dbee1c23cd85260a3b46b5fc79447017",
+    "changes": [
+      "runtime output/base/lock via explicit environment",
+      "VISA 10 second request timeout",
+      "native CPMG mapping",
+      "cooperative cancellation before row set",
+      "actual sweep Cartesian-product row progress and explicitly equal-weight job progress"
+    ]
+  },
+  {
+    "source": "project-authored exact sweep progress",
+    "path": "adapters\\f8_runtime\\progress.py",
+    "sha256": "db963770efd86ed445bb5b036b152060dfed9dd0df0cc2272b8e8875d9d197e9"
+  }
+]

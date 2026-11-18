@@ -1,0 +1,4026 @@
+{
+  "schema_version": 2,
+  "agent_count": 16,
+  "experiment_agent_count": 15,
+  "supervisor_agent_count": 1,
+  "procedure_count": 44,
+  "procedure_catalog": "config/procedure_catalog.json",
+  "ownership_file": "config/workflow_ownership.json",
+  "status_semantics": "execution_status表示框内至少一部分方法的支持范围；原框主方法是否已实现另见main_method_execution_status。任何状态都不替代精确binding/本次验收。",
+  "retest_routes": [
+    {
+      "from": "s05_readout_optimization",
+      "to": "s04_readout_fidelity",
+      "trigger": "读出频率/幅度优化产生候选或改变分类条件",
+      "semantics": "fresh独立分类/保真度复测后发布；不是DAG反向依赖"
+    },
+    {
+      "from": "d07_cz_optimizer",
+      "to": "d06_cz_xeb",
+      "trigger": "优化器产生候选CZ参数",
+      "semantics": "fresh独立XEB验证，选择与验收数据分离；不是DAG反向依赖"
+    }
+  ],
+  "agents": [
+    {
+      "id": "s01_readout_frequency",
+      "name": "读取腔定频",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第1框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成读取腔定频的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 ReadoutFreqDip。",
+      "original_function": "ReadoutFreqDip",
+      "source_page": 1,
+      "source_box_index": 1,
+      "main_procedure_id": "ro_resonator_survey",
+      "procedure_ids": [
+        "ro_resonator_survey",
+        "ro_power_shift",
+        "ro_bias_map"
+      ],
+      "legacy_functions": [
+        "ReadoutFreqDip",
+        "ReadoutFreqMulti",
+        "ReadoutFreqQubitBiasDependency"
+      ],
+      "depends_on": [],
+      "parameter_reads": [
+        "readout.design_frequencies_hz",
+        "readout.route",
+        "device.bias_version",
+        "readout.resonance_hz",
+        "readout.attenuation_map",
+        "device.power_limits",
+        "device.bias_limits",
+        "readout.low_power_frequency_hz",
+        "readout.power_candidate"
+      ],
+      "parameter_writes": [
+        "readout.resonance_hz",
+        "readout.linewidth_hz",
+        "readout.peak_assignment",
+        "readout.low_power_frequency_hz",
+        "readout.high_power_frequency_hz",
+        "readout.dispersive_shift_hz",
+        "readout.power_candidate",
+        "qubit.idle_bias_candidate",
+        "readout.frequency_vs_bias"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "readout.design_frequencies_hz",
+        "readout.route",
+        "device.bias_version"
+      ],
+      "main_parameter_writes": [
+        "readout.resonance_hz",
+        "readout.linewidth_hz",
+        "readout.peak_assignment"
+      ],
+      "conditional_parameter_reads": [
+        "readout.resonance_hz",
+        "readout.attenuation_map",
+        "device.power_limits",
+        "device.bias_limits",
+        "readout.low_power_frequency_hz",
+        "readout.power_candidate"
+      ],
+      "controls": {
+        "scan": [
+          "[ro_resonator_survey] probe_frequency_hz：授权窗口内一维等距扫描",
+          "[ro_power_shift] readout_power或校准衰减档位",
+          "[ro_power_shift] 每档probe_frequency_hz",
+          "[ro_bias_map] qubit_dc_bias",
+          "[ro_bias_map] probe_frequency_hz二维网格"
+        ],
+        "fixed": [
+          "[ro_resonator_survey] probe_amplitude：授权线性区",
+          "[ro_resonator_survey] idle_bias",
+          "[ro_resonator_survey] averages_per_point",
+          "[ro_resonator_survey] readout_path",
+          "[ro_power_shift] idle_bias",
+          "[ro_power_shift] readout_path",
+          "[ro_power_shift] 积分窗口",
+          "[ro_power_shift] 每点平均次数",
+          "[ro_bias_map] readout_power",
+          "[ro_bias_map] 其他器件偏置",
+          "[ro_bias_map] 扫描顺序与稳定等待时间"
+        ]
+      },
+      "sequence": [
+        "先执行线性/授权功率下腔定频；需要判断功率导致的频移或偏置改变时，再启用功率/偏置内部扫描。每次更改读出路径或偏置后重新定频，不套用旧峰。",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 保持器件偏置并记录读回版本",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 逐频率发探测信号",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 采集归一化复S21或I/Q均值",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 拟合每个可辨识吸收谷",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 候选频率附近独立细扫",
+        "[ro_power_shift · 高低功率色散位移检查] 读回功率/衰减映射",
+        "[ro_power_shift · 高低功率色散位移检查] 低功率扫频",
+        "[ro_power_shift · 高低功率色散位移检查] 在授权功率上限内逐档增加并扫频",
+        "[ro_power_shift · 高低功率色散位移检查] 恢复低功率fresh复测",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 按限幅斜率改变Z偏置并读回",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 每个偏置扫腔",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 追踪连续腔分支",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 回到原点检查迟滞",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 候选idle处fresh腔频复测"
+      ],
+      "observables": [
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 复S21实部/虚部与频率",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 每点平均次数和均值噪声",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 多腔峰间距、归属不确定性",
+        "[ro_power_shift · 高低功率色散位移检查] 各功率复S21",
+        "[ro_power_shift · 高低功率色散位移检查] 吸收谷位置/宽度",
+        "[ro_power_shift · 高低功率色散位移检查] 压缩或加热征兆",
+        "[ro_bias_map · 量子比特偏置与腔频映射] S21(bias,f)",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 实际偏置读回",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 腔分支/回程差异"
+      ],
+      "analysis": [
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 线性单腔子模式 S21=1-d/[1+2i(f-fr)/κ]，f、fr、κ均Hz",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 多腔模式须选用经验证的多峰模型，不能用单谷拟合强行分配",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] κ为该模型全宽，显示精度不等于物理准确度",
+        "[ro_power_shift · 高低功率色散位移检查] Δfr=fr_low-fr_high，Hz",
+        "[ro_power_shift · 高低功率色散位移检查] 高功率趋近裸腔是待验证解释而非必然",
+        "[ro_power_shift · 高低功率色散位移检查] 手册0/25衰减档仅原设备示例，绝不能自动复制",
+        "[ro_bias_map · 量子比特偏置与腔频映射] fr(bias)经验曲线，偏置单位由adapter声明",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 局部导数仅在单一连续分支解释",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 腔频极值不能自动等同所有器件的最佳相干工作点"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[ro_resonator_survey] 没有谷或归属不唯一",
+          "action": "检查连接/功率/频窗并提出受限新扫描",
+          "reason": "平坦数据不能定频"
+        },
+        {
+          "condition": "[ro_resonator_survey] 谷贴扫描边界",
+          "action": "向该侧扩窗但不越授权频率范围",
+          "reason": "避免边界拟合假峰"
+        },
+        {
+          "condition": "[ro_resonator_survey] 独立细扫与原拟合一致",
+          "action": "提出fr及线宽候选",
+          "reason": "不得直接写芯片配置"
+        },
+        {
+          "condition": "[ro_power_shift] 频率无可解析变化",
+          "action": "报告不能确认色散位移并查读出链/功率标定",
+          "reason": "无位移不是直接证明芯片损坏"
+        },
+        {
+          "condition": "[ro_power_shift] 功率升高致线形扭曲或恢复后漂移",
+          "action": "停止升功率并回退",
+          "reason": "避免把非线性响应拟成线性腔"
+        },
+        {
+          "condition": "[ro_power_shift] 存在稳定功率区间",
+          "action": "提出低功率测量工作点",
+          "reason": "方向由测量功率响应决定"
+        },
+        {
+          "condition": "[ro_bias_map] 出现避交叉/分支跳转",
+          "action": "分支追踪并请求谱学确认",
+          "reason": "不盲取全图最大值"
+        },
+        {
+          "condition": "[ro_bias_map] 迟滞或回程差异超criteria",
+          "action": "停止调参并保留原idle",
+          "reason": "偏置映射不稳定"
+        },
+        {
+          "condition": "[ro_bias_map] 候选局部极值可重复",
+          "action": "提出idle及适用区间",
+          "reason": "用邻点测得导数确定调节方向"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 提交前fresh细扫",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 任一偏置/路由/衰减更改使旧腔频、IQ分类、读出优化及其下游证据失效",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 回退到上一个有读回证据的读出配置",
+        "[ro_power_shift · 高低功率色散位移检查] 候选低功率用fresh扫频确认",
+        "[ro_power_shift · 高低功率色散位移检查] 功率修改使IQ分类、读出误差与优化结果失效",
+        "[ro_power_shift · 高低功率色散位移检查] 高低功率数据保持独立",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 调用ro_resonator_survey fresh task覆盖手册1.1.4",
+        "[ro_bias_map · 量子比特偏置与腔频映射] idle变化使f01、π脉冲、T1/T2、读出分类及双比特校准失效",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 保存原idle用于回退"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 峰位不在边界且残差满足冻结criteria",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 峰归属明确",
+        "[ro_resonator_survey · 读出腔寻峰与偏置后定频] 单腔runtime不得声明完成多腔寻峰",
+        "[ro_power_shift · 高低功率色散位移检查] 位移大于冻结不确定度标准",
+        "[ro_power_shift · 高低功率色散位移检查] 低功率复测恢复",
+        "[ro_power_shift · 高低功率色散位移检查] 无越限或读出压缩",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 分支可辨识且回程一致",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 候选未越偏置限制",
+        "[ro_bias_map · 量子比特偏置与腔频映射] 未用腔曲线单独证明最高f01"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 12000000,
+        "max_seconds": 2700
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "partial_simulated",
+      "main_method_execution_status": "limited_simulated",
+      "source_support": "原框主方法是 ReadoutFreqDip。已有原子绑定仅线性单腔 S21 寻峰；高低功率、多腔归属和真实偏置依赖属于本角色内部合同，未接实机。",
+      "internal_method_policy": "先执行线性/授权功率下腔定频；需要判断功率导致的频移或偏置改变时，再启用功率/偏置内部扫描。每次更改读出路径或偏置后重新定频，不套用旧峰。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第1个功能方框，ReadoutFreqDip"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "1.1.1–1.1.4，L52–144"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L427–607"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "1.1.2，L80–102"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "1.1.3–1.1.4，L104–144"
+        }
+      ],
+      "card_path": "agents/s01_readout_frequency/card.md",
+      "prompt_path": "agents/s01_readout_frequency/prompt.md"
+    },
+    {
+      "id": "s02_qubit_frequency",
+      "name": "比特定频",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第2框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成比特定频的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 F01Spectroscopy。",
+      "original_function": "F01Spectroscopy",
+      "source_page": 1,
+      "source_box_index": 2,
+      "main_procedure_id": "sq_spectroscopy",
+      "procedure_ids": [
+        "sq_spectroscopy",
+        "sq_anharmonicity",
+        "sq_frequency_fine"
+      ],
+      "legacy_functions": [
+        "F01Spectroscopy",
+        "FahFinder",
+        "CorrectF01ByPhase"
+      ],
+      "depends_on": [
+        "s01_readout_frequency"
+      ],
+      "parameter_reads": [
+        "readout.resonance_hz",
+        "qubit.idle_bias",
+        "qubit.frequency_window_hz",
+        "qubit.f01_coarse_hz",
+        "drive.power_limits",
+        "readout.config",
+        "qubit.f01_candidate_hz",
+        "qubit.half_pi_amp",
+        "drive.phase_convention"
+      ],
+      "parameter_writes": [
+        "qubit.f01_coarse_hz",
+        "qubit.spectroscopy_width_hz",
+        "qubit.anharmonicity_hz",
+        "qubit.f12_hz",
+        "qubit.two_photon_peak_hz",
+        "qubit.f01_hz",
+        "qubit.frequency_residual_hz"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "readout.resonance_hz",
+        "qubit.idle_bias",
+        "qubit.frequency_window_hz"
+      ],
+      "main_parameter_writes": [
+        "qubit.f01_coarse_hz",
+        "qubit.spectroscopy_width_hz"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.f01_coarse_hz",
+        "drive.power_limits",
+        "readout.config",
+        "qubit.f01_candidate_hz",
+        "qubit.half_pi_amp",
+        "drive.phase_convention"
+      ],
+      "controls": {
+        "scan": [
+          "[sq_spectroscopy] drive_frequency_hz",
+          "[sq_anharmonicity] drive_frequency_hz：f01以下候选窗口",
+          "[sq_anharmonicity] 可选低/高功率对照",
+          "[sq_frequency_fine] idle_time_s",
+          "[sq_frequency_fine] X/Y analysis_basis"
+        ],
+        "fixed": [
+          "[sq_spectroscopy] 弱驱动幅度",
+          "[sq_spectroscopy] 驱动持续时间",
+          "[sq_spectroscopy] 读出频幅",
+          "[sq_spectroscopy] idle_bias",
+          "[sq_spectroscopy] shots",
+          "[sq_anharmonicity] 方波宽度",
+          "[sq_anharmonicity] idle_bias",
+          "[sq_anharmonicity] 读出",
+          "[sq_anharmonicity] 每点shots",
+          "[sq_frequency_fine] 当前频率绝对值",
+          "[sq_frequency_fine] π2",
+          "[sq_frequency_fine] readout",
+          "[sq_frequency_fine] idle_bias"
+        ]
+      },
+      "sequence": [
+        "初次进入主链先做 f01 能谱，允许采用原始 IQ bootstrap。f12/非谐性和相位精校只有在相应 π 制备/序列可用后作为本角色回测任务执行；不将这些后置先决条件强加给首次能谱。",
+        "[sq_spectroscopy · 单比特f01粗频谱] 理想/实际复位语义写入请求",
+        "[sq_spectroscopy · 单比特f01粗频谱] 长弱脉冲逐频率驱动",
+        "[sq_spectroscopy · 单比特f01粗频谱] 读出IQ或经有效分类器得到P1",
+        "[sq_spectroscopy · 单比特f01粗频谱] 扫描峰附近fresh复核",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 从授权功率开始",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 扫f01以下双光子谱",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 改变有限功率交叉识别候选",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 记录峰位及shift",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 由f01计算f12",
+        "[sq_frequency_fine · 相位斜率精校频率] 制备+",
+        "[sq_frequency_fine · 相位斜率精校频率] 等待τ",
+        "[sq_frequency_fine · 相位斜率精校频率] X/Y层析",
+        "[sq_frequency_fine · 相位斜率精校频率] 计算并可靠解包裹phase",
+        "[sq_frequency_fine · 相位斜率精校频率] 拟合phase对τ",
+        "[sq_frequency_fine · 相位斜率精校频率] 候选频率写入后fresh复测"
+      ],
+      "observables": [
+        "[sq_spectroscopy · 单比特f01粗频谱] IQ或P1随f",
+        "[sq_spectroscopy · 单比特f01粗频谱] 基线",
+        "[sq_spectroscopy · 单比特f01粗频谱] 峰宽",
+        "[sq_spectroscopy · 单比特f01粗频谱] counts与shots",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 谱线峰f02/2",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 功率依赖",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 可能的旁带/多光子峰",
+        "[sq_frequency_fine · 相位斜率精校频率] phase(τ) rad",
+        "[sq_frequency_fine · 相位斜率精校频率] contrast",
+        "[sq_frequency_fine · 相位斜率精校频率] unwrap分支",
+        "[sq_frequency_fine · 相位斜率精校频率] frequency readback"
+      ],
+      "analysis": [
+        "[sq_spectroscopy · 单比特f01粗频谱] P1=B+A/[1+((f-f0)/w)^2]",
+        "[sq_spectroscopy · 单比特f01粗频谱] f0,w为Hz，w为半宽",
+        "[sq_spectroscopy · 单比特f01粗频谱] 功率展宽下w不等于1/(2πT2)",
+        "[sq_spectroscopy · 单比特f01粗频谱] 只在单峰近稳态模型适用",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 令p=f02/2，则f12=2p-f01，α=f12-f01=2(p-f01)，Hz",
+        "[sq_anharmonicity · f02双光子谱与非谐性] transmon通常α<0",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 手册202MHz是绝对量，不能直接写入负号约定字段",
+        "[sq_frequency_fine · 相位斜率精校频率] φ(τ)=φ0+sτ",
+        "[sq_frequency_fine · 相位斜率精校频率] s rad/s，则Δf=±s/(2π)Hz",
+        "[sq_frequency_fine · 相位斜率精校频率] 符号由已知小频率扰动验证",
+        "[sq_frequency_fine · 相位斜率精校频率] φ0不能当作频率斜率",
+        "[sq_frequency_fine · 相位斜率精校频率] 多段斜率检验非线性漂移"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_spectroscopy] 平坦/多峰/峰贴边",
+          "action": "诊断功率、频窗、旁峰与读出，不返回可靠f01",
+          "reason": "拟合数值成功不足"
+        },
+        {
+          "condition": "[sq_spectroscopy] 弱驱动峰稳定",
+          "action": "候选drive_frequency设为f0",
+          "reason": "频率方向由实测峰位减当前值"
+        },
+        {
+          "condition": "[sq_spectroscopy] 已存在fine频率",
+          "action": "仅标记粗测证据，不覆盖较新精测",
+          "reason": "防粗测回写污染"
+        },
+        {
+          "condition": "[sq_anharmonicity] 峰随功率强移或归属不明",
+          "action": "请求弱功率外推/直接f12复核",
+          "reason": "避免把AC Stark或杂峰当非谐性"
+        },
+        {
+          "condition": "[sq_anharmonicity] α符号与schema不一致",
+          "action": "拒绝写入并转换明确字段",
+          "reason": "防止正202MHz进入负Duffingα"
+        },
+        {
+          "condition": "[sq_anharmonicity] 可辨识峰",
+          "action": "更新f12候选并交sq_rabi12",
+          "reason": "不宣称|2>制备已校好"
+        },
+        {
+          "condition": "[sq_frequency_fine] 有截距无斜率",
+          "action": "交相位/轴诊断，不改f01",
+          "reason": "固定相位与频差不同"
+        },
+        {
+          "condition": "[sq_frequency_fine] 相邻相位跳过π或对比度过低",
+          "action": "加短τ/更密采样，拒绝盲unwrap",
+          "reason": "避免错误频率方向"
+        },
+        {
+          "condition": "[sq_frequency_fine] 方向验证通过",
+          "action": "候选f_new=f_old+measured_delta按定义计算",
+          "reason": "禁止仅说加或减而无符号约定"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_spectroscopy · 单比特f01粗频谱] fresh窄扫",
+        "[sq_spectroscopy · 单比特f01粗频谱] 功率改变需检查AC Stark偏移",
+        "[sq_spectroscopy · 单比特f01粗频谱] idle/flux/route变化失效",
+        "[sq_spectroscopy · 单比特f01粗频谱] 回退旧频率并重新读回",
+        "[sq_anharmonicity · f02双光子谱与非谐性] fresh谱学及f12 Rabi复核",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 偏置/drive shape变化失效",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 回退原α及f12配对版本",
+        "[sq_frequency_fine · 相位斜率精校频率] fresh相位斜率验证",
+        "[sq_frequency_fine · 相位斜率精校频率] 回退绝对f_old而非再次减修正量",
+        "[sq_frequency_fine · 相位斜率精校频率] 频率更新使幅度、DRAG、RB及双比特相位需复核"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_spectroscopy · 单比特f01粗频谱] 峰可辨识且残差合格",
+        "[sq_spectroscopy · 单比特f01粗频谱] 粗频率不替代后续Ramsey精校",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 峰归属证据完整",
+        "[sq_anharmonicity · f02双光子谱与非谐性] α符号/单位明确",
+        "[sq_anharmonicity · f02双光子谱与非谐性] 跨功率一致性满足criteria",
+        "[sq_frequency_fine · 相位斜率精校频率] 新斜率及CI在冻结容差内",
+        "[sq_frequency_fine · 相位斜率精校频率] 低对比度/alias状态未隐藏"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 12000000,
+        "max_seconds": 2700
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "partial_simulated",
+      "main_method_execution_status": "limited_simulated",
+      "source_support": "原框主方法是 F01Spectroscopy。已有 q0/q1 二能级能谱原子绑定；f12/非谐性与相位精校是有先决条件的内部方法，未因能谱可运行而全部实现。",
+      "internal_method_policy": "初次进入主链先做 f01 能谱，允许采用原始 IQ bootstrap。f12/非谐性和相位精校只有在相应 π 制备/序列可用后作为本角色回测任务执行；不将这些后置先决条件强加给首次能谱。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第2个功能方框，F01Spectroscopy"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.1.1，L150–180"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.1.4，L246–274"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "单比特精细校准，L528–546"
+        }
+      ],
+      "card_path": "agents/s02_qubit_frequency/card.md",
+      "prompt_path": "agents/s02_qubit_frequency/prompt.md"
+    },
+    {
+      "id": "s03_rabi_amplitude",
+      "name": "Rabi定幅",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第3框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成Rabi定幅的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 XYGateAmpRabiImpl。",
+      "original_function": "XYGateAmpRabiImpl",
+      "source_page": 1,
+      "source_box_index": 3,
+      "main_procedure_id": "sq_rabi_amplitude",
+      "procedure_ids": [
+        "sq_rabi_amplitude",
+        "sq_rabi_time",
+        "sq_rabi12",
+        "sq_amplitude_fine",
+        "sq_drag",
+        "sq_xy_z_timing"
+      ],
+      "legacy_functions": [
+        "XYGateAmpRabiImpl",
+        "RabiLengthCal",
+        "RabiF12AmpNumGates",
+        "DragAlphaCal",
+        "QubitXYZTimingCal"
+      ],
+      "depends_on": [
+        "s02_qubit_frequency"
+      ],
+      "parameter_reads": [
+        "qubit.f01_coarse_hz",
+        "drive.fixed_width_s",
+        "drive.amplitude_limits",
+        "drive.amplitude",
+        "readout.observation_mode",
+        "qubit.f12_hz",
+        "qubit.pi_amp",
+        "drive.width12_s",
+        "readout.raw_iq_capability",
+        "qubit.half_pi_amp",
+        "drive.shape",
+        "drive.width_s",
+        "drive.drag_family",
+        "drive.drag_alpha",
+        "qubit.anharmonicity_hz",
+        "qubit.pi_amp_fine",
+        "z.frequency_map",
+        "timing.trigger_reference",
+        "timing.sample_period_s"
+      ],
+      "parameter_writes": [
+        "qubit.pi_amp",
+        "qubit.half_pi_amp",
+        "qubit.pi_duration_s",
+        "qubit.rabi_hz_per_amp",
+        "qubit.pi12_amp",
+        "qubit.pi12_duration_s",
+        "qubit.prep2_evidence",
+        "qubit.pi_amp_fine",
+        "qubit.half_pi_amp_fine",
+        "qubit.rotation_error_rad",
+        "drive.drag_alpha_candidate",
+        "drive.drag_diagnostics",
+        "timing.xy_z_delay_s"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "qubit.f01_coarse_hz",
+        "drive.fixed_width_s",
+        "drive.amplitude_limits"
+      ],
+      "main_parameter_writes": [
+        "qubit.pi_amp",
+        "qubit.half_pi_amp"
+      ],
+      "conditional_parameter_reads": [
+        "drive.amplitude",
+        "readout.observation_mode",
+        "qubit.f12_hz",
+        "qubit.pi_amp",
+        "drive.width12_s",
+        "readout.raw_iq_capability",
+        "qubit.half_pi_amp",
+        "drive.shape",
+        "drive.width_s",
+        "drive.drag_family",
+        "drive.drag_alpha",
+        "qubit.anharmonicity_hz",
+        "qubit.pi_amp_fine",
+        "z.frequency_map",
+        "timing.trigger_reference",
+        "timing.sample_period_s"
+      ],
+      "controls": {
+        "scan": [
+          "[sq_rabi_amplitude] drive_amplitude",
+          "[sq_rabi_amplitude] 预声明重复脉冲数N",
+          "[sq_rabi_time] pulse_duration_s：含零时长及多个振荡周期",
+          "[sq_rabi12] f12_drive_amplitude",
+          "[sq_rabi12] 重复12脉冲数N",
+          "[sq_amplitude_fine] 小幅度邻域u",
+          "[sq_amplitude_fine] 预声明重复数N",
+          "[sq_drag] drag_alpha",
+          "[sq_drag] gate_count_N",
+          "[sq_xy_z_timing] z_delay_relative_xy_s"
+        ],
+        "fixed": [
+          "[sq_rabi_amplitude] pulse_width_s",
+          "[sq_rabi_amplitude] drive_frequency_hz",
+          "[sq_rabi_amplitude] pulse_shape",
+          "[sq_rabi_amplitude] gate_spacing_s",
+          "[sq_rabi_amplitude] readout",
+          "[sq_rabi_time] drive_amplitude",
+          "[sq_rabi_time] drive_frequency_hz",
+          "[sq_rabi_time] pulse_shape",
+          "[sq_rabi_time] readout_config",
+          "[sq_rabi_time] shots",
+          "[sq_rabi12] f12_frequency_hz",
+          "[sq_rabi12] 12脉冲宽度",
+          "[sq_rabi12] 01制备π",
+          "[sq_rabi12] idle",
+          "[sq_rabi12] 读出",
+          "[sq_amplitude_fine] 频率",
+          "[sq_amplitude_fine] 脉宽/波形",
+          "[sq_amplitude_fine] 初始分析π2",
+          "[sq_amplitude_fine] 读出",
+          "[sq_amplitude_fine] spacing",
+          "[sq_drag] 幅度/宽度",
+          "[sq_drag] 频率",
+          "[sq_drag] I/Q符号约定",
+          "[sq_drag] 已验证误差放大序列",
+          "[sq_drag] readout",
+          "[sq_xy_z_timing] XYπ宽度",
+          "[sq_xy_z_timing] Z方波等宽",
+          "[sq_xy_z_timing] Z幅度",
+          "[sq_xy_z_timing] trigger_reference",
+          "[sq_xy_z_timing] 读出"
+        ]
+      },
+      "sequence": [
+        "主任务固定时宽扫幅度。时长 Rabi 可用于诊断或建立初始脉冲；1→2/DRAG 必须有相应态制备/三态读出能力，重复门精校在粗定幅后执行；XY–Z timing 仅在涉及 Z 线路时调用。初始 raw IQ bootstrap 不宣称已有训练分类器。",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 复位",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 连续N个同轴固定宽度脉冲",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 扫幅度",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 测P1",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 用多个N交叉验证同一旋转角模型",
+        "[sq_rabi_time · Rabi时长扫描] 每点复位",
+        "[sq_rabi_time · Rabi时长扫描] 固定频率/幅度驱动t",
+        "[sq_rabi_time · Rabi时长扫描] 采集P1或bootstrap平均IQ",
+        "[sq_rabi_time · Rabi时长扫描] 先频率初值再拟合衰减振荡",
+        "[sq_rabi_time · Rabi时长扫描] 独立π/π2点复测",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 复位",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 01 π制备|1>",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 施加N个f12脉冲",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 扫幅度",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 保存原始IQ并区分0/1/2观测渠道",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] fresh制备2验证",
+        "[sq_amplitude_fine · 重复门幅度精校] 冻结具体误差放大门串并用理想模拟核对",
+        "[sq_amplitude_fine · 重复门幅度精校] 小N建立分支",
+        "[sq_amplitude_fine · 重复门幅度精校] 增加N细扫",
+        "[sq_amplitude_fine · 重复门幅度精校] 独立N集合fresh验证π/π2",
+        "[sq_drag · DRAG系数精校] 先读取adapter脉冲与门串定义并理想验证",
+        "[sq_drag · DRAG系数精校] 若缺失停止proposal为blocked",
+        "[sq_drag · DRAG系数精校] 扫alpha与N",
+        "[sq_drag · DRAG系数精校] 保存P1及可用P2",
+        "[sq_drag · DRAG系数精校] 候选独立N复测",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 保持trigger有足够前置裕量",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 施加XYπ及延迟Z方波",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 扫相对延迟",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 测P1",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 拟合重叠区左右边缘",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 补偿后重新扫描"
+      ],
+      "observables": [
+        "[sq_rabi_amplitude · Rabi幅度粗校] P1(u,N)",
+        "[sq_rabi_amplitude · Rabi幅度粗校] IQ/counts",
+        "[sq_rabi_amplitude · Rabi幅度粗校] fitted rotation slope",
+        "[sq_rabi_time · Rabi时长扫描] P1(t)或IQ(t)",
+        "[sq_rabi_time · Rabi时长扫描] shot计数",
+        "[sq_rabi_time · Rabi时长扫描] 振荡频率/相位/衰减/残差",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 原始IQ多云团",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 经有效三态映射的P0/P1/P2",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 总counts",
+        "[sq_amplitude_fine · 重复门幅度精校] P0/P1随u,N",
+        "[sq_amplitude_fine · 重复门幅度精校] rotation residual",
+        "[sq_amplitude_fine · 重复门幅度精校] 对比度随N衰减",
+        "[sq_drag · DRAG系数精校] P1(alpha,N)",
+        "[sq_drag · DRAG系数精校] 若具备三态则P2",
+        "[sq_drag · DRAG系数精校] phase/contrast",
+        "[sq_drag · DRAG系数精校] I/Q波形摘要",
+        "[sq_xy_z_timing · XY–Z通道相对时延] P1(delay)",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 实际波形时间戳",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 重叠窗口",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 边缘宽度"
+      ],
+      "analysis": [
+        "[sq_rabi_amplitude · Rabi幅度粗校] 近共振θ(u)=2π k u t",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 重复N后P1≈B+C sin²(Nθ/2)",
+        "[sq_rabi_amplitude · Rabi幅度粗校] π与π2各自由测量识别，不假定half_amp恒等于pi_amp/2",
+        "[sq_rabi_amplitude · Rabi幅度粗校] N增加会压缩振幅周期，需防采样别名",
+        "[sq_rabi_time · Rabi时长扫描] P=B+A exp(-t/T_R)cos(2π f_R t+φ)",
+        "[sq_rabi_time · Rabi时长扫描] f_R Hz,t秒",
+        "[sq_rabi_time · Rabi时长扫描] tπ=1/(2f_R),tπ2=tπ/2",
+        "[sq_rabi_time · Rabi时长扫描] 共振线性幅度模型k=f_R/u",
+        "[sq_rabi_time · Rabi时长扫描] 大失谐下f_R包含失谐不可直接作驱动增益",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 在可信12子空间 P2≈B+C sin²(Nθ12/2)",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] Ω12矩阵元与01不同，不直接复用01π幅度",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 若三态分类未成立则结果只能作候选并由ro_iq012验证",
+        "[sq_amplitude_fine · 重复门幅度精校] 相干角误差ε时总误差约Nε，人口为三角函数而非简单线性",
+        "[sq_amplitude_fine · 重复门幅度精校] 线性θ∝u局部近似下u_new=u_old*θ_target/θ_fit",
+        "[sq_amplitude_fine · 重复门幅度精校] 失谐/DRAG未好时此方向不独立",
+        "[sq_drag · DRAG系数精校] 常见Q(t)=β dI/dt或等价归一化形式，β单位/符号依pulse实现，不能跨库直接移植",
+        "[sq_drag · DRAG系数精校] 手册只给alpha×N和各N最大P1原则，L558波形时序缺失",
+        "[sq_drag · DRAG系数精校] 不凭此补造交错X/Y线路",
+        "[sq_xy_z_timing · XY–Z通道相对时延] delay定义为Z开始减XY开始，秒",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 响应边缘与卷积依脉冲宽度，不能把任意概率极值当零点",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 负延迟可通过给另一通道正延迟实现，须由adapter验证调度"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_rabi_amplitude] 多解幅度周期",
+          "action": "使用较小N及连续性解除分支",
+          "reason": "不能选最高幅度极大"
+        },
+        {
+          "condition": "[sq_rabi_amplitude] 响应非线性",
+          "action": "局部标定π和π2并记录适用区间",
+          "reason": "线性系数只局部成立"
+        },
+        {
+          "condition": "[sq_rabi_amplitude] 频率偏差明显",
+          "action": "先回sq_frequency_fine",
+          "reason": "大失谐会污染幅度估计"
+        },
+        {
+          "condition": "[sq_rabi_time] 多频或不足一周期/低对比度",
+          "action": "报告不可辨识，检查频率或改扫描",
+          "reason": "不强制给π时长"
+        },
+        {
+          "condition": "[sq_rabi_time] π点过旋/欠旋",
+          "action": "以拟合周期更新时长并fresh复测",
+          "reason": "不把P1偏低独断为脉冲太短"
+        },
+        {
+          "condition": "[sq_rabi_time] 零时长有P1",
+          "action": "先查热态/分类/SPAM",
+          "reason": "不得自动改幅度补偿读出错误"
+        },
+        {
+          "condition": "[sq_rabi12] P2不可区分",
+          "action": "用原始IQ及已有外部三态先验先bootstrap，不声称已校准",
+          "reason": "避免分类与制备循环自证"
+        },
+        {
+          "condition": "[sq_rabi12] P0增长",
+          "action": "检查T1、漏激发与长脉冲",
+          "reason": "不把全部丢失归为12角误差"
+        },
+        {
+          "condition": "[sq_rabi12] 12振荡可解析",
+          "action": "提出π12候选",
+          "reason": "以实测周期决定增减"
+        },
+        {
+          "condition": "[sq_amplitude_fine] N变大只对比度衰减无一致相位偏移",
+          "action": "检查耗散/读出，不硬归为幅度",
+          "reason": "防混因"
+        },
+        {
+          "condition": "[sq_amplitude_fine] 不同N给出不兼容幅度",
+          "action": "拒绝更新并查频率/shape/漂移",
+          "reason": "单点最优不稳健"
+        },
+        {
+          "condition": "[sq_amplitude_fine] ε符号有证据",
+          "action": "按局部响应减小过旋或增加欠旋",
+          "reason": "以fresh独立N验证方向"
+        },
+        {
+          "condition": "[sq_drag] 无脉冲/门串定义",
+          "action": "blocked并请求具体能力描述",
+          "reason": "DRAG系数无法脱离实现解释"
+        },
+        {
+          "condition": "[sq_drag] P1最佳但P2或相位变差",
+          "action": "联合诊断并收紧候选",
+          "reason": "最大P1不等于最小泄漏"
+        },
+        {
+          "condition": "[sq_drag] 响应局部方向明确",
+          "action": "沿实测最优邻域提出alpha候选",
+          "reason": "禁止预设alpha负就是正确"
+        },
+        {
+          "condition": "[sq_xy_z_timing] 左右边缘不对称或多平台",
+          "action": "检查滤波/反射/shape，拒绝单offset解释",
+          "reason": "真实线响应可能非纯延迟"
+        },
+        {
+          "condition": "[sq_xy_z_timing] 补偿需负硬件时间",
+          "action": "增加另一通道延迟并整体平移",
+          "reason": "保持所有trigger合法"
+        },
+        {
+          "condition": "[sq_xy_z_timing] 两边缘中心稳定",
+          "action": "提出相对delay候选",
+          "reason": "方向由受控正移探针确定"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 候选幅度用新计数验证",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 幅度/宽度/shape变化使DRAG/RB与双比特准备失效",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 保留旧两幅度一起回退",
+        "[sq_rabi_time · Rabi时长扫描] π与π2独立验证",
+        "[sq_rabi_time · Rabi时长扫描] 改变波形、幅度、f01或传输链使本参数失效",
+        "[sq_rabi_time · Rabi时长扫描] 若复测下降回退旧脉宽",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] ro_iq012独立验证后再回本agent fresh测量",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] f12/α/01π/波形变化失效",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 失败恢复旧12控制",
+        "[sq_amplitude_fine · 重复门幅度精校] 未用于搜索的N和新shots复测",
+        "[sq_amplitude_fine · 重复门幅度精校] DRAG/频率/width修改需重校",
+        "[sq_amplitude_fine · 重复门幅度精校] 失败同时回退π与π2版本",
+        "[sq_drag · DRAG系数精校] fresh独立门数/相位及泄漏检验",
+        "[sq_drag · DRAG系数精校] DRAG更改后重测幅度和频率，再RB",
+        "[sq_drag · DRAG系数精校] 失败回退整组pulse参数",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 补偿后fresh两侧扫描",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 更换线缆/采样时钟/滤波后失效",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 回退旧同步表并重测依赖Z门"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_rabi_amplitude · Rabi幅度粗校] π和π2均有独立检验",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 无幅度越限",
+        "[sq_rabi_amplitude · Rabi幅度粗校] 分支选择有证据",
+        "[sq_rabi_time · Rabi时长扫描] 至少满足冻结周期/对比度/残差门槛",
+        "[sq_rabi_time · Rabi时长扫描] 量化为硬件时钟后仍通过复测",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 制备与分类有独立证据",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 漏出12子空间被记录",
+        "[sq_rabi12 · f12驱动幅度与|2>制备] 无后选择归一化",
+        "[sq_amplitude_fine · 重复门幅度精校] 放大线路被证明敏感于目标误差",
+        "[sq_amplitude_fine · 重复门幅度精校] 各N一致",
+        "[sq_amplitude_fine · 重复门幅度精校] 与粗标定分支一致",
+        "[sq_drag · DRAG系数精校] 单位/符号/序列完整",
+        "[sq_drag · DRAG系数精校] 未填补材料空白",
+        "[sq_drag · DRAG系数精校] 独立性能与泄漏约束满足criteria",
+        "[sq_xy_z_timing · XY–Z通道相对时延] 时间量化误差在criteria内",
+        "[sq_xy_z_timing · XY–Z通道相对时延] trigger与所有脉冲非负且不冲突"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 24000000,
+        "max_seconds": 5400
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "partial_simulated",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框主方法是 XYGateAmpRabiImpl，即固定时宽扫描幅度。已绑定 sq_rabi_time 仅扫描时长并验证候选 π 脉冲布居，是辅助方法，不能完成或代替 Rabi 定幅。1→2、重复门精校、DRAG、XY–Z 时序仍需各自执行器。",
+      "internal_method_policy": "主任务固定时宽扫幅度。时长 Rabi 可用于诊断或建立初始脉冲；1→2/DRAG 必须有相应态制备/三态读出能力，重复门精校在粗定幅后执行；XY–Z timing 仅在涉及 Z 线路时调用。初始 raw IQ bootstrap 不宣称已有训练分类器。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第3个功能方框，XYGateAmpRabiImpl"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.1.3，L216–244"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.1.2，L182–214"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.3.3，L332–360"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "L548–550并对照2.1.3 L216–244"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "L552–576；L558时序为空"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "L578–610"
+        }
+      ],
+      "card_path": "agents/s03_rabi_amplitude/card.md",
+      "prompt_path": "agents/s03_rabi_amplitude/prompt.md"
+    },
+    {
+      "id": "s04_readout_fidelity",
+      "name": "读取保真度测试",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第4框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成读取保真度测试的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 IqToProbability。",
+      "original_function": "IqToProbability",
+      "source_page": 1,
+      "source_box_index": 4,
+      "main_procedure_id": "ro_iq01",
+      "procedure_ids": [
+        "ro_iq01",
+        "ro_iq012"
+      ],
+      "legacy_functions": [
+        "IqToProbability"
+      ],
+      "depends_on": [
+        "s03_rabi_amplitude"
+      ],
+      "parameter_reads": [
+        "qubit.pi_amp",
+        "readout.frequency",
+        "readout.amplitude",
+        "readout.integration_window",
+        "qubit.prep2_evidence"
+      ],
+      "parameter_writes": [
+        "readout.iq01_centers",
+        "readout.classifier_version",
+        "readout.assignment_matrix",
+        "readout.iq012_centers",
+        "readout.assignment_matrix_3",
+        "readout.classifier3_version"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "qubit.pi_amp",
+        "readout.frequency",
+        "readout.amplitude",
+        "readout.integration_window"
+      ],
+      "main_parameter_writes": [
+        "readout.iq01_centers",
+        "readout.classifier_version",
+        "readout.assignment_matrix"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.prep2_evidence"
+      ],
+      "controls": {
+        "scan": [
+          "[ro_iq01] prepared_label∈{0,1}",
+          "[ro_iq01] 独立train/validation重复采集",
+          "[ro_iq012] prepared_label∈{0,1,2}",
+          "[ro_iq012] train/validation批次"
+        ],
+        "fixed": [
+          "[ro_iq01] idle_bias",
+          "[ro_iq01] π制备",
+          "[ro_iq01] 读出频幅",
+          "[ro_iq01] 积分时间",
+          "[ro_iq01] shots_per_label",
+          "[ro_iq012] 01π及12π",
+          "[ro_iq012] idle",
+          "[ro_iq012] 读出链",
+          "[ro_iq012] 各态shots"
+        ]
+      },
+      "sequence": [
+        "先训练和留出验证 0/1 IQ 判别；需要泄漏分辨且具备 1→2 制备后再训练 0/1/2。把制备误差、读出误差与矩阵反演偏差分别记录；接收 s05 优化回测时必须建立新任务和新数据。",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 随机交织0/1制备顺序",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 逐shot保存IQ",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 仅训练集拟合中心/边界",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 冻结分类器",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] fresh验证集估计混淆矩阵",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 交织三态制备",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 保存逐shotIQ与准备版本",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 拟合三中心或经验证分类器",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 冻结后fresh三态混淆复测",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 与2制备可信度联合报告"
+      ],
+      "observables": [
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 逐shot IQ和准备标签",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] F00/F11",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 2×2 assignment矩阵及不确定度",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 3×3 confusion及每态检出率",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] IQ漂移",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 联合九类counts schema"
+      ],
+      "analysis": [
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 手册质心连线垂直平分判别是候选方法",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] F=(F00+F11)/2",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 验证标签来自制备，未独立去除SPAM时不是纯本征读出保真度",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 校正counts不得生成负概率再偷偷裁剪",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] nearest-centroid只是基线",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] P(leak)=Σ含2的counts/全部shots",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 制备2误差与分类2误差需分别标注不可完全分离项"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[ro_iq01] 云团重叠或漂移",
+          "action": "先交ro_optimize调读出，不用π幅度硬补",
+          "reason": "读出偏差与制备错误需区分"
+        },
+        {
+          "condition": "[ro_iq01] 训练好而留出差",
+          "action": "拒绝分类器并查过拟合/漂移",
+          "reason": "训练分离度不是验收"
+        },
+        {
+          "condition": "[ro_iq01] 混淆矩阵病态",
+          "action": "停止概率逆校正并报告未校正计数",
+          "reason": "避免放大统计噪声"
+        },
+        {
+          "condition": "[ro_iq012] 2云团与1不可辨",
+          "action": "禁用可靠泄漏声明，调读出或扩大测量接口",
+          "reason": "不能将2强制归1"
+        },
+        {
+          "condition": "[ro_iq012] 2制备证据不足",
+          "action": "返回sq_rabi12 fresh任务",
+          "reason": "训练标签不等于真实态"
+        },
+        {
+          "condition": "[ro_iq012] 三态均达阈值",
+          "action": "发布分类器候选",
+          "reason": "仅参数注册器提交"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 任一读出频幅/积分窗/idle变更触发同agent fresh task",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 训练和复测不得复用样本",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 失败回退上一个有效分类器并标记依赖结果失效",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 读出/频率/12准备变化需重新训练和fresh验证",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 原始九类结果及未校正counts必须保留",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 失败回退旧classifier且阻塞泄漏验收"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 独立验证F00/F11及CI达到冻结标准",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 原始IQ/未校正counts保留",
+        "[ro_iq01 · 二态IQ分类训练与独立复测] 无只选好shots",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 每态独立验证及CI合格",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] counts总和等于shots",
+        "[ro_iq012 · 三态IQ分类与泄漏可分辨性] 训练/复测样本独立"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 8000000,
+        "max_seconds": 1800
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原图第4框是 IqToProbability。真实 IQ 分类训练、留出复测与 0/1/2 混淆矩阵均未绑定；仿真中的已设读出误差不是训练分类器的实测通过证据。",
+      "internal_method_policy": "先训练和留出验证 0/1 IQ 判别；需要泄漏分辨且具备 1→2 制备后再训练 0/1/2。把制备误差、读出误差与矩阵反演偏差分别记录；接收 s05 优化回测时必须建立新任务和新数据。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第4个功能方框，IqToProbability"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.3.1，L276–300"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-1.txt",
+          "locator": "step2 IqToProbability"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.3.1、2.3.3，L290–300、L332–360"
+        }
+      ],
+      "card_path": "agents/s04_readout_fidelity/card.md",
+      "prompt_path": "agents/s04_readout_fidelity/prompt.md"
+    },
+    {
+      "id": "s05_readout_optimization",
+      "name": "读取参数优化",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第5框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成读取参数优化的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 ReadoutParaSweepByIQProb。",
+      "original_function": "ReadoutParaSweepByIQProb",
+      "source_page": 1,
+      "source_box_index": 5,
+      "main_procedure_id": "ro_optimize",
+      "procedure_ids": [
+        "ro_optimize"
+      ],
+      "legacy_functions": [
+        "ReadoutParaSweepByIQProb"
+      ],
+      "depends_on": [
+        "s04_readout_fidelity"
+      ],
+      "parameter_reads": [
+        "readout.frequency",
+        "readout.power_limits",
+        "qubit.pi_amp",
+        "readout.metric_definition"
+      ],
+      "parameter_writes": [
+        "readout.frequency_candidate",
+        "readout.amplitude_candidate"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "readout.frequency",
+        "readout.power_limits",
+        "qubit.pi_amp",
+        "readout.metric_definition"
+      ],
+      "main_parameter_writes": [
+        "readout.frequency_candidate",
+        "readout.amplitude_candidate"
+      ],
+      "conditional_parameter_reads": [],
+      "controls": {
+        "scan": [
+          "[ro_optimize] readout_frequency_hz",
+          "[ro_optimize] readout_amplitude"
+        ],
+        "fixed": [
+          "[ro_optimize] prepared0/1配额",
+          "[ro_optimize] 积分窗",
+          "[ro_optimize] 复位",
+          "[ro_optimize] idle_bias",
+          "[ro_optimize] 每候选shots"
+        ]
+      },
+      "sequence": [
+        "在固定已验证制备条件下扫描读出频率/幅度，候选排序和最终验证分开。最佳候选只暂存，返回 s04 fresh 分类/保真度复测后才可发布。",
+        "[ro_optimize · 读出频率与幅度二维优化] 每个频幅点交织制备0/1",
+        "[ro_optimize · 读出频率与幅度二维优化] 采集IQ",
+        "[ro_optimize · 读出频率与幅度二维优化] 候选局部训练/固定规则分类",
+        "[ro_optimize · 读出频率与幅度二维优化] 比较预声明度量",
+        "[ro_optimize · 读出频率与幅度二维优化] 冻结最优候选后独立验证"
+      ],
+      "observables": [
+        "[ro_optimize · 读出频率与幅度二维优化] F00/F11",
+        "[ro_optimize · 读出频率与幅度二维优化] 云团分离",
+        "[ro_optimize · 读出频率与幅度二维优化] 总shots",
+        "[ro_optimize · 读出频率与幅度二维优化] candidate与heldout标识"
+      ],
+      "analysis": [
+        "[ro_optimize · 读出频率与幅度二维优化] 目标可为balanced assignment fidelity及其保守界",
+        "[ro_optimize · 读出频率与幅度二维优化] 同时约束功率/泄漏/复测稳定性",
+        "[ro_optimize · 读出频率与幅度二维优化] 不同点训练与评价预算相等，禁止只比较训练准确率"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[ro_optimize] 最优位于功率上限",
+          "action": "不自动越限，检查收益饱和/加热",
+          "reason": "高功率可能破坏量子态"
+        },
+        {
+          "condition": "[ro_optimize] 不同点优势小于噪声",
+          "action": "保留原工作点或增加预注册复测",
+          "reason": "不追逐单次最大值"
+        },
+        {
+          "condition": "[ro_optimize] fresh改善成立",
+          "action": "提交频幅联合候选",
+          "reason": "方向由实测二维响应决定"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[ro_optimize · 读出频率与幅度二维优化] 调用ro_iq01 fresh train+heldout",
+        "[ro_optimize · 读出频率与幅度二维优化] 更新读出后需复核T1/T2/RB及相位基准",
+        "[ro_optimize · 读出频率与幅度二维优化] 未达标回退频幅和分类器完整版本"
+      ],
+      "retest_routes": [
+        {
+          "from": "s05_readout_optimization",
+          "to": "s04_readout_fidelity",
+          "trigger": "读出频率/幅度优化产生候选或改变分类条件",
+          "semantics": "fresh独立分类/保真度复测后发布；不是DAG反向依赖"
+        }
+      ],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[ro_optimize · 读出频率与幅度二维优化] heldout改善与绝对性能均满足criteria",
+        "[ro_optimize · 读出频率与幅度二维优化] 完整成本包括所有候选"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 4000000,
+        "max_seconds": 900
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原图第5框是 ReadoutParaSweepByIQProb，扫描读出频率/幅度并比较读出区分能力。尚未绑定；优化后必须回到第4框以 fresh 数据复测，不可复用训练集宣称提升。",
+      "internal_method_policy": "在固定已验证制备条件下扫描读出频率/幅度，候选排序和最终验证分开。最佳候选只暂存，返回 s04 fresh 分类/保真度复测后才可发布。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第5个功能方框，ReadoutParaSweepByIQProb"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.3.2，L302–330"
+        }
+      ],
+      "card_path": "agents/s05_readout_optimization/card.md",
+      "prompt_path": "agents/s05_readout_optimization/prompt.md"
+    },
+    {
+      "id": "s06_t1",
+      "name": "T1测试",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第6框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成T1测试的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 T1Idle。",
+      "original_function": "T1Idle",
+      "source_page": 1,
+      "source_box_index": 6,
+      "main_procedure_id": "sq_t1",
+      "procedure_ids": [
+        "sq_t1",
+        "sq_t1_frequency"
+      ],
+      "legacy_functions": [
+        "T1Idle"
+      ],
+      "depends_on": [
+        "s05_readout_optimization"
+      ],
+      "parameter_reads": [
+        "qubit.pi_duration_s",
+        "qubit.f01_hz",
+        "readout.classifier_version",
+        "qubit.f01_z_inverse",
+        "qubit.pi_amp",
+        "qubit.frequency_limits"
+      ],
+      "parameter_writes": [
+        "qubit.t1_s",
+        "qubit.t1_model_diagnostics",
+        "qubit.t1_vs_frequency",
+        "qubit.loss_hotspots",
+        "qubit.operating_window_candidate"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "qubit.pi_duration_s",
+        "qubit.f01_hz",
+        "readout.classifier_version"
+      ],
+      "main_parameter_writes": [
+        "qubit.t1_s",
+        "qubit.t1_model_diagnostics"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.f01_z_inverse",
+        "qubit.pi_amp",
+        "qubit.frequency_limits"
+      ],
+      "controls": {
+        "scan": [
+          "[sq_t1] idle_duration_s",
+          "[sq_t1_frequency] target_frequency_hz",
+          "[sq_t1_frequency] idle_duration_s二维"
+        ],
+        "fixed": [
+          "[sq_t1] π制备参数",
+          "[sq_t1] idle_bias",
+          "[sq_t1] 读出",
+          "[sq_t1] reset",
+          "[sq_t1] shots",
+          "[sq_t1_frequency] 制备1在已校idle",
+          "[sq_t1_frequency] 脉冲shape",
+          "[sq_t1_frequency] 读出",
+          "[sq_t1_frequency] shots",
+          "[sq_t1_frequency] freq→Z分支"
+        ]
+      },
+      "sequence": [
+        "主任务固定工作点扫描 idle。只有授权偏置支路与定频/定幅关系有效时才进入 T1(f) 内部扩展；逐频点的相关制备/读出校准必须同步刷新。",
+        "[sq_t1 · T1能量弛豫] 复位",
+        "[sq_t1 · T1能量弛豫] π制备1",
+        "[sq_t1 · T1能量弛豫] 等待t",
+        "[sq_t1 · T1能量弛豫] 读出",
+        "[sq_t1 · T1能量弛豫] 交织参考以检查漂移",
+        "[sq_t1 · T1能量弛豫] fresh重复部分等待点",
+        "[sq_t1_frequency · T1随工作频率扫描] π制备1",
+        "[sq_t1_frequency · T1随工作频率扫描] 施加目标Z偏置等待t",
+        "[sq_t1_frequency · T1随工作频率扫描] 回读出工作点",
+        "[sq_t1_frequency · T1随工作频率扫描] 测P1",
+        "[sq_t1_frequency · T1随工作频率扫描] 逐频率拟合",
+        "[sq_t1_frequency · T1随工作频率扫描] 热点周围fresh细扫"
+      ],
+      "observables": [
+        "[sq_t1 · T1能量弛豫] P1(t)及counts",
+        "[sq_t1 · T1能量弛豫] 准备基线",
+        "[sq_t1 · T1能量弛豫] 长时热态偏置",
+        "[sq_t1 · T1能量弛豫] 残差结构",
+        "[sq_t1_frequency · T1随工作频率扫描] P1(f,t)",
+        "[sq_t1_frequency · T1随工作频率扫描] T1(f)及CI",
+        "[sq_t1_frequency · T1随工作频率扫描] 回idle后读出漂移"
+      ],
+      "analysis": [
+        "[sq_t1 · T1能量弛豫] P1=B+A exp(-t/T1)，t和T1秒",
+        "[sq_t1 · T1能量弛豫] B可包含热态与分类偏差",
+        "[sq_t1 · T1能量弛豫] 多指数/振荡残差不能仅用单指数success声明物理T1",
+        "[sq_t1_frequency · T1随工作频率扫描] 每频率P1=B+A exp(-t/T1(f))",
+        "[sq_t1_frequency · T1随工作频率扫描] 脉冲边沿导致额外损耗应独立参照",
+        "[sq_t1_frequency · T1随工作频率扫描] 不能把热图单个最低点直接当稳定材料缺陷"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_t1] 拟合有周期残差/多时间尺度",
+          "action": "标记模型不足并转fit_diagnostics",
+          "reason": "不要硬调π幅度拟合T1"
+        },
+        {
+          "condition": "[sq_t1] 时间窗太短",
+          "action": "在预算内延长到可见衰减尾部",
+          "reason": "否则T1与幅度相关不可辨"
+        },
+        {
+          "condition": "[sq_t1] T1显著下降",
+          "action": "检查工作点和漂移，提议sq_t1_frequency",
+          "reason": "T1不是软件设置可直接改好"
+        },
+        {
+          "condition": "[sq_t1_frequency] 窄热点可重复",
+          "action": "提出避开热点的工作区",
+          "reason": "方向由T1地图与其他限制共同决定"
+        },
+        {
+          "condition": "[sq_t1_frequency] 各频率基线整体变动",
+          "action": "查读出/回程/prepare，不归因全部T1",
+          "reason": "分辨SPAM"
+        },
+        {
+          "condition": "[sq_t1_frequency] 所需CZ路径穿热点",
+          "action": "交总控做时间/幅度折衷",
+          "reason": "不单agent移动整套频率计划"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_t1 · T1能量弛豫] fresh复测",
+        "[sq_t1 · T1能量弛豫] idle、温度/路由、读出或准备改变使旧结果条件失效",
+        "[sq_t1 · T1能量弛豫] 失败不覆盖旧T1但标stale",
+        "[sq_t1_frequency · T1随工作频率扫描] 候选工作区fresh测T1、Ramsey及读出",
+        "[sq_t1_frequency · T1随工作频率扫描] bias/flux map变化失效",
+        "[sq_t1_frequency · T1随工作频率扫描] 回退idle"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_t1 · T1能量弛豫] 残差与预声明噪声模型兼容",
+        "[sq_t1 · T1能量弛豫] 不确定度与窗口合格",
+        "[sq_t1 · T1能量弛豫] 报告实际条件",
+        "[sq_t1_frequency · T1随工作频率扫描] 每频率有效拟合或明确失败",
+        "[sq_t1_frequency · T1随工作频率扫描] 不删除坏点",
+        "[sq_t1_frequency · T1随工作频率扫描] 候选满足联合constraints"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 8000000,
+        "max_seconds": 1800
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "partial_simulated",
+      "main_method_execution_status": "limited_simulated",
+      "source_support": "T1Idle 的 q0/q1 单工作点衰减已有原子仿真绑定；频率依赖 T1 地图为内部扩展，未接真实调频/偏置执行器。",
+      "internal_method_policy": "主任务固定工作点扫描 idle。只有授权偏置支路与定频/定幅关系有效时才进入 T1(f) 内部扩展；逐频点的相关制备/读出校准必须同步刷新。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第6个功能方框，T1Idle"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.4.1，L366–384"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.5.2，L486–518"
+        }
+      ],
+      "card_path": "agents/s06_t1/card.md",
+      "prompt_path": "agents/s06_t1/prompt.md"
+    },
+    {
+      "id": "s07_t2",
+      "name": "T2测试",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第7框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成T2测试的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 T2CPMG。",
+      "original_function": "T2CPMG",
+      "source_page": 1,
+      "source_box_index": 7,
+      "main_procedure_id": "sq_cpmg",
+      "procedure_ids": [
+        "sq_cpmg",
+        "sq_ramsey"
+      ],
+      "legacy_functions": [
+        "T2CPMG",
+        "T2Idle"
+      ],
+      "depends_on": [
+        "s05_readout_optimization"
+      ],
+      "parameter_reads": [
+        "qubit.pi_amp",
+        "qubit.half_pi_amp",
+        "qubit.f01_hz",
+        "drive.axis_convention",
+        "qubit.pi_duration_s",
+        "qubit.f01_coarse_hz",
+        "drive.phase_convention",
+        "qubit.frequency_prior_hz"
+      ],
+      "parameter_writes": [
+        "qubit.t2_cpmg_s_by_n",
+        "qubit.echo_diagnostics",
+        "qubit.ramsey_detuning_hz",
+        "qubit.t2_ramsey_s",
+        "qubit.f01_candidate_hz"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "qubit.pi_amp",
+        "qubit.half_pi_amp",
+        "qubit.f01_hz",
+        "drive.axis_convention"
+      ],
+      "main_parameter_writes": [
+        "qubit.t2_cpmg_s_by_n",
+        "qubit.echo_diagnostics"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.pi_duration_s",
+        "qubit.f01_coarse_hz",
+        "drive.phase_convention",
+        "qubit.frequency_prior_hz"
+      ],
+      "controls": {
+        "scan": [
+          "[sq_cpmg] total_idle_time_s",
+          "[sq_cpmg] refocus_count_N",
+          "[sq_cpmg] 可选X/Y refocus轴",
+          "[sq_ramsey] idle_duration_s",
+          "[sq_ramsey] analysis_basis∈{X,Y}"
+        ],
+        "fixed": [
+          "[sq_cpmg] π及π2校准",
+          "[sq_cpmg] pulse shape",
+          "[sq_cpmg] analysis offset",
+          "[sq_cpmg] readout",
+          "[sq_ramsey] π2参数",
+          "[sq_ramsey] 参考频率",
+          "[sq_ramsey] 人为offset",
+          "[sq_ramsey] readout",
+          "[sq_ramsey] shots"
+        ]
+      },
+      "sequence": [
+        "主任务按 T2CPMG 定义扫描自由演化/脉冲数，明确总时长与间隔口径。Ramsey 用于频偏、T2* 与去相干诊断；它可以帮助决定是否回到 s02，但不能作为 CPMG 的完成证据。",
+        "[sq_cpmg · CPMG/echo相干时间] π2制备",
+        "[sq_cpmg · CPMG/echo相干时间] 总等待t分N等份，每份中心插π",
+        "[sq_cpmg · CPMG/echo相干时间] 末π2分析",
+        "[sq_cpmg · CPMG/echo相干时间] N=1作为echo",
+        "[sq_cpmg · CPMG/echo相干时间] 对各N重复时间扫描",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 复位",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] π2制备",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 等待t",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 分别X/Y分析π2",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 取复信号",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 拟合带符号振荡",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 新频率下fresh残差验证"
+      ],
+      "observables": [
+        "[sq_cpmg · CPMG/echo相干时间] P1(t,N)",
+        "[sq_cpmg · CPMG/echo相干时间] 脉冲累计时长",
+        "[sq_cpmg · CPMG/echo相干时间] 对比度",
+        "[sq_cpmg · CPMG/echo相干时间] 衰减与振荡残差",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] Px(t),Py(t)",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 复相干",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] counts",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 频率分支",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 包络及残差"
+      ],
+      "analysis": [
+        "[sq_cpmg · CPMG/echo相干时间] 默认拟合P=B+A exp[-(t/T)^β]，A符号依末分析脉冲",
+        "[sq_cpmg · CPMG/echo相干时间] 理想echo/CPMG回聚焦静态失谐，不能直接沿用Ramsey物理fq-fdrive的cos振荡",
+        "[sq_cpmg · CPMG/echo相干时间] 仅当末分析脉冲明确施加人为phase ramp或协议独立证实残余振荡时加cos(2πδt+φ)，δ定义必须另存",
+        "[sq_cpmg · CPMG/echo相干时间] β固定还是拟合须预声明",
+        "[sq_cpmg · CPMG/echo相干时间] 分开idle总时间和含脉冲总时长",
+        "[sq_cpmg · CPMG/echo相干时间] T2_CPMG>T2_Ramsey不是强制验收条件",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] quantam约定z=(2Px-1)-i(2Py-1)≈C exp(-t/T2+i2πΔf t)+B",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] Δf=fq-fdrive，候选fdrive_new=fdrive+Δf",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 改变分析相位约定需重新验证符号",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 均匀dt的别名间距1/dt，XY不消除该别名"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_cpmg] 增加N反而对比度下降",
+          "action": "检查π幅度/轴误差与有限脉冲占比",
+          "reason": "门误差可盖过回聚焦收益"
+        },
+        {
+          "condition": "[sq_cpmg] 包络非指数",
+          "action": "报告β模型比较并保留初始门槛",
+          "reason": "不事后选模型逼通过"
+        },
+        {
+          "condition": "[sq_cpmg] 曲线可重复",
+          "action": "记录T2_CPMG(N)供工作点评估",
+          "reason": "不直接修改物理退相干率"
+        },
+        {
+          "condition": "[sq_ramsey] 后验/频谱多峰或先验跨alias",
+          "action": "加短时间或非公度间隔复测，报告歧义",
+          "reason": "不得选幅度最高峰即真值"
+        },
+        {
+          "condition": "[sq_ramsey] 无振荡但有衰减",
+          "action": "允许零失谐模型，不强造频差",
+          "reason": "零频与低对比度需区分"
+        },
+        {
+          "condition": "[sq_ramsey] offset修正后残差反增",
+          "action": "回退并核对符号/频率读回",
+          "reason": "禁止继续同向叠加修正"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_cpmg · CPMG/echo相干时间] fresh抽取N与t复测",
+        "[sq_cpmg · CPMG/echo相干时间] π/DRAG/时序改变触发重测",
+        "[sq_cpmg · CPMG/echo相干时间] 失效只标记测量条件，不写硬件T2",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 使用fresh记录验证更新后频率",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] T2*与CPMG/echo分字段",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] idle/π2/读出变化失效",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 保留原频率绝对值回退"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_cpmg · CPMG/echo相干时间] 序列时间核算正确",
+        "[sq_cpmg · CPMG/echo相干时间] 各N足够动态范围",
+        "[sq_cpmg · CPMG/echo相干时间] 指标与Ramsey分开",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 频率分支有先验支持",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] 局部误差和模型诊断合格",
+        "[sq_ramsey · 双正交Ramsey与T2*估计] fresh残差达criteria"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 8000000,
+        "max_seconds": 1800
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "partial_simulated",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框主方法是 T2CPMG。已有 sq_ramsey 原子绑定只测自由演化 Ramsey 的 T2* 与带符号频偏，是诊断辅助；不能替代回聚焦的 CPMG，也不能据此宣称原框 T2CPMG 通过。",
+      "internal_method_policy": "主任务按 T2CPMG 定义扫描自由演化/脉冲数，明确总时长与间隔口径。Ramsey 用于频偏、T2* 与去相干诊断；它可以帮助决定是否回到 s02，但不能作为 CPMG 的完成证据。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第7个功能方框，T2CPMG"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.4.3，L414–434"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-1.txt",
+          "locator": "step3 T2CPMG"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.4.2，L386–412"
+        }
+      ],
+      "card_path": "agents/s07_t2/card.md",
+      "prompt_path": "agents/s07_t2/prompt.md"
+    },
+    {
+      "id": "s08_single_qubit_rb",
+      "name": "单比特RB测试",
+      "kind": "experiment",
+      "domain": "single_qubit",
+      "scope": "原流程第1页第8框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成单比特RB测试的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 RB1QCal。",
+      "original_function": "RB1QCal",
+      "source_page": 1,
+      "source_box_index": 8,
+      "main_procedure_id": "sq_rb",
+      "procedure_ids": [
+        "sq_rb",
+        "sq_xeb"
+      ],
+      "legacy_functions": [
+        "RB1QCal",
+        "XEB1QCal"
+      ],
+      "depends_on": [
+        "s05_readout_optimization"
+      ],
+      "parameter_reads": [
+        "gates.clifford_compilation",
+        "qubit.f01_hz",
+        "readout.classifier_version",
+        "benchmark.seed_set",
+        "gates.pi2_axis_map"
+      ],
+      "parameter_writes": [
+        "benchmark.rb1q_decay",
+        "benchmark.rb1q_epc",
+        "benchmark.rb1q_report",
+        "benchmark.xeb1q_report"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "gates.clifford_compilation",
+        "qubit.f01_hz",
+        "readout.classifier_version",
+        "benchmark.seed_set"
+      ],
+      "main_parameter_writes": [
+        "benchmark.rb1q_decay",
+        "benchmark.rb1q_epc",
+        "benchmark.rb1q_report"
+      ],
+      "conditional_parameter_reads": [
+        "gates.pi2_axis_map"
+      ],
+      "controls": {
+        "scan": [
+          "[sq_rb] Clifford_length_m",
+          "[sq_rb] random_sequence_id",
+          "[sq_xeb] depth_m",
+          "[sq_xeb] random_sequence_id"
+        ],
+        "fixed": [
+          "[sq_rb] 门实现版本",
+          "[sq_rb] gate_spacing_s",
+          "[sq_rb] 每序列shots",
+          "[sq_rb] 随机种子",
+          "[sq_rb] 拟合模型",
+          "[sq_xeb] 八个轴相位集合",
+          "[sq_xeb] gate_spacing",
+          "[sq_xeb] 门版本",
+          "[sq_xeb] shots",
+          "[sq_xeb] XEB归一化定义"
+        ]
+      },
+      "sequence": [
+        "主任务 RB 使用冻结随机序列、多个长度和独立种子；XEB 为可选的独立验证方法，不与 RB 误差混算。若制备/读出或相干性失效，保留原始失败并请求对应上游复校。",
+        "[sq_rb · 单比特随机基准测试] 生成m个随机Clifford及准确逆门",
+        "[sq_rb · 单比特随机基准测试] 理想验证全序列为恒等",
+        "[sq_rb · 单比特随机基准测试] 执行并测P0",
+        "[sq_rb · 单比特随机基准测试] 跨长度交织",
+        "[sq_rb · 单比特随机基准测试] 留出新随机序列复测",
+        "[sq_xeb · 单比特XEB] 从0出发",
+        "[sq_xeb · 单比特XEB] 每层随机八轴π2",
+        "[sq_xeb · 单比特XEB] 计算准确理想输出",
+        "[sq_xeb · 单比特XEB] 执行后直接Z测量无逆门",
+        "[sq_xeb · 单比特XEB] 不同深度交织"
+      ],
+      "observables": [
+        "[sq_rb · 单比特随机基准测试] 每序列P0",
+        "[sq_rb · 单比特随机基准测试] counts",
+        "[sq_rb · 单比特随机基准测试] 编译出的物理门数",
+        "[sq_rb · 单比特随机基准测试] 时间与漂移参考",
+        "[sq_xeb · 单比特XEB] counts及ideal probabilities",
+        "[sq_xeb · 单比特XEB] 各层随机轴",
+        "[sq_xeb · 单比特XEB] per-circuit XEB"
+      ],
+      "analysis": [
+        "[sq_rb · 单比特随机基准测试] P0(m)=A p^m+B",
+        "[sq_rb · 单比特随机基准测试] 单比特在标准近似下EPC=(1-p)/2",
+        "[sq_rb · 单比特随机基准测试] Clifford长度不等于物理脉冲数",
+        "[sq_rb · 单比特随机基准测试] 未经门组成和误差假设验证不能直接换算π门保真度",
+        "[sq_xeb · 单比特XEB] 可用有限维归一化linear XEB：Σc(Σx p_obs p_ideal-1/D)/Σc(Σx p_ideal²-1/D)，D=2",
+        "[sq_xeb · 单比特XEB] 具体统计定义须冻结且分母非退化",
+        "[sq_xeb · 单比特XEB] 对depth拟合衰减并报告模型条件"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_rb] 理想逆门不等于I",
+          "action": "blocked并修正编译器",
+          "reason": "不能把编译错误当硬件误差"
+        },
+        {
+          "condition": "[sq_rb] 非指数或门依赖明显",
+          "action": "报告模型不适合，不硬给单数保真度",
+          "reason": "RB近似有条件"
+        },
+        {
+          "condition": "[sq_rb] 门集更新",
+          "action": "判旧RB过期并fresh复测",
+          "reason": "基准只对应冻结版本"
+        },
+        {
+          "condition": "[sq_xeb] 理想输出接近均匀使分母退化",
+          "action": "重新声明可辨识设计，保留原结果",
+          "reason": "小D不能盲用大维Porter–Thomas近似"
+        },
+        {
+          "condition": "[sq_xeb] 相位优化与评分同数据",
+          "action": "禁止宣称独立验证，另采heldout",
+          "reason": "防基准过拟合"
+        },
+        {
+          "condition": "[sq_xeb] XEB下降",
+          "action": "与RB/频率/幅度诊断交叉定位",
+          "reason": "不能仅凭XEB判一种误差"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_rb · 单比特随机基准测试] 新随机序列/新计数验证",
+        "[sq_rb · 单比特随机基准测试] 分析训练与验收分开",
+        "[sq_rb · 单比特随机基准测试] 所有失败序列保留",
+        "[sq_rb · 单比特随机基准测试] 性能差只出诊断proposal，不自动写参数",
+        "[sq_xeb · 单比特XEB] 用fresh随机线路复测",
+        "[sq_xeb · 单比特XEB] 门版本变更旧XEB失效",
+        "[sq_xeb · 单比特XEB] 不以优化器训练分数作最终值"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_rb · 单比特随机基准测试] 预声明长度/序列数/CI",
+        "[sq_rb · 单比特随机基准测试] 理想逆门正确",
+        "[sq_rb · 单比特随机基准测试] 残差与bootstrap按序列聚类",
+        "[sq_xeb · 单比特XEB] 理想概率归一",
+        "[sq_xeb · 单比特XEB] 序列级CI",
+        "[sq_xeb · 单比特XEB] 归一化和单门/每层口径明确"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 16000000,
+        "max_seconds": 1800
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框主方法是 RB1QCal。RB 与单比特 XEB 都保留为各自有预算/序列/指标的内部方法，当前未绑定；T1/T2 或单脉冲布居不能代替 RB 门误差。",
+      "internal_method_policy": "主任务 RB 使用冻结随机序列、多个长度和独立种子；XEB 为可选的独立验证方法，不与 RB 误差混算。若制备/读出或相干性失效，保留原始失败并请求对应上游复校。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第1页，第8个功能方框，RB1QCal"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "L616–634"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-1.txt",
+          "locator": "⑦ RB1QCal"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "L636–656"
+        }
+      ],
+      "card_path": "agents/s08_single_qubit_rb/card.md",
+      "prompt_path": "agents/s08_single_qubit_rb/prompt.md"
+    },
+    {
+      "id": "d01_flux_spectroscopy",
+      "name": "二维比特能谱",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第1框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成二维比特能谱的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 F01ZPulseDependency。",
+      "original_function": "F01ZPulseDependency",
+      "source_page": 2,
+      "source_box_index": 1,
+      "main_procedure_id": "sq_flux_map",
+      "procedure_ids": [
+        "sq_flux_map"
+      ],
+      "legacy_functions": [
+        "F01ZPulseDependency"
+      ],
+      "depends_on": [
+        "s06_t1",
+        "s07_t2",
+        "s08_single_qubit_rb"
+      ],
+      "parameter_reads": [
+        "qubit.idle_bias",
+        "qubit.f01_coarse_hz",
+        "z.amplitude_limits",
+        "z.transfer_calibration"
+      ],
+      "parameter_writes": [
+        "qubit.f01_z_map",
+        "qubit.f01_z_inverse",
+        "qubit.max_f01_hz",
+        "qubit.flux_branch"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "qubit.idle_bias",
+        "qubit.f01_coarse_hz",
+        "z.amplitude_limits",
+        "z.transfer_calibration"
+      ],
+      "main_parameter_writes": [
+        "qubit.f01_z_map",
+        "qubit.f01_z_inverse",
+        "qubit.max_f01_hz",
+        "qubit.flux_branch"
+      ],
+      "conditional_parameter_reads": [],
+      "controls": {
+        "scan": [
+          "[sq_flux_map] z_pulse_amplitude",
+          "[sq_flux_map] drive_frequency_hz"
+        ],
+        "fixed": [
+          "[sq_flux_map] Z脉冲宽度/shape",
+          "[sq_flux_map] 谱学幅度",
+          "[sq_flux_map] readout",
+          "[sq_flux_map] bias",
+          "[sq_flux_map] 参考电压"
+        ]
+      },
+      "sequence": [
+        "先在授权电压/磁通支路二维扫描，检查 f01(Z) 单调段、迟滞与跳模；把逆映射适用域和单位交给后续角色，不能跨支路外推。",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 初始宽频窗采数个Z点",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 拟合f(Z)",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 下一Z点在预测附近窄扫并更新",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 保留盲检点和回程扫描"
+      ],
+      "observables": [
+        "[sq_flux_map · Z脉冲幅度—f01映射] f01随Z",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 峰归属",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 实际DAC/电压读回",
+        "[sq_flux_map · Z脉冲幅度—f01映射] hysteresis",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 拟合外推距离"
+      ],
+      "analysis": [
+        "[sq_flux_map · Z脉冲幅度—f01映射] 局部可用f(Z)=a(Z-Z0)^2+fmax等经验式，但跨分支需物理或分段模型",
+        "[sq_flux_map · Z脉冲幅度—f01映射] inverse须指定分支",
+        "[sq_flux_map · Z脉冲幅度—f01映射] df/dZ可为正负，调节ΔZ≈Δf/(df/dZ)只在局部有效"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[sq_flux_map] df/dZ近零或inverse双解",
+          "action": "冻结方向并请求邻点/分支选择",
+          "reason": "sweet spot处线性逆不稳定"
+        },
+        {
+          "condition": "[sq_flux_map] 峰出预测窗口",
+          "action": "回宽扫并标记模型失配",
+          "reason": "不靠插值猜峰"
+        },
+        {
+          "condition": "[sq_flux_map] 盲检点残差合格",
+          "action": "提出映射版本",
+          "reason": "禁止超已验证幅度区间外推"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 不同pulse shape/width/line改变映射失效",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 映射更新使iSWAP/CZ/ZZ工作点及时序相位需重测",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 回退旧映射与控制设置"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 盲检/回程一致",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 单位/branch/有效区间完整",
+        "[sq_flux_map · Z脉冲幅度—f01映射] 误差达criteria"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 4000000,
+        "max_seconds": 900
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框 F01ZPulseDependency 扫偏置×频率并建立 f01(Z)；当前单偏置能谱原子绑定不构成二维 flux mapping。真实偏置安全窗、迟滞与工作支路仍需设备适配。",
+      "internal_method_policy": "先在授权电压/磁通支路二维扫描，检查 f01(Z) 单调段、迟滞与跳模；把逆映射适用域和单位交给后续角色，不能跨支路外推。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第1个功能方框，F01ZPulseDependency"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "2.5.1，L440–484"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-1.txt",
+          "locator": "⑧ F01ZPulseDependency"
+        }
+      ],
+      "card_path": "agents/d01_flux_spectroscopy/card.md",
+      "prompt_path": "agents/d01_flux_spectroscopy/prompt.md"
+    },
+    {
+      "id": "d02_idle_interaction",
+      "name": "两比特闲置工作点",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第2框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成两比特闲置工作点的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 ZeroPointFinderByQQSwap。",
+      "original_function": "ZeroPointFinderByQQSwap",
+      "source_page": 2,
+      "source_box_index": 2,
+      "main_procedure_id": "tq_exchange_off",
+      "procedure_ids": [
+        "tq_exchange_off",
+        "tq_residual_zz",
+        "tq_dressed_zz",
+        "tq_coupler_resonator_map",
+        "tq_iswap"
+      ],
+      "legacy_functions": [
+        "ZeroPointFinderByQQSwap",
+        "quantum_twin.two_qubit_experiments.run_two_qubit_experiments",
+        "ReadoutFreqQubitBiasDependency",
+        "QQSwapSweepZPulse",
+        "quantum_twin.experiments.run_experiments"
+      ],
+      "depends_on": [
+        "d01_flux_spectroscopy"
+      ],
+      "parameter_reads": [
+        "coupler.idle_bias",
+        "qubit.f01_z_inverse",
+        "qubit.pi_amp",
+        "readout.assignment_matrix",
+        "phase.gateoff_reference_complex",
+        "qubit.f01_hz",
+        "coupler.bias_version",
+        "readout.classifier3_version",
+        "coupler.bias_limits",
+        "readout.bare_frequency_hz",
+        "coupler.topology",
+        "coupler.on_amplitude",
+        "qubit.pi_duration_s"
+      ],
+      "parameter_writes": [
+        "coupler.exchange_off_bias_candidate",
+        "coupler.exchange_bound_hz",
+        "coupler.residual_zz_hz",
+        "coupler.residual_zz_diagnostics",
+        "coupler.dressed_zz_hz",
+        "coupler.dressed_zz_diagnostics",
+        "coupler.idle_bias_candidate",
+        "coupler.branch_evidence",
+        "coupler.g_exchange_hz",
+        "iswap.frequency_hz",
+        "iswap.duration_s"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "coupler.idle_bias",
+        "qubit.f01_z_inverse",
+        "qubit.pi_amp",
+        "readout.assignment_matrix"
+      ],
+      "main_parameter_writes": [
+        "coupler.exchange_off_bias_candidate",
+        "coupler.exchange_bound_hz"
+      ],
+      "conditional_parameter_reads": [
+        "phase.gateoff_reference_complex",
+        "qubit.f01_hz",
+        "coupler.bias_version",
+        "readout.classifier3_version",
+        "coupler.bias_limits",
+        "readout.bare_frequency_hz",
+        "coupler.topology",
+        "coupler.on_amplitude",
+        "qubit.pi_duration_s"
+      ],
+      "controls": {
+        "scan": [
+          "[tq_exchange_off] coupler_pulse_amplitude或已校dc_bias",
+          "[tq_exchange_off] interaction_duration_s",
+          "[tq_residual_zz] wait_time_s",
+          "[tq_residual_zz] spectator0/1",
+          "[tq_residual_zz] X/Y analysis",
+          "[tq_residual_zz] 可选coupler_bias复核邻域",
+          "[tq_dressed_zz] wait_time_s",
+          "[tq_dressed_zz] spectator0/1",
+          "[tq_dressed_zz] X/Y analysis",
+          "[tq_dressed_zz] 可选coupler_bias复核邻域",
+          "[tq_coupler_resonator_map] coupler_dc_bias",
+          "[tq_coupler_resonator_map] probe_frequency_hz",
+          "[tq_iswap] qubit_interaction_frequency_hz",
+          "[tq_iswap] interaction_duration_s"
+        ],
+        "fixed": [
+          "[tq_exchange_off] QQ共振调谐",
+          "[tq_exchange_off] initial01/10",
+          "[tq_exchange_off] qubit_pulse_shape",
+          "[tq_exchange_off] readout",
+          "[tq_exchange_off] shots",
+          "[tq_residual_zz] coupler_scale=0（仅twin）或明确hardware_bias",
+          "[tq_residual_zz] target_offset_hz",
+          "[tq_residual_zz] π2",
+          "[tq_residual_zz] readout",
+          "[tq_residual_zz] shots",
+          "[tq_dressed_zz] coupler_scale=0.1（仅twin）或明确hardware_bias",
+          "[tq_dressed_zz] target_offset_hz",
+          "[tq_dressed_zz] π2",
+          "[tq_dressed_zz] readout",
+          "[tq_dressed_zz] shots",
+          "[tq_coupler_resonator_map] 两比特idle",
+          "[tq_coupler_resonator_map] 探测功率",
+          "[tq_coupler_resonator_map] readout_path",
+          "[tq_coupler_resonator_map] 稳定等待时间",
+          "[tq_iswap] coupler_amplitude",
+          "[tq_iswap] initial01/10",
+          "[tq_iswap] Z形状",
+          "[tq_iswap] readout",
+          "[tq_iswap] shots"
+        ]
+      },
+      "sequence": [
+        "主任务以 QQswap 找交换抑制候选，然后独立 conditional Ramsey 测 ZZ；耦合器腔偏置图、dressed ZZ、共振交换/iSWAP 为诊断内部方法。禁止将一项通过写成另一项已通过。",
+        "[tq_exchange_off · QQswap交换关断点] 分别制备01和10",
+        "[tq_exchange_off · QQswap交换关断点] 用Z将两比特调近共振",
+        "[tq_exchange_off · QQswap交换关断点] 同时开coupler片段",
+        "[tq_exchange_off · QQswap交换关断点] 二维扫coupler幅度与时长",
+        "[tq_exchange_off · QQswap交换关断点] 测全四类counts",
+        "[tq_exchange_off · QQswap交换关断点] 候选偏置回零脉冲验证",
+        "[tq_residual_zz · 残余ZZ独立测量] 准备spectator0/1",
+        "[tq_residual_zz · 残余ZZ独立测量] target制备+",
+        "[tq_residual_zz · 残余ZZ独立测量] 等待并保持指定coupler工作点",
+        "[tq_residual_zz · 残余ZZ独立测量] X/Y分析",
+        "[tq_residual_zz · 残余ZZ独立测量] 除以对应参考",
+        "[tq_residual_zz · 残余ZZ独立测量] 分别拟合两频率",
+        "[tq_residual_zz · 残余ZZ独立测量] fresh复测",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 准备spectator0/1",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] target制备+",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 等待并保持指定coupler工作点",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] X/Y分析",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 除以对应参考",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 分别拟合两频率",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] fresh复测",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 设置并读回coupler偏置",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 二维腔扫",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 追踪避交叉两分支",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 回程验证",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 提出远离歧义区的idle候选",
+        "[tq_iswap · QQ共振交换与iSWAP时长] π制备单激发",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 共参考系下调一个比特",
+        "[tq_iswap · QQ共振交换与iSWAP时长] coupler固定开启",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 扫描频率×时长",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 读四类counts",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 选共振分支并fresh交换复测"
+      ],
+      "observables": [
+        "[tq_exchange_off · QQswap交换关断点] P01/P10互补交换",
+        "[tq_exchange_off · QQswap交换关断点] P00/T1损失",
+        "[tq_exchange_off · QQswap交换关断点] g上界及分辨率",
+        "[tq_exchange_off · QQswap交换关断点] 偏置读回",
+        "[tq_residual_zz · 残余ZZ独立测量] 两个复Ramsey轨迹",
+        "[tq_residual_zz · 残余ZZ独立测量] conditional frequencies",
+        "[tq_residual_zz · 残余ZZ独立测量] contrast/T1相关偏差",
+        "[tq_residual_zz · 残余ZZ独立测量] counts",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 两个复Ramsey轨迹",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] conditional frequencies",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] contrast/T1相关偏差",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] counts",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] S21(bias,f)",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 避交叉",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 峰归属",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] actual_bias",
+        "[tq_iswap · QQ共振交换与iSWAP时长] P01,P10,P00,P11",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 振荡频率和幅度",
+        "[tq_iswap · QQ共振交换与iSWAP时长] P01-P10"
+      ],
+      "analysis": [
+        "[tq_exchange_off · QQswap交换关断点] 近共振Pswap=sin²(2πgt)，g Hz，人口周期1/(2|g|)",
+        "[tq_exchange_off · QQswap交换关断点] 失谐Δ使振幅4g²/(Δ²+4g²)，弱振荡可能是失谐而非g=0",
+        "[tq_exchange_off · QQswap交换关断点] 无可解析周期时给上界而非零值",
+        "[tq_residual_zz · 残余ZZ独立测量] ζ=(E11-E10-E01+E00)/h，Hz",
+        "[tq_residual_zz · 残余ZZ独立测量] 若拟合exp(+i2πνt)而物理X+iY为exp(-iEt/ħ)，quantam取ζ=-(ν1-ν0)",
+        "[tq_residual_zz · 残余ZZ独立测量] 需通过约定验证符号",
+        "[tq_residual_zz · 残余ZZ独立测量] spectator弛豫使单指数模型有偏差",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] ζ=(E11-E10-E01+E00)/h，Hz",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 若拟合exp(+i2πνt)而物理X+iY为exp(-iEt/ħ)，quantam取ζ=-(ν1-ν0)",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 需通过约定验证符号",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] spectator弛豫使单指数模型有偏差",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 腔频相对裸腔的位移可辅助推断coupler频率所在侧，但需已知耦合拓扑",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 不直接用该图证明g=0或ζ=0",
+        "[tq_iswap · QQ共振交换与iSWAP时长] fosc=sqrt(Δ²+4g²)，Hz",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 共振fosc=2|g|、t_iSWAP=1/(4|g|)",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 取人口周期一半实现转移，Bell半交换再半",
+        "[tq_iswap · QQ共振交换与iSWAP时长] P0差分拟合弱耗散/近共振有效，不能据此定g符号"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_exchange_off] 看不到交换且未证共振",
+          "action": "先校准QQ detuning再判断关断",
+          "reason": "防失谐假关断"
+        },
+        {
+          "condition": "[tq_exchange_off] 候选g最小",
+          "action": "提出bias并安排独立ZZ任务",
+          "reason": "交换不等于ZZ"
+        },
+        {
+          "condition": "[tq_exchange_off] dc与pulse标度未知",
+          "action": "blocked映射更新",
+          "reason": "不能直接把pulse幅度加到dc偏置"
+        },
+        {
+          "condition": "[tq_residual_zz] spectator1包络显著畸变",
+          "action": "报告单频模型偏差并查T1/缩短扫描或用扩展模型",
+          "reason": "不把拟合时间常数当target固有T2"
+        },
+        {
+          "condition": "[tq_residual_zz] ζ小于分辨率",
+          "action": "给区间/上界而非宣称0",
+          "reason": "有限shots无法证明严格零"
+        },
+        {
+          "condition": "[tq_residual_zz] 目标是扫ζ零点",
+          "action": "用相邻bias的ζ斜率确定方向并受约束迭代",
+          "reason": "不得据QQswap直接宣布ZZ关断"
+        },
+        {
+          "condition": "[tq_dressed_zz] spectator1包络显著畸变",
+          "action": "报告单频模型偏差并查T1/缩短扫描或用扩展模型",
+          "reason": "不把拟合时间常数当target固有T2"
+        },
+        {
+          "condition": "[tq_dressed_zz] ζ小于分辨率",
+          "action": "给区间/上界而非宣称0",
+          "reason": "有限shots无法证明严格零"
+        },
+        {
+          "condition": "[tq_dressed_zz] 目标是扫ζ零点",
+          "action": "用相邻bias的ζ斜率确定方向并受约束迭代",
+          "reason": "不得据QQswap直接宣布ZZ关断"
+        },
+        {
+          "condition": "[tq_coupler_resonator_map] 避交叉分支不清",
+          "action": "停止单峰拟合并请求分支模型",
+          "reason": "不能取最大点盲更新"
+        },
+        {
+          "condition": "[tq_coupler_resonator_map] idle候选可重复",
+          "action": "安排QQswap及条件Ramsey分别测试",
+          "reason": "耦合器最高频不等于关断点"
+        },
+        {
+          "condition": "[tq_coupler_resonator_map] 读出变化大",
+          "action": "先fresh IQ复测",
+          "reason": "偏置会改变读出条件"
+        },
+        {
+          "condition": "[tq_iswap] 周期长但转移幅度不足",
+          "action": "检查失谐/T1，联合拟合幅度与频率",
+          "reason": "最长周期不是唯一标准"
+        },
+        {
+          "condition": "[tq_iswap] 频率调节方向不明",
+          "action": "查flux分支df/dZ并邻点验证",
+          "reason": "不可直接按电压正负猜频率"
+        },
+        {
+          "condition": "[tq_iswap] 共振与半周期可复测",
+          "action": "提出frequency和duration",
+          "reason": "高转移不等于完整iSWAP门保真度"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_exchange_off · QQswap交换关断点] 更新bias后fresh IQ和QQswap",
+        "[tq_exchange_off · QQswap交换关断点] 同时发tq_residual_zz但不由本agent宣称其通过",
+        "[tq_exchange_off · QQswap交换关断点] 源PDF把两者等同的文字不沿用",
+        "[tq_residual_zz · 残余ZZ独立测量] fresh复测且与QQswap结果并列",
+        "[tq_residual_zz · 残余ZZ独立测量] bias/频率/时序/prepare更新失效",
+        "[tq_residual_zz · 残余ZZ独立测量] 两条件全shots保留",
+        "[tq_residual_zz · 残余ZZ独立测量] 失败回退偏置",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] fresh复测且与QQswap结果并列",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] bias/频率/时序/prepare更新失效",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 两条件全shots保留",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 失败回退偏置",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 候选提交后ro_resonator_survey和ro_iq01 fresh",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] coupler idle变化使全部双比特工作点/相位失效",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 回退旧bias",
+        "[tq_iswap · QQ共振交换与iSWAP时长] fresh双初态及相位验证",
+        "[tq_iswap · QQ共振交换与iSWAP时长] flux/时序/coupler变化失效",
+        "[tq_iswap · QQ共振交换与iSWAP时长] P0子模式无需真实flux映射但必须标模拟"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_exchange_off · QQswap交换关断点] 两种初态一致",
+        "[tq_exchange_off · QQswap交换关断点] 分辨率/置信上界满足criteria",
+        "[tq_exchange_off · QQswap交换关断点] ζ独立报告",
+        "[tq_residual_zz · 残余ZZ独立测量] 两分支可辨识且alias先验有效",
+        "[tq_residual_zz · 残余ZZ独立测量] 点估计及不确定度符合任务criteria",
+        "[tq_residual_zz · 残余ZZ独立测量] 无事后真值参与选bias",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 两分支可辨识且alias先验有效",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 点估计及不确定度符合任务criteria",
+        "[tq_dressed_zz · 工作点有效dressed ZZ] 无事后真值参与选bias",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 分支与读回明确",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 安全范围内",
+        "[tq_coupler_resonator_map · 耦合器偏置与谐振腔响应] 不宣称真实关断已完成",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 振荡覆盖与对比度合格",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 时间量化后转移/相位符合目标",
+        "[tq_iswap · QQ共振交换与iSWAP时长] 未把P0 g与CZ另一配置混用"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 24000000,
+        "max_seconds": 4500
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "source_suite_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框 ZeroPointFinderByQQSwap 的耦合器扫描未原子绑定。源程序仅有固定 coupling_scale 的独立 ZZ 测量和 P0 共振交换子流程；交换关断不等于 ZZ 为零，也不等于真实闲置工作点已找到。",
+      "internal_method_policy": "主任务以 QQswap 找交换抑制候选，然后独立 conditional Ramsey 测 ZZ；耦合器腔偏置图、dressed ZZ、共振交换/iSWAP 为诊断内部方法。禁止将一项通过写成另一项已通过。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第2个功能方框，ZeroPointFinderByQQSwap"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.1.2，L696–736"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "② ZeroPointFinderByQQSwap；交换与ZZ等同文字需纠正"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程补充：手册3.1.2只测交换，L696–736不构成ZZ证据"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L2420–2675"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "②中的交换/ZZ混淆需分开"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程补充：条件Ramsey；手册L874条件相位思想"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.1.1，L666–694"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.2.1，L742–782"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L1991–2103"
+        }
+      ],
+      "card_path": "agents/d02_idle_interaction/card.md",
+      "prompt_path": "agents/d02_idle_interaction/prompt.md"
+    },
+    {
+      "id": "d03_cz_width",
+      "name": "CZ宽度粗扫",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第3框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成CZ宽度粗扫的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 CZSwapSweepZPulse。",
+      "original_function": "CZSwapSweepZPulse",
+      "source_page": 2,
+      "source_box_index": 3,
+      "main_procedure_id": "tq_cz_chevron",
+      "procedure_ids": [
+        "tq_cz_setup",
+        "tq_cz_chevron",
+        "tq_cz_return",
+        "tq_cz_rough",
+        "tq_qz_cz_timing"
+      ],
+      "legacy_functions": [
+        "CZSwapSweepZPulse",
+        "quantum_twin.two_qubit_experiments.run_two_qubit_experiments",
+        "TTGAczRoughPoint",
+        "QubitXYCouplerZTimingCal"
+      ],
+      "depends_on": [
+        "d02_idle_interaction"
+      ],
+      "parameter_reads": [
+        "qubit.f01_z_inverse",
+        "qubit.anharmonicity_hz",
+        "coupler.amplitude_limits",
+        "timing.version",
+        "cz.pulse_contract",
+        "qubit.pi_amp",
+        "readout.classifier3_version",
+        "cz.first_return_s",
+        "cz.crossing_frequency_candidate_hz",
+        "cz.return_candidates",
+        "phase.gateoff_reference_complex",
+        "timing.xy_z_delay_s",
+        "iswap.frequency_hz",
+        "iswap.duration_s",
+        "coupler.pulse_shape"
+      ],
+      "parameter_writes": [
+        "cz.pulse_contract",
+        "cz.initial_workpoint",
+        "cz.crossing_frequency_candidate_hz",
+        "cz.g_effective_hz",
+        "cz.first_return_s",
+        "cz.return_candidates",
+        "cz.rough_point_candidate",
+        "timing.qubit_z_coupler_z_delay_s"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "cz.pulse_contract",
+        "qubit.pi_amp",
+        "qubit.anharmonicity_hz",
+        "readout.classifier3_version"
+      ],
+      "main_parameter_writes": [
+        "cz.crossing_frequency_candidate_hz",
+        "cz.g_effective_hz",
+        "cz.first_return_s"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.f01_z_inverse",
+        "coupler.amplitude_limits",
+        "timing.version",
+        "cz.first_return_s",
+        "cz.crossing_frequency_candidate_hz",
+        "cz.return_candidates",
+        "phase.gateoff_reference_complex",
+        "timing.xy_z_delay_s",
+        "iswap.frequency_hz",
+        "iswap.duration_s",
+        "coupler.pulse_shape"
+      ],
+      "controls": {
+        "scan": [
+          "[tq_cz_setup] 仅生成受限初始候选，不执行科学扫描",
+          "[tq_cz_chevron] one_qubit_interaction_frequency_hz",
+          "[tq_cz_chevron] effective_duration_s",
+          "[tq_cz_return] 小失谐窗口",
+          "[tq_cz_return] 首回归附近duration_s",
+          "[tq_cz_rough] coupler_amp",
+          "[tq_cz_rough] one_qubit_interaction_frequency_hz",
+          "[tq_qz_cz_timing] coupler_delay_relative_qubit_z_s"
+        ],
+        "fixed": [
+          "[tq_cz_setup] pulse_family",
+          "[tq_cz_setup] total_width_s",
+          "[tq_cz_setup] padding_definition",
+          "[tq_cz_setup] f01_0/f01_1",
+          "[tq_cz_setup] coupler_on_amp",
+          "[tq_cz_chevron] coupler_amp",
+          "[tq_cz_chevron] 另一qubit频率",
+          "[tq_cz_chevron] prepare11",
+          "[tq_cz_chevron] pulse_shape/padding",
+          "[tq_cz_chevron] shots",
+          "[tq_cz_return] coupler_amp",
+          "[tq_cz_return] prepared11",
+          "[tq_cz_return] readout3",
+          "[tq_cz_return] 固定搜索边界",
+          "[tq_cz_rough] 门总宽/shape/padding",
+          "[tq_cz_rough] 另一qubit频率",
+          "[tq_cz_rough] shots",
+          "[tq_cz_rough] 参考分支",
+          "[tq_qz_cz_timing] QQ共振幅度",
+          "[tq_qz_cz_timing] 相同Z片段宽度",
+          "[tq_qz_cz_timing] initial01/10",
+          "[tq_qz_cz_timing] readout"
+        ]
+      },
+      "sequence": [
+        "核查双比特/耦合器与 QZ–CZ 时序，粗扫 11↔02 避交叉，精修第一非零布居回归后评估粗 CZ。零时长高 P11 不是 CZ；候选仍需相位和泄漏后续验证。",
+        "[tq_cz_setup · CZ波形与工作点合同] 核对两比特频率/α与可调域",
+        "[tq_cz_setup · CZ波形与工作点合同] 计算可达11↔02或20分支",
+        "[tq_cz_setup · CZ波形与工作点合同] 将频率映射到已验证Z幅度",
+        "[tq_cz_setup · CZ波形与工作点合同] 编译预览并核对边沿/padding",
+        "[tq_cz_setup · CZ波形与工作点合同] 提交候选实验计划",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 有限π依序制备11",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 执行待测CZ段",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 九类读出",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 频率×时长扫描",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 拟合有效二维交换面",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] fresh局部验证",
+        "[tq_cz_return · 第一非零回归时长精修] 围绕首回归的小窗口扫t和detuning",
+        "[tq_cz_return · 第一非零回归时长精修] 采P11及总泄漏",
+        "[tq_cz_return · 第一非零回归时长精修] 局部低阶曲率拟合",
+        "[tq_cz_return · 第一非零回归时长精修] 截断在已测区间内",
+        "[tq_cz_return · 第一非零回归时长精修] 各detuning给候选",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 候选点先制备11测回归/泄漏",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 再spectator0/1下做target X/Y四线路",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 求条件相位",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 按冻结联合目标选候选",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 冻结后fresh复测",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 制备01/10",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 两Z脉冲开启交换",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 扫coupler相对延迟",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 测交换人口",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 拟合重叠窗口",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 补偿后fresh扫描"
+      ],
+      "observables": [
+        "[tq_cz_setup · CZ波形与工作点合同] 编译波形摘要",
+        "[tq_cz_setup · CZ波形与工作点合同] 实际总时长/有效时长",
+        "[tq_cz_setup · CZ波形与工作点合同] 映射版本",
+        "[tq_cz_setup · CZ波形与工作点合同] 可达性报告",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] P11,P02,P20及总泄漏",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 九类counts",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] scan axes",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] fit surface",
+        "[tq_cz_return · 第一非零回归时长精修] L(t,δ)",
+        "[tq_cz_return · 第一非零回归时长精修] P11(t,δ)",
+        "[tq_cz_return · 第一非零回归时长精修] 曲率",
+        "[tq_cz_return · 第一非零回归时长精修] 时间边界",
+        "[tq_cz_return · 第一非零回归时长精修] counts",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] P11及L",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 两条件复相干",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] θconditional",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] contrast",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 候选预算",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] P10/P01随delay",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 脉冲读回时序",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 平台/边沿对称性"
+      ],
+      "analysis": [
+        "[tq_cz_setup · CZ波形与工作点合同] 11↔02近似交叉条件f0≈f1+α1",
+        "[tq_cz_setup · CZ波形与工作点合同] 频差约200MHz只是手册实例，依实测α决定",
+        "[tq_cz_setup · CZ波形与工作点合同] cz_width含padding规则必须显式，不默认60ns",
+        "[tq_cz_setup · CZ波形与工作点合同] slepian/erf_flattop与矩形twin不等价",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 简化两态P02=B+C·8g²/(δ²+8g²)·sin²(π sqrt(δ²+8g²)t)",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] g,δ Hz",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 共振首回归1/(2√2|g|)",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 高能级/ZZ/20通道使crossing反推α存在系统误差",
+        "[tq_cz_return · 第一非零回归时长精修] L≈a(t-t0)^2+b(t-t0)+c",
+        "[tq_cz_return · 第一非零回归时长精修] a>0时topt=t0-b/(2a)，只能在局部有效",
+        "[tq_cz_return · 第一非零回归时长精修] a≤0或极值越窗则不外推",
+        "[tq_cz_return · 第一非零回归时长精修] 量化时钟后重新测",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] θcond=wrap(arg z1-arg z0)，目标π",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 误差用wrap(θcond-π)",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 回归/泄漏/相位需分列，不能只优化P11",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] frequency→Z幅度走实际映射",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] delay=coupler到达−qubitZ到达，秒",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 实际响应与边沿/滤波卷积有关",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 负补偿用另一通道延迟实现，保持统一触发坐标"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_cz_setup] 需外推flux map或超幅度",
+          "action": "blocked并扩展映射证据",
+          "reason": "不能直接发未知电压"
+        },
+        {
+          "condition": "[tq_cz_setup] PDF固定60ns与设备预算不兼容",
+          "action": "保留为示例，不自动采用",
+          "reason": "门宽需由相干/带宽/交换窗口决定"
+        },
+        {
+          "condition": "[tq_cz_setup] 合同完整",
+          "action": "安排chevron",
+          "reason": "参数不是校准结果"
+        },
+        {
+          "condition": "[tq_cz_chevron] 最优为t=0",
+          "action": "拒绝并限定非零第一回归分支",
+          "reason": "零时长恒等不是CZ"
+        },
+        {
+          "condition": "[tq_cz_chevron] 20通道/多频明显",
+          "action": "拒绝简化模型确定性结论并扩展分析",
+          "reason": "局部标准误不含错模型"
+        },
+        {
+          "condition": "[tq_cz_chevron] coarse回归可辨",
+          "action": "提出frequency/time窗口给refine",
+          "reason": "不依据隐藏Favg选点"
+        },
+        {
+          "condition": "[tq_cz_return] 最佳在窗口端点",
+          "action": "扩/移受限窗口或回粗扫",
+          "reason": "边界最小不证明局部回归"
+        },
+        {
+          "condition": "[tq_cz_return] L低但条件相位未知",
+          "action": "交tq_cz_phase_verify/rough",
+          "reason": "高回归可为0或2π相位"
+        },
+        {
+          "condition": "[tq_cz_return] 曲率过小",
+          "action": "报告时间不确定，增加辨识度而非假精度",
+          "reason": "shots噪声可决定极小点"
+        },
+        {
+          "condition": "[tq_cz_rough] 回归好但相位接近0",
+          "action": "拒绝CZ候选",
+          "reason": "恒等也可高P11"
+        },
+        {
+          "condition": "[tq_cz_rough] phase好但泄漏/contrast坏",
+          "action": "拒绝或改回归窗口",
+          "reason": "相位无法替代生存率"
+        },
+        {
+          "condition": "[tq_cz_rough] 多个候选相当",
+          "action": "选择有裕量且成本合理者并独立验证",
+          "reason": "不得按隐藏门通道保真度选择"
+        },
+        {
+          "condition": "[tq_qz_cz_timing] 平台或边缘多重结构",
+          "action": "检查线响应而非强拟单delay",
+          "reason": "脉冲畸变可能非平移"
+        },
+        {
+          "condition": "[tq_qz_cz_timing] 方向未知",
+          "action": "施加受限正delay探针",
+          "reason": "从响应移动验证符号"
+        },
+        {
+          "condition": "[tq_qz_cz_timing] 补偿后中心正确",
+          "action": "提出同步表版本",
+          "reason": "不能只更改显示时间轴"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_cz_setup · CZ波形与工作点合同] 任何shape/padding/时序修改使全部CZ校准失效",
+        "[tq_cz_setup · CZ波形与工作点合同] 保留旧完整pulse contract用于回退",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 新计数局部扫描",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 改变coupler/shape/padding使候选失效",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 不能将另一配置P0 g直接继承",
+        "[tq_cz_return · 第一非零回归时长精修] fresh重复最优与邻点",
+        "[tq_cz_return · 第一非零回归时长精修] 任何shape或g变化失效",
+        "[tq_cz_return · 第一非零回归时长精修] 保留全部未选候选",
+        "[tq_cz_return · 第一非零回归时长精修] 失败回退coarse窗口",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] fresh验证冻结候选",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] coupler/qubit幅度耦合需交替重测",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 失败回退整组幅度/频率，不只回退一个值",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] fresh两种初态",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 改变shape/filter/cable使时延失效",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 同步表改动后需QQswap、CZphase重测"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_cz_setup · CZ波形与工作点合同] 编译检查可达/时间合法",
+        "[tq_cz_setup · CZ波形与工作点合同] 单位与padding无歧义",
+        "[tq_cz_setup · CZ波形与工作点合同] 无硬件写操作",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 非零首回归可观测",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] counts保留泄漏",
+        "[tq_cz_chevron · 11↔02避交叉二维粗扫] 拟合适用域明确",
+        "[tq_cz_return · 第一非零回归时长精修] t>0且第一回归分支",
+        "[tq_cz_return · 第一非零回归时长精修] 不确定度/量化裕量达criteria",
+        "[tq_cz_return · 第一非零回归时长精修] 无凭真值选点",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 联合criteria全达标且独立数据验证",
+        "[tq_cz_rough · CZ回归与条件相位联合粗定点] 候选数据不能充当fresh",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 补偿量可由硬件时钟表示",
+        "[tq_qz_cz_timing · 量子比特Z–耦合器Z时延] 窗口/相对时序在criteria内"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 30000000,
+        "max_seconds": 4500
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "source_suite_only",
+      "main_method_execution_status": "source_suite_only",
+      "source_support": "原框 CZSwapSweepZPulse 的粗扫在源 CZ 套件中有三能级矩形 pulse 的 chevron/第一非零回归对应；只有完整套件桥，尚无逐方法原子调用。真实 flux 波形、线路时序和波形整形未接通。",
+      "internal_method_policy": "核查双比特/耦合器与 QZ–CZ 时序，粗扫 11↔02 避交叉，精修第一非零布居回归后评估粗 CZ。零时长高 P11 不是 CZ；候选仍需相位和泄漏后续验证。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第3个功能方框，CZSwapSweepZPulse"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.1，L818–830"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "④前CZ_width=60ns为流程示例"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.2，L832–864"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L2677–2809"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程细化：3.3.2 L864的完整交换周期"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L2811–2903"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.3，L866–898"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.2.2，L784–812"
+        }
+      ],
+      "card_path": "agents/d03_cz_width/card.md",
+      "prompt_path": "agents/d03_cz_width/prompt.md"
+    },
+    {
+      "id": "d04_cz_amplitude",
+      "name": "CZ幅度精调",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第4框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成CZ幅度精调的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 TTGAczDelicateG。",
+      "original_function": "TTGAczDelicateG",
+      "source_page": 2,
+      "source_box_index": 4,
+      "main_procedure_id": "tq_cz_amplitude_fine",
+      "procedure_ids": [
+        "tq_cz_amplitude_fine"
+      ],
+      "legacy_functions": [
+        "TTGAczDelicateG"
+      ],
+      "depends_on": [
+        "d03_cz_width"
+      ],
+      "parameter_reads": [
+        "cz.rough_point_candidate",
+        "cz.pulse_contract",
+        "readout.classifier3_version"
+      ],
+      "parameter_writes": [
+        "cz.coupler_amp_candidate",
+        "cz.repeated_return_diagnostics"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "cz.rough_point_candidate",
+        "cz.pulse_contract",
+        "readout.classifier3_version"
+      ],
+      "main_parameter_writes": [
+        "cz.coupler_amp_candidate",
+        "cz.repeated_return_diagnostics"
+      ],
+      "conditional_parameter_reads": [],
+      "controls": {
+        "scan": [
+          "[tq_cz_amplitude_fine] CZ_count_N",
+          "[tq_cz_amplitude_fine] coupler_pulse_amplitude"
+        ],
+        "fixed": [
+          "[tq_cz_amplitude_fine] 门宽/shape/padding",
+          "[tq_cz_amplitude_fine] qubit_interaction_frequencies",
+          "[tq_cz_amplitude_fine] prepare11",
+          "[tq_cz_amplitude_fine] readout",
+          "[tq_cz_amplitude_fine] spacing"
+        ]
+      },
+      "sequence": [
+        "固定已选门时长/失谐等条件，扫描 N×耦合器幅度；结合多 N 回归稳定性选择候选，并用独立 N/数据复测。不能把 P11 的全部损失都归因于幅度误差。",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 复位制备11",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 串接N个同一CZ",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 扫描N和coupler幅度",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 读九类counts",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 各幅度按冻结N集合计算P11均值",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] fresh新N复测"
+      ],
+      "observables": [
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] P11(N,u)",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] P02/P20/总L",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] P00/T1损失",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] meanP11与误差条"
+      ],
+      "analysis": [
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 手册以跨N平均P11最大选cz_amp",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 这不是纯泄漏率也不是门Favg",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 相干回归误差可随N振荡，不能假设所有损失线性叠加",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 方向由幅度邻点实测梯度决定"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_cz_amplitude_fine] P11下降但L不升而P00升",
+          "action": "检查T1/prepare，不全归coupler幅度",
+          "reason": "耗散与泄漏分开"
+        },
+        {
+          "condition": "[tq_cz_amplitude_fine] 不同N最优不一致",
+          "action": "诊断多频/时序/门间隔",
+          "reason": "单点最优不可靠"
+        },
+        {
+          "condition": "[tq_cz_amplitude_fine] 平均回归改善但phase漂移",
+          "action": "必须再Detune/phase验证",
+          "reason": "coupler调节也影响条件相位"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 用未参加优化的N与fresh shots验证",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 再做tq_cz_detune_fine、phase、leakage",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 失败回退幅度及关联参数版本"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 固定宽度已明确",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] P11/L/phase联合通过",
+        "[tq_cz_amplitude_fine · 重复CZ耦合器幅度精校] 读出与prepare误差单列"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 8000000,
+        "max_seconds": 900
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框 TTGAczDelicateG 要扫描重复门数 N×耦合器幅度以放大回归/泄漏误差，当前未绑定。单门 chevron 或回归精修不能替代重复门幅度精调。",
+      "internal_method_policy": "固定已选门时长/失谐等条件，扫描 N×耦合器幅度；结合多 N 回归稳定性选择候选，并用独立 N/数据复测。不能把 P11 的全部损失都归因于幅度误差。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第4个功能方框，TTGAczDelicateG"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.4，L900–928"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "④ TTGAczDelicateG"
+        }
+      ],
+      "card_path": "agents/d04_cz_amplitude/card.md",
+      "prompt_path": "agents/d04_cz_amplitude/prompt.md"
+    },
+    {
+      "id": "d05_cz_detuning",
+      "name": "CZ失谐与条件相位精调",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第5框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成CZ失谐与条件相位精调的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 TTGAczDelicateDetune。",
+      "original_function": "TTGAczDelicateDetune",
+      "source_page": 2,
+      "source_box_index": 5,
+      "main_procedure_id": "tq_cz_detune_fine",
+      "procedure_ids": [
+        "tq_cz_detune_fine",
+        "tq_gateoff_reference",
+        "tq_cz_phase_verify",
+        "tq_local_phase"
+      ],
+      "legacy_functions": [
+        "TTGAczDelicateDetune",
+        "quantum_twin.two_qubit_experiments.run_two_qubit_experiments",
+        "CZProcessTomography"
+      ],
+      "depends_on": [
+        "d04_cz_amplitude"
+      ],
+      "parameter_reads": [
+        "cz.pulse_contract",
+        "cz.coupler_amp_candidate",
+        "qubit.f01_z_inverse",
+        "phase.gateoff_reference_complex",
+        "qubit.pi_duration_s",
+        "qubit.f01_hz",
+        "readout.classifier3_version",
+        "timing.version",
+        "cz.frozen_candidate",
+        "cz.local_phases_rad",
+        "drive.frame_convention"
+      ],
+      "parameter_writes": [
+        "cz.interaction_frequency_candidate_hz",
+        "cz.conditional_error_per_gate_rad",
+        "phase.gateoff_reference_complex",
+        "phase.reference_version",
+        "cz.phase_verification_evidence",
+        "cz.local_phases_rad",
+        "cz.virtual_z_angles_rad",
+        "drive.phase_frame_update"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "cz.pulse_contract",
+        "cz.coupler_amp_candidate",
+        "qubit.f01_z_inverse",
+        "phase.gateoff_reference_complex"
+      ],
+      "main_parameter_writes": [
+        "cz.interaction_frequency_candidate_hz",
+        "cz.conditional_error_per_gate_rad"
+      ],
+      "conditional_parameter_reads": [
+        "qubit.pi_duration_s",
+        "qubit.f01_hz",
+        "readout.classifier3_version",
+        "timing.version",
+        "cz.frozen_candidate",
+        "cz.local_phases_rad",
+        "drive.frame_convention"
+      ],
+      "controls": {
+        "scan": [
+          "[tq_cz_detune_fine] CZ_count_N",
+          "[tq_cz_detune_fine] one_qubit_interaction_frequency_hz",
+          "[tq_gateoff_reference] target∈{0,1}",
+          "[tq_gateoff_reference] spectator∈{0,1}",
+          "[tq_gateoff_reference] X/Y分析基",
+          "[tq_cz_phase_verify] target0/1",
+          "[tq_cz_phase_verify] spectator0/1",
+          "[tq_cz_phase_verify] X/Y分析基",
+          "[tq_local_phase] 必要时analysis_phase_rad验证扫描"
+        ],
+        "fixed": [
+          "[tq_cz_detune_fine] 另一比特频率",
+          "[tq_cz_detune_fine] coupler幅度",
+          "[tq_cz_detune_fine] 门宽/shape",
+          "[tq_cz_detune_fine] target/spectator定义",
+          "[tq_cz_detune_fine] shots",
+          "[tq_gateoff_reference] π2参数",
+          "[tq_gateoff_reference] idle",
+          "[tq_gateoff_reference] 参考线路不插门",
+          "[tq_gateoff_reference] shots_per_condition",
+          "[tq_cz_phase_verify] 冻结gate_hash",
+          "[tq_cz_phase_verify] π2",
+          "[tq_cz_phase_verify] reference版本",
+          "[tq_cz_phase_verify] shots",
+          "[tq_cz_phase_verify] phase sign",
+          "[tq_local_phase] CZ参数",
+          "[tq_local_phase] local phase测量证据",
+          "[tq_local_phase] pulse conventions",
+          "[tq_local_phase] readout"
+        ]
+      },
+      "sequence": [
+        "先采 gate-off 参考以固定相位零点，再做 N×量子比特幅度精调；明确定义每门或累计相位，处理 unwrap 与符号，冻结候选后做双 target fresh 相位复核和局域 VZ 验证。",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 每点spectator0/1各两条X/Y线路",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 执行N个CZ",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 恢复累计条件相位",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 基于小N和连续性解包裹",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 拟合每门误差",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 调频后fresh新N验证",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 按spectator准备0或1",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] target制备+",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 无门无等待",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] X/Y分析",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 四条件共8采集",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] fresh重复参考检查漂移",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 锁定candidate hash",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 8条fresh线路",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 归一复参考",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 提取每target局域/条件相位",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 与冻结criteria比较",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 提交验证建议",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 读取fresh localφ0/φ1",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 按实现约定产生相位帧更新",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 编译预览",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 用独立Ramsey/图态线路验证符号与作用"
+      ],
+      "observables": [
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 累计θ_N rad",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 分支/unwrap证据",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] contrast",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 相位对N斜率",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] L",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] z_ref=X+iY",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] contrast",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] counts",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 准备与分析版本",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] fresh counts",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 两方向θcond",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] localφ",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] contrast",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] batch/seed IDs",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 相位更新前后复相干",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] phase frame回执",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] θcond保持性"
+      ],
+      "analysis": [
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 理想累计θ_N=Nπ mod2π",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 若报告每门相位须可靠unwrap后除N，或拟合θ_N-Nπ=Nε+offset",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 手册L962“平均相位对π”未说明归一化，不能所有N原始相位直接对π",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] Δf≈-ε/(dε/df)仅局部导数有证据时适用",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] z_ref为复数参考，目标z_norm=z_gate/z_ref",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 小模长会放大噪声必须设预声明contrast下界",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 参考仅校正该线路相位/幅度，非完整SPAM反演",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] θcond,q=wrap(arg zq,1-arg zq,0)，error=wrap(θcond,q-π)",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 局域φq=arg zq,0",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 公共参考诱发相关误差需统计传播",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 两方向不一致是模型/SPAM信号",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 目标局域校正Ulocal=exp(-iφ0 n0)exp(-iφ1 n1)",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] quantam分析pulse相位更新为phase_ideal+φq实现测量等价补偿",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 不能不看约定直接将驱动相位减φ"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_cz_detune_fine] N奇偶/相位分支不明确",
+          "action": "blocked并增加小N参考，不硬unwrap",
+          "reason": "避免把理想偶N=0判错"
+        },
+        {
+          "condition": "[tq_cz_detune_fine] dε/df近零或换号",
+          "action": "缩小域或回粗扫",
+          "reason": "不能固定向上/下调频"
+        },
+        {
+          "condition": "[tq_cz_detune_fine] phase改善但泄漏增加",
+          "action": "交回G/return联合迭代",
+          "reason": "失谐旋钮也影响回归"
+        },
+        {
+          "condition": "[tq_gateoff_reference] 某分支contrast低",
+          "action": "阻塞除法与相位估计，查准备/读出",
+          "reason": "避免数值放大"
+        },
+        {
+          "condition": "[tq_gateoff_reference] ref随时间漂移",
+          "action": "重新交织参考并缩短候选批次",
+          "reason": "旧参考不能永久复用"
+        },
+        {
+          "condition": "[tq_gateoff_reference] 四条件稳定",
+          "action": "提供reference证据ID",
+          "reason": "不可写物理真值"
+        },
+        {
+          "condition": "[tq_cz_phase_verify] 验证失败",
+          "action": "返回recalibrate而非从复测中重选候选",
+          "reason": "保证独立性"
+        },
+        {
+          "condition": "[tq_cz_phase_verify] 两target结论矛盾",
+          "action": "检查spectator T1/π2/SPAM/符号",
+          "reason": "不可平均掉矛盾"
+        },
+        {
+          "condition": "[tq_cz_phase_verify] 通过所有观测门槛",
+          "action": "只输出verify proposal给独立验收",
+          "reason": "agent无commit/passed权限"
+        },
+        {
+          "condition": "[tq_local_phase] localphase扣除后条件相位仍错",
+          "action": "回Detune，不继续VZ补偿",
+          "reason": "局域Z不能修非局域θ"
+        },
+        {
+          "condition": "[tq_local_phase] 更新后相位偏差翻倍",
+          "action": "立即回退并核对符号/顺序",
+          "reason": "帧约定可能反向"
+        },
+        {
+          "condition": "[tq_local_phase] 相位对齐且θ保持",
+          "action": "提出帧更新候选",
+          "reason": "不把Favg设为1"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] fresh新N及N=1验证",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 调频使localphase、leakage、truth/tomography失效",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 回退绝对频率及映射幅度配对值",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 门参数冻结后的独立phase复测引用同批或fresh有效参考",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] π2/idle/readout更新全部参考失效",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 不得将参考数据当验证门数据",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 候选改变后所有fresh验证作废并新task",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 若使用验证调参必须另采新验证",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 失败回退上次有效gate",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] fresh图态/相位验证",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] CZ/π2/频率/同步更新使VZ失效",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 帧采用版本化绝对值或幂等更新ID"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 累计/每门定义一致",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] branch有证据",
+        "[tq_cz_detune_fine · 重复CZ失谐/条件相位精校] 相位/泄漏/contrast达criteria",
+        "[tq_gateoff_reference · 四条件gate-off相位与对比度参考] 四分支齐全且contrast及重复性达criteria",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 新数据/冻结hash/参考完整",
+        "[tq_cz_phase_verify · 冻结CZ的双target独立相位复核] 两方向相位和contrast合格",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 观测符号正确",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 无重复加相位",
+        "[tq_local_phase · CZ局域动力学相位与virtual Z] 校正只作用局域项"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 20000000,
+        "max_seconds": 3600
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "source_suite_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框 TTGAczDelicateDetune 的 N×量子比特幅度精调未绑定。源 CZ 套件包含 gate-off、双 target 相位复核和分析相位 VZ 子阶段；这些诊断不能冒充重复门失谐优化，也不能将所有 N 的累计相位直接对 π。",
+      "internal_method_policy": "先采 gate-off 参考以固定相位零点，再做 N×量子比特幅度精调；明确定义每门或累计相位，处理 unwrap 与符号，冻结候选后做双 target fresh 相位复核和局域 VZ 验证。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第5个功能方框，TTGAczDelicateDetune"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.5，L930–962"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "⑤ TTGAczDelicateDetune"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程扩展：手册L874条件相位；P0报告L2283–2419"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L2283–2419"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程细化：3.3.3 L874条件相位"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L3193–3374"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.6，L964–988"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L3375–3409"
+        }
+      ],
+      "card_path": "agents/d05_cz_detuning/card.md",
+      "prompt_path": "agents/d05_cz_detuning/prompt.md"
+    },
+    {
+      "id": "d06_cz_xeb",
+      "name": "CZ XEB测试",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第6框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成CZ XEB测试的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 CZXEBCal。",
+      "original_function": "CZXEBCal",
+      "source_page": 2,
+      "source_box_index": 6,
+      "main_procedure_id": "tq_xeb",
+      "procedure_ids": [
+        "tq_xeb",
+        "tq_leakage",
+        "tq_truth_table",
+        "tq_state_tomography",
+        "tq_process_tomography",
+        "p0_bell"
+      ],
+      "legacy_functions": [
+        "CZXEBCal",
+        "quantum_twin.two_qubit_experiments.run_two_qubit_experiments",
+        "quantum_twin.two_qubit_metrics.state_tomography",
+        "CZProcessTomography",
+        "quantum_twin.experiments.run_experiments"
+      ],
+      "depends_on": [
+        "d05_cz_detuning"
+      ],
+      "parameter_reads": [
+        "gates.pi2_versions",
+        "cz.frozen_candidate",
+        "benchmark.seed_set",
+        "readout.version",
+        "readout.classifier3_version",
+        "qubit.prep_versions",
+        "cz.virtual_z_angles_rad",
+        "qubit.pi2_versions",
+        "prep.informationally_complete_16",
+        "analysis.pauli9",
+        "coupler.g_exchange_hz",
+        "qubit.f01_hz",
+        "qubit.pi_duration_s",
+        "drive.axis_convention"
+      ],
+      "parameter_writes": [
+        "benchmark.cz_xeb_report",
+        "cz.measured_leakage",
+        "cz.leakage_by_input_and_n",
+        "cz.population_truth_table",
+        "state.rho_comp",
+        "state.graph_fidelity",
+        "state.tomography_diagnostics",
+        "process.choi_or_chi",
+        "process.fidelity",
+        "process.local_phases",
+        "state.p0_bell_fidelity",
+        "state.p0_correlations"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "gates.pi2_versions",
+        "cz.frozen_candidate",
+        "benchmark.seed_set",
+        "readout.version"
+      ],
+      "main_parameter_writes": [
+        "benchmark.cz_xeb_report"
+      ],
+      "conditional_parameter_reads": [
+        "readout.classifier3_version",
+        "qubit.prep_versions",
+        "cz.virtual_z_angles_rad",
+        "qubit.pi2_versions",
+        "prep.informationally_complete_16",
+        "analysis.pauli9",
+        "coupler.g_exchange_hz",
+        "qubit.f01_hz",
+        "qubit.pi_duration_s",
+        "drive.axis_convention"
+      ],
+      "controls": {
+        "scan": [
+          "[tq_xeb] depth_m",
+          "[tq_xeb] random_sequence_id",
+          "[tq_leakage] prepared_input00/01/10/11",
+          "[tq_leakage] 可选CZ_count_N",
+          "[tq_truth_table] prepared_input∈{00,01,10,11}",
+          "[tq_state_tomography] analysis_basis∈{X,Y,Z}²",
+          "[tq_process_tomography] 16个信息完备输入",
+          "[tq_process_tomography] 9组分析基",
+          "[p0_bell] analysis_basis∈{XY,YX,ZZ}"
+        ],
+        "fixed": [
+          "[tq_xeb] 两比特八轴独立π2随机规则",
+          "[tq_xeb] CZ版本",
+          "[tq_xeb] shots",
+          "[tq_xeb] XEB定义",
+          "[tq_xeb] phase拟合开关",
+          "[tq_leakage] CZ参数",
+          "[tq_leakage] 读出三态",
+          "[tq_leakage] shots",
+          "[tq_leakage] gate_spacing",
+          "[tq_truth_table] 冻结CZ",
+          "[tq_truth_table] 准备π",
+          "[tq_truth_table] readout",
+          "[tq_truth_table] shots_per_input",
+          "[tq_state_tomography] 固定输入如++",
+          "[tq_state_tomography] CZ",
+          "[tq_state_tomography] π2和VZ",
+          "[tq_state_tomography] shots_per_basis",
+          "[tq_process_tomography] 门版本",
+          "[tq_process_tomography] 制备/分析校准",
+          "[tq_process_tomography] 是否拟合localphase",
+          "[tq_process_tomography] shots",
+          "[p0_bell] P0两能级配置",
+          "[p0_bell] 半交换时间",
+          "[p0_bell] 共参考频率",
+          "[p0_bell] shots"
+        ]
+      },
+      "sequence": [
+        "主任务必须运行 CZXEBCal 所需随机线路、理想概率和长度衰减分析。泄漏、真值表、态/过程层析、Bell 只能作为诊断或额外验收；保留各自 shots、子空间和指标定义，不构造替代 XEB 的综合分数。",
+        "[tq_xeb · 双比特CZ XEB独立基准] 制备00",
+        "[tq_xeb · 双比特CZ XEB独立基准] 每层两比特各随机π2后CZ",
+        "[tq_xeb · 双比特CZ XEB独立基准] 准确理想模拟",
+        "[tq_xeb · 双比特CZ XEB独立基准] 最终计算基测量并额外保留泄漏",
+        "[tq_xeb · 双比特CZ XEB独立基准] 不同深度交织",
+        "[tq_xeb · 双比特CZ XEB独立基准] fresh随机线路验收",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 交织gate-off准备参考",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 各计算输入执行CZ或重复N",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 九类counts",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 保留含2全部结果",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] fresh候选复测",
+        "[tq_truth_table · CZ四输入九输出布居表] 有限脉冲制备输入",
+        "[tq_truth_table · CZ四输入九输出布居表] 执行CZ",
+        "[tq_truth_table · CZ四输入九输出布居表] 三态联合读出",
+        "[tq_truth_table · CZ四输入九输出布居表] 每输入独立counts",
+        "[tq_truth_table · CZ四输入九输出布居表] gate-off参考并fresh验证",
+        "[tq_state_tomography · 九基双比特态层析] 制备++",
+        "[tq_state_tomography · 九基双比特态层析] 执行CZ",
+        "[tq_state_tomography · 九基双比特态层析] 按九基设置分析旋转",
+        "[tq_state_tomography · 九基双比特态层析] 保留九类结果",
+        "[tq_state_tomography · 九基双比特态层析] 线性重构计算子块",
+        "[tq_state_tomography · 九基双比特态层析] 独立计算期望及迹检查",
+        "[tq_process_tomography · 16输入×9基过程层析] 独立验证16输入的理想张成性",
+        "[tq_process_tomography · 16输入×9基过程层析] 每输入执行CZ后九基层析",
+        "[tq_process_tomography · 16输入×9基过程层析] 保存144条线路",
+        "[tq_process_tomography · 16输入×9基过程层析] 重建过程及可选localphase",
+        "[tq_process_tomography · 16输入×9基过程层析] fresh保留线路验证",
+        "[p0_bell · P0半交换Bell关联验证] π制备10",
+        "[p0_bell · P0半交换Bell关联验证] 共振交换t=1/(8|g|)",
+        "[p0_bell · P0半交换Bell关联验证] 按XY/YX/ZZ分析旋转",
+        "[p0_bell · P0半交换Bell关联验证] 测联合counts",
+        "[p0_bell · P0半交换Bell关联验证] fresh计算三关联"
+      ],
+      "observables": [
+        "[tq_xeb · 双比特CZ XEB独立基准] counts及ideal probabilities",
+        "[tq_xeb · 双比特CZ XEB独立基准] per-circuit scores",
+        "[tq_xeb · 双比特CZ XEB独立基准] L",
+        "[tq_xeb · 双比特CZ XEB独立基准] phase训练/验证标识",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] P02/P20/P12/P21/P22",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 计算生存率",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 未校正counts",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] prep/reference",
+        "[tq_truth_table · CZ四输入九输出布居表] 4×9条件频数",
+        "[tq_truth_table · CZ四输入九输出布居表] P(a|a)",
+        "[tq_truth_table · CZ四输入九输出布居表] 每输入L",
+        "[tq_truth_table · CZ四输入九输出布居表] 制备参考",
+        "[tq_state_tomography · 九基双比特态层析] 九基counts",
+        "[tq_state_tomography · 九基双比特态层析] 16 Pauli矩",
+        "[tq_state_tomography · 九基双比特态层析] rho实虚部",
+        "[tq_state_tomography · 九基双比特态层析] 迹/本征值",
+        "[tq_state_tomography · 九基双比特态层析] 每基survival",
+        "[tq_process_tomography · 16输入×9基过程层析] 144组counts",
+        "[tq_process_tomography · 16输入×9基过程层析] 输入设计矩阵",
+        "[tq_process_tomography · 16输入×9基过程层析] Choi/χ",
+        "[tq_process_tomography · 16输入×9基过程层析] trace preservation/leakage",
+        "[tq_process_tomography · 16输入×9基过程层析] CI",
+        "[p0_bell · P0半交换Bell关联验证] XY,YX,ZZ correlations",
+        "[p0_bell · P0半交换Bell关联验证] counts",
+        "[p0_bell · P0半交换Bell关联验证] π/2和交换参数来源"
+      ],
+      "analysis": [
+        "[tq_xeb · 双比特CZ XEB独立基准] D=4有限维normalized linear XEB可用Σ(pobs·pideal-1/D)/Σ(pideal·pideal-1/D)",
+        "[tq_xeb · 双比特CZ XEB独立基准] 实际评分定义须与adapter一致并冻结",
+        "[tq_xeb · 双比特CZ XEB独立基准] depth衰减包含单比特门、CZ、SPAM与相关噪声，分离CZ需参考及模型",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] L=Σlabel含2 counts/shots",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 22只计一次",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 不能除以计算子空间shots",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 测得L含prepare/readout，不能等同离线理想计算输入的通道平均泄漏",
+        "[tq_truth_table · CZ四输入九输出布居表] P(b|a)=counts_b/shots_a",
+        "[tq_truth_table · CZ四输入九输出布居表] correct=P(a|a)",
+        "[tq_truth_table · CZ四输入九输出布居表] 局域Z不改计算基布居",
+        "[tq_truth_table · CZ四输入九输出布居表] 该表不是完整过程矩阵，也不是去SPAM门本体",
+        "[tq_state_tomography · 九基双比特态层析] rho_comp=1/4 Σab T_ab σa⊗σb，包含I指标且TII为计算生存率，不强设为1",
+        "[tq_state_tomography · 九基双比特态层析] Fgraph=<G|rho|G>",
+        "[tq_state_tomography · 九基双比特态层析] 统计负本征值报告不暗裁剪，若MLE需作为另一方法留原结果",
+        "[tq_process_tomography · 16输入×9基过程层析] 过程表示、basis规范与保真度定义先冻结",
+        "[tq_process_tomography · 16输入×9基过程层析] 存在泄漏时输出投影通道可不保迹，不强TP后美化",
+        "[tq_process_tomography · 16输入×9基过程层析] SPAM未独立校准则过程估计含SPAM",
+        "[tq_process_tomography · 16输入×9基过程层析] state F不等于process F或Favg",
+        "[p0_bell · P0半交换Bell关联验证] 目标(|10>-i|01>)/√2，F=(1-<XY>+<YX>-<ZZ>)/4",
+        "[p0_bell · P0半交换Bell关联验证] 符号依实际Hamiltonian/分析约定必须核对",
+        "[p0_bell · P0半交换Bell关联验证] 这是态投影估计，非完整态/过程层析或CZ Favg"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_xeb] 重新拟合phase与同批评分",
+          "action": "视为训练结果，另采heldout",
+          "reason": "优化数据不能当独立保真度"
+        },
+        {
+          "condition": "[tq_xeb] 深度衰减非指数",
+          "action": "报告范围和模型不足",
+          "reason": "不能强给0.99x单数"
+        },
+        {
+          "condition": "[tq_xeb] 有泄漏",
+          "action": "保留总shots口径并单报L",
+          "reason": "不能丢弃2后归一使XEB变好"
+        },
+        {
+          "condition": "[tq_leakage] 分类2不稳定",
+          "action": "阻塞可靠泄漏结论并回ro_iq012",
+          "reason": "不能用二态分类证明无泄漏"
+        },
+        {
+          "condition": "[tq_leakage] L随N振荡",
+          "action": "考虑leakage/seepage相干回流",
+          "reason": "不能用L/N当单门泄漏"
+        },
+        {
+          "condition": "[tq_leakage] 泄漏超阈值",
+          "action": "返回幅度/回归/shape候选",
+          "reason": "VZ不能修泄漏"
+        },
+        {
+          "condition": "[tq_truth_table] 对角高但phase未验",
+          "action": "阻止完整CZ结论",
+          "reason": "恒等可有同样完美表"
+        },
+        {
+          "condition": "[tq_truth_table] 01与10转移",
+          "action": "查残余交换/时序",
+          "reason": "不只调读出矩阵"
+        },
+        {
+          "condition": "[tq_truth_table] 各输入差异大",
+          "action": "拆prepare/readout/gate诊断",
+          "reason": "不得只报四输入均值"
+        },
+        {
+          "condition": "[tq_state_tomography] 不同基survival严重不一致",
+          "action": "查有限分析pulse/SPAM，报告模型不一致",
+          "reason": "不能静默归一"
+        },
+        {
+          "condition": "[tq_state_tomography] rho轻微负本征值",
+          "action": "报告统计区间及线性估计边界",
+          "reason": "负值不是自动物理算法崩溃"
+        },
+        {
+          "condition": "[tq_state_tomography] 态F高",
+          "action": "只报告这一输入的态结果",
+          "reason": "不能称过程/平均CZ门F"
+        },
+        {
+          "condition": "[tq_process_tomography] 输入矩阵病态或prepare不可信",
+          "action": "停止重建并返回准备校准",
+          "reason": "144数量不能替代信息完备"
+        },
+        {
+          "condition": "[tq_process_tomography] 拟合localphase改善",
+          "action": "同时保存未校正与校正结果及角度",
+          "reason": "不得改名混淆物理门性能"
+        },
+        {
+          "condition": "[tq_process_tomography] 物理化约束改变结论",
+          "action": "报告线性与约束两版和假设",
+          "reason": "避免投影掩盖错误"
+        },
+        {
+          "condition": "[p0_bell] Z反关联好而XY/YX错",
+          "action": "检查相干相位/分析轴/交换时长",
+          "reason": "人口正确不代表纠缠相位正确"
+        },
+        {
+          "condition": "[p0_bell] F偏低",
+          "action": "区分readout、prepare、T1/T2与交换失谐",
+          "reason": "不得仅拉长交换"
+        },
+        {
+          "condition": "[p0_bell] 与CZ配置不同",
+          "action": "保持两个结果独立",
+          "reason": "0.85MHz与12MHz不可互换"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_xeb · 双比特CZ XEB独立基准] 优化器结束后本agent fresh task，新随机seed且预算相同",
+        "[tq_xeb · 双比特CZ XEB独立基准] 门/读出/π2更新失效",
+        "[tq_xeb · 双比特CZ XEB独立基准] 失败回退上一有效参数集",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] fresh重复并交独立验收",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 任何gate/readout3变更失效",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 搜索候选与最终验证分开",
+        "[tq_truth_table · CZ四输入九输出布居表] fresh每输入",
+        "[tq_truth_table · CZ四输入九输出布居表] gate/prepare/readout变更失效",
+        "[tq_truth_table · CZ四输入九输出布居表] 失败回退gate并保留全表",
+        "[tq_state_tomography · 九基双比特态层析] fresh九基或预声明留出观测",
+        "[tq_state_tomography · 九基双比特态层析] 分析pulse、VZ、gate/readout更新失效",
+        "[tq_state_tomography · 九基双比特态层析] 保持无后选择",
+        "[tq_process_tomography · 16输入×9基过程层析] fresh留出线路和独立重复",
+        "[tq_process_tomography · 16输入×9基过程层析] 若用过程数据调参则另做新验收",
+        "[tq_process_tomography · 16输入×9基过程层析] gate/SPAM改动全部过程证据失效",
+        "[p0_bell · P0半交换Bell关联验证] fresh三关联",
+        "[p0_bell · P0半交换Bell关联验证] 交换/准备/读出参数更新失效",
+        "[p0_bell · P0半交换Bell关联验证] 失败回退半交换控制并重新估g"
+      ],
+      "retest_routes": [],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_xeb · 双比特CZ XEB独立基准] 独立理想线路核算",
+        "[tq_xeb · 双比特CZ XEB独立基准] shot/时间成本完整",
+        "[tq_xeb · 双比特CZ XEB独立基准] 序列聚类CI",
+        "[tq_xeb · 双比特CZ XEB独立基准] 每层与CZ归因边界清楚",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 分母总shots",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 各输入泄漏含CI",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 无删2数据",
+        "[tq_leakage · CZ泄漏与重复门泄漏诊断] 模型口径独立",
+        "[tq_truth_table · CZ四输入九输出布居表] 每行计数和=shots",
+        "[tq_truth_table · CZ四输入九输出布居表] correct与L分别达criteria",
+        "[tq_truth_table · CZ四输入九输出布居表] phase证据另存",
+        "[tq_state_tomography · 九基双比特态层析] Pauli符号/分母检验通过",
+        "[tq_state_tomography · 九基双比特态层析] 有限统计/残差说明",
+        "[tq_state_tomography · 九基双比特态层析] 只宣称态指标",
+        "[tq_process_tomography · 16输入×9基过程层析] 信息完备",
+        "[tq_process_tomography · 16输入×9基过程层析] 模型残差/物理性诊断",
+        "[tq_process_tomography · 16输入×9基过程层析] 指标定义及泄漏处理明确",
+        "[p0_bell · P0半交换Bell关联验证] 目标和符号明确",
+        "[p0_bell · P0半交换Bell关联验证] 完整shots",
+        "[p0_bell · P0半交换Bell关联验证] 不超范围宣称门保真度"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 48000000,
+        "max_seconds": 7200
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "twin",
+      "execution_status": "source_suite_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框主方法是 CZXEBCal，当前未绑定。源 CZ 套件只有单门泄漏、真值表、|++>九基态层析等；P0 Bell 是另一路两能级验证。层析、Bell、仿真 Favg 都不能代替 CZ XEB，过程层析本身也未完整实现。",
+      "internal_method_policy": "主任务必须运行 CZXEBCal 所需随机线路、理想概率和长度衰减分析。泄漏、真值表、态/过程层析、Bell 只能作为诊断或额外验收；保留各自 shots、子空间和指标定义，不构造替代 XEB 的综合分数。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第6个功能方框，CZXEBCal"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.8，L1004–1030"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "⑥ CZXEBCal"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程补充：3.3.2、3.3.4回归不能代替三态泄漏"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L3410–3491"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程细化：3.3.3 L874回归与3.3.6过程表征"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.6 L972–980的每输入九基层析"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L3493–3714"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.6，L964–988"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "工程扩展：3.2.1交换思路"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L2103–2171"
+        }
+      ],
+      "card_path": "agents/d06_cz_xeb/card.md",
+      "prompt_path": "agents/d06_cz_xeb/prompt.md"
+    },
+    {
+      "id": "d07_cz_optimizer",
+      "name": "CZ参数优化",
+      "kind": "experiment",
+      "domain": "two_qubit",
+      "scope": "原流程第2页第7框及其内部诊断/精校/重测方法",
+      "purpose": "自主完成CZ参数优化的采集、拟合、偏差诊断、受限调参建议与独立重测；原框主方法为 CZParaOptimizer。",
+      "original_function": "CZParaOptimizer",
+      "source_page": 2,
+      "source_box_index": 7,
+      "main_procedure_id": "tq_optimizer",
+      "procedure_ids": [
+        "tq_optimizer"
+      ],
+      "legacy_functions": [
+        "CZParaOptimizer"
+      ],
+      "depends_on": [
+        "d06_cz_xeb"
+      ],
+      "parameter_reads": [
+        "cz.parameter_bounds",
+        "cz.frozen_candidate",
+        "benchmark.metric",
+        "global.remaining_budget"
+      ],
+      "parameter_writes": [
+        "cz.optimized_candidate",
+        "cz.optimization_history"
+      ],
+      "parameter_reads_semantics": "本角色所有内部方法的读取/失效范围并集；不是每次任务的全必填参数。首次主方法与条件扩展按对应procedure精确合同检查。",
+      "main_parameter_reads": [
+        "cz.parameter_bounds",
+        "cz.frozen_candidate",
+        "benchmark.metric",
+        "global.remaining_budget"
+      ],
+      "main_parameter_writes": [
+        "cz.optimized_candidate",
+        "cz.optimization_history"
+      ],
+      "conditional_parameter_reads": [],
+      "controls": {
+        "scan": [
+          "[tq_optimizer] cz_f01_0",
+          "[tq_optimizer] cz_f01_1",
+          "[tq_optimizer] cz_amp（按冻结优化计划）"
+        ],
+        "fixed": [
+          "[tq_optimizer] pulse_shape/width",
+          "[tq_optimizer] bounds",
+          "[tq_optimizer] 评估预算",
+          "[tq_optimizer] 训练序列集合",
+          "[tq_optimizer] objective定义"
+        ]
+      },
+      "sequence": [
+        "本角色自行维护搜索范围、预算、候选理由和失败记忆；受控应用候选并请求 d06 fresh XEB。优化失败按诊断回到 d03/d04/d05，本角色仍负责自己的调参判断，不创建独立调参智能体。",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 读取初始可行点与冻结objective",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 生成Nelder–Mead或受限局部候选",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 每候选由授权执行层测量",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 记录全部结果",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 冻结候选后另发fresh phase/leakage/XEB任务"
+      ],
+      "observables": [
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 每候选参数和objective",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 约束违反",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 总shots/wall",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 最佳点置信度",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 未成功试验"
+      ],
+      "analysis": [
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 带噪声objective需重复估计",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] Nelder–Mead收敛是优化器条件，不等于门合格",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 全成本包括失败、搜索、验证",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 不得以隐藏twin Favg或事后真值选硬件候选"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[tq_optimizer] 候选越界或映射失效",
+          "action": "拒绝执行并调整可信搜索域",
+          "reason": "不让优化器绕过硬件限制"
+        },
+        {
+          "condition": "[tq_optimizer] 连续3次无有效改善/预算耗尽",
+          "action": "escalate并保留上次有效点",
+          "reason": "有限重试而非无限寻找通过"
+        },
+        {
+          "condition": "[tq_optimizer] 训练指标改善",
+          "action": "只提出候选和fresh验证计划",
+          "reason": "独立验收决定是否提交"
+        }
+      ],
+      "retest_rules": [
+        "本角色自己维护诊断→候选→受控应用→fresh复测→回退闭环；跨框复校仅向已注册 owner 发请求，不新建调参/诊断智能体。",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 独立seed/线路/shot的XEB复测，并重测phase、leakage和VZ",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 失败整体回退",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 参数更新让旧基准全部stale"
+      ],
+      "retest_routes": [
+        {
+          "from": "d07_cz_optimizer",
+          "to": "d06_cz_xeb",
+          "trigger": "优化器产生候选CZ参数",
+          "semantics": "fresh独立XEB验证，选择与验收数据分离；不是DAG反向依赖"
+        }
+      ],
+      "acceptance": [
+        "原框主方法所需测量证据必须独立满足合同；辅助方法通过不能替代主方法。",
+        "模型只提出建议；最终通过/参数发布由独立判定与总控硬门禁决定。",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 优化记录可重放",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] 未调验收门槛",
+        "[tq_optimizer · 受约束CZ参数优化与独立复测] fresh指标与安全约束均合格"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 24000000,
+        "max_seconds": 3600
+      },
+      "budget_semantics": "角色总上限是所有内部方法上限之和；不是默认全部运行。每个方法仍受自己的上限、当前授权预算与运行时剩余额度约束。",
+      "capability": "contract",
+      "execution_status": "contract_only",
+      "main_method_execution_status": "contract_only",
+      "source_support": "原框 CZParaOptimizer 根据冻结目标与真实 XEB 反馈提出有界候选，当前未绑定。优化器不得用层析/Bell 分数替代 XEB；候选须经第6框独立 fresh XEB 复测，选择集和最终验证集分开。",
+      "internal_method_policy": "本角色自行维护搜索范围、预算、候选理由和失败记忆；受控应用候选并请求 d06 fresh XEB。优化失败按诊断回到 d03/d04/d05，本角色仍负责自己的调参判断，不创建独立调参智能体。",
+      "sources": [
+        {
+          "file": "resources/new_attachments/双比特测试.pdf",
+          "locator": "第2页，第7个功能方框，CZParaOptimizer"
+        },
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "3.3.7，L990–1002"
+        },
+        {
+          "file": "resources/source_materials/two-qubit-page-2.txt",
+          "locator": "⑦优化器后返回CZXEBCal复测"
+        }
+      ],
+      "card_path": "agents/d07_cz_optimizer/card.md",
+      "prompt_path": "agents/d07_cz_optimizer/prompt.md"
+    },
+    {
+      "id": "supervisor",
+      "name": "流程总控",
+      "kind": "supervisor",
+      "domain": "control_plane",
+      "scope": "唯一总控；六项原角色职责归并为内部公共模块，不额外注册支持智能体",
+      "purpose": "围绕原8+7实验框分派任务、管理证据和参数、执行硬门禁及独立验收；每个实验角色仍拥有自己的偏差诊断、调参和重测责任。",
+      "original_function": null,
+      "source_page": null,
+      "source_box_index": null,
+      "main_procedure_id": null,
+      "procedure_ids": [],
+      "public_modules": [
+        {
+          "module_key": "mission_supervisor",
+          "name": "任务分派与闭环总控",
+          "legacy_role_id": "mission_supervisor",
+          "purpose": "将目标分解为小步骤、调度依赖、控制预算与复测，不能替代科学oracle。"
+        },
+        {
+          "module_key": "capability_router",
+          "name": "能力路由公共模块",
+          "legacy_role_id": "capability_router",
+          "purpose": "在发出测量前核对真实能力、单位、状态与source-only边界。"
+        },
+        {
+          "module_key": "evidence_steward",
+          "name": "原始测量与证据公共模块",
+          "legacy_role_id": "evidence_steward",
+          "purpose": "保存原始观测、请求、版本与失败记录，并验证引用可复核。"
+        },
+        {
+          "module_key": "fit_diagnostics",
+          "name": "拟合诊断公共模块",
+          "legacy_role_id": "fit_diagnostics",
+          "purpose": "判断优化结果是否可解释，分开数值收敛、模型充分、统计不确定度。"
+        },
+        {
+          "module_key": "parameter_registry",
+          "name": "参数版本与失效公共模块",
+          "legacy_role_id": "parameter_registry",
+          "purpose": "把建议变成待验证候选与依赖失效计划，提交由确定性事务执行。"
+        },
+        {
+          "module_key": "independent_acceptance",
+          "name": "独立验收公共模块",
+          "legacy_role_id": "independent_acceptance",
+          "purpose": "依据冻结标准及独立证据判定是否具备完成条件，模型只输出建议。"
+        }
+      ],
+      "legacy_functions": [],
+      "depends_on": [],
+      "parameter_reads": [
+        "mission",
+        "frozen_protocol",
+        "capabilities",
+        "parameter_registry",
+        "task_events",
+        "remaining_budget",
+        "backend.capabilities",
+        "backend.identity",
+        "requested_agent_id",
+        "task.mode",
+        "acquisition_requests",
+        "measurement_responses",
+        "source_hashes",
+        "task_id",
+        "raw_observations",
+        "fit_result",
+        "model_contract",
+        "noise_model",
+        "sampling_grid",
+        "current_parameters",
+        "candidate_proposals",
+        "verification_evidence",
+        "dependency_graph",
+        "expected_revision",
+        "frozen_criteria",
+        "fresh_measurements",
+        "candidate_hash",
+        "independent_oracle",
+        "artifact_hashes"
+      ],
+      "parameter_writes": [
+        "next_task_proposal",
+        "invalidation_plan",
+        "capability_decision",
+        "adapter_route_proposal",
+        "evidence_index",
+        "integrity_findings",
+        "fit_diagnostic_proposal",
+        "parameter_transaction_proposal",
+        "stale_parameters",
+        "acceptance_review_proposal"
+      ],
+      "controls": {
+        "scan": [],
+        "fixed": [
+          "[任务分派与闭环总控] 任务授权范围",
+          "[任务分派与闭环总控] 冻结protocol版本",
+          "[任务分派与闭环总控] 真实backend capability声明",
+          "[能力路由公共模块] 任务授权范围",
+          "[能力路由公共模块] 冻结protocol版本",
+          "[能力路由公共模块] 真实backend capability声明",
+          "[原始测量与证据公共模块] 任务授权范围",
+          "[原始测量与证据公共模块] 冻结protocol版本",
+          "[原始测量与证据公共模块] 真实backend capability声明",
+          "[拟合诊断公共模块] 任务授权范围",
+          "[拟合诊断公共模块] 冻结protocol版本",
+          "[拟合诊断公共模块] 真实backend capability声明",
+          "[参数版本与失效公共模块] 任务授权范围",
+          "[参数版本与失效公共模块] 冻结protocol版本",
+          "[参数版本与失效公共模块] 真实backend capability声明",
+          "[独立验收公共模块] 任务授权范围",
+          "[独立验收公共模块] 冻结protocol版本",
+          "[独立验收公共模块] 真实backend capability声明"
+        ]
+      },
+      "sequence": [
+        "读取冻结mission、原流程owner DAG与当前参数版本。",
+        "向15个实验owner之一分派任务；procedure只能在该owner内部执行。",
+        "实验owner提出结构化建议后检查真实binding、授权、版本、资源与预算。",
+        "受控测量/临时应用后保留原始数据，由fresh独立验证决定发布/回退。",
+        "回测路由新建任务实例并追踪失效，不向静态DAG加反向边。",
+        "[mission_supervisor · 测控总控] 核对用户目标和当前backend",
+        "[mission_supervisor · 测控总控] 冻结成功条件与预算",
+        "[mission_supervisor · 测控总控] 按依赖创建小步骤fresh task",
+        "[mission_supervisor · 测控总控] 检查测量/建议/验证状态",
+        "[mission_supervisor · 测控总控] 失败有界重试",
+        "[mission_supervisor · 测控总控] 提交请求只交确定性硬门禁",
+        "[capability_router · 后端能力与实验路由] 查询真实backend身份与capabilities",
+        "[capability_router · 后端能力与实验路由] 核对agent所需controls/observables",
+        "[capability_router · 后端能力与实验路由] 区分runtime_bound/source_suite_only/contract_only",
+        "[capability_router · 后端能力与实验路由] 返回可执行范围或阻塞",
+        "[evidence_steward · 测量证据管家] 核对request和response身份",
+        "[evidence_steward · 测量证据管家] 验证shots及counts结构",
+        "[evidence_steward · 测量证据管家] 将原始记录交确定性存储器",
+        "[evidence_steward · 测量证据管家] 关联配置/参数/分类器版本",
+        "[evidence_steward · 测量证据管家] 检验hash及fresh关系",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 重核单位/分母/序列",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 检查别名和动态范围",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 核对优化边界与Jacobian",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 按冻结噪声模型评估残差",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 给受限补测或升级模型建议",
+        "[parameter_registry · 参数版本与回退管家] 读取当前绝对值及revision",
+        "[parameter_registry · 参数版本与回退管家] 校验候选单位/范围",
+        "[parameter_registry · 参数版本与回退管家] 列受影响依赖",
+        "[parameter_registry · 参数版本与回退管家] 生成候选→验证→提交或回退事务建议",
+        "[parameter_registry · 参数版本与回退管家] 读回核对",
+        "[parameter_registry · 参数版本与回退管家] 重复operation_id不得累加",
+        "[independent_acceptance · 独立验收与指标边界] 核对目标及候选精确版本",
+        "[independent_acceptance · 独立验收与指标边界] 验证fresh与训练隔离",
+        "[independent_acceptance · 独立验收与指标边界] 独立重算指标/误差",
+        "[independent_acceptance · 独立验收与指标边界] 审查边界与失败样本",
+        "[independent_acceptance · 独立验收与指标边界] 请求确定性验收器生成结果"
+      ],
+      "observables": [
+        "[mission_supervisor · 测控总控] task状态",
+        "[mission_supervisor · 测控总控] evidence hash",
+        "[mission_supervisor · 测控总控] 剩余shots/seconds",
+        "[mission_supervisor · 测控总控] 阻塞原因",
+        "[mission_supervisor · 测控总控] parameter versions",
+        "[capability_router · 后端能力与实验路由] adapter name/version",
+        "[capability_router · 后端能力与实验路由] supported scan",
+        "[capability_router · 后端能力与实验路由] allowed modes",
+        "[capability_router · 后端能力与实验路由] units",
+        "[capability_router · 后端能力与实验路由] live/session state",
+        "[evidence_steward · 测量证据管家] raw counts/IQ",
+        "[evidence_steward · 测量证据管家] request_id",
+        "[evidence_steward · 测量证据管家] job_id",
+        "[evidence_steward · 测量证据管家] seed/backend version",
+        "[evidence_steward · 测量证据管家] timestamps",
+        "[evidence_steward · 测量证据管家] failure events",
+        "[fit_diagnostics · 拟合与可辨识性诊断] residuals",
+        "[fit_diagnostics · 拟合与可辨识性诊断] fit covariance",
+        "[fit_diagnostics · 拟合与可辨识性诊断] active bounds",
+        "[fit_diagnostics · 拟合与可辨识性诊断] spectral modes",
+        "[fit_diagnostics · 拟合与可辨识性诊断] counts/shots",
+        "[fit_diagnostics · 拟合与可辨识性诊断] phase branches",
+        "[parameter_registry · 参数版本与回退管家] before/after readback",
+        "[parameter_registry · 参数版本与回退管家] operation_id",
+        "[parameter_registry · 参数版本与回退管家] revision",
+        "[parameter_registry · 参数版本与回退管家] parameter provenance",
+        "[parameter_registry · 参数版本与回退管家] stale markers",
+        "[independent_acceptance · 独立验收与指标边界] observed gate criteria",
+        "[independent_acceptance · 独立验收与指标边界] offline truth metrics（只验收角色可见）",
+        "[independent_acceptance · 独立验收与指标边界] confidence intervals",
+        "[independent_acceptance · 独立验收与指标边界] negative-control evidence"
+      ],
+      "analysis": [
+        "[mission_supervisor · 测控总控] 实验顺序与参数依赖是有向图",
+        "[mission_supervisor · 测控总控] 上游改动使相关下游stale",
+        "[mission_supervisor · 测控总控] 失败可能是基础设施无效或有效科学失败须分开",
+        "[mission_supervisor · 测控总控] 没有AI胜出要求",
+        "[capability_router · 后端能力与实验路由] capability=twin只表示来源有对应模拟范围，execution_status决定本包绑定",
+        "[capability_router · 后端能力与实验路由] source_suite_only可由完整suite桥运行但不得宣称独立agent原子动作",
+        "[capability_router · 后端能力与实验路由] hardware能力需真实声明",
+        "[evidence_steward · 测量证据管家] sum counts=shots适用于量子计数，线性谐振器平均IQ的counts可为空但averages必须明示",
+        "[evidence_steward · 测量证据管家] fresh不同请求和新测量不是重复fetch",
+        "[evidence_steward · 测量证据管家] 保存失败和非法response用于成本核算",
+        "[fit_diagnostics · 拟合与可辨识性诊断] success只表示优化状态",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 局部stderr不包含模型误差",
+        "[fit_diagnostics · 拟合与可辨识性诊断] shot-noise尺度和相关性影响残差判据",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 禁止事后改阈值为当前结果开绿灯",
+        "[parameter_registry · 参数版本与回退管家] parameter_writes列的是候选字段并非模型写权限",
+        "[parameter_registry · 参数版本与回退管家] 频率/相位改动用绝对目标或幂等ID",
+        "[parameter_registry · 参数版本与回退管家] 同参数不同mode/device须隔离namespace",
+        "[parameter_registry · 参数版本与回退管家] 回退精确到上次有效版本",
+        "[independent_acceptance · 独立验收与指标边界] 仿真truth score与观测门禁分开",
+        "[independent_acceptance · 独立验收与指标边界] state/process/Favg/RB/XEB和population定义不可混用",
+        "[independent_acceptance · 独立验收与指标边界] 预算等价只在方法比较时要求",
+        "[independent_acceptance · 独立验收与指标边界] 没有通过则报告真实失败"
+      ],
+      "decision_rules": [
+        {
+          "condition": "[任务分派与闭环总控] 缺能力",
+          "action": "escalate并列具体缺失接口",
+          "reason": "不得fallback到假数据"
+        },
+        {
+          "condition": "[任务分派与闭环总控] 更新后验证失败",
+          "action": "提议回退与上游复校",
+          "reason": "不自动降低阈值"
+        },
+        {
+          "condition": "[任务分派与闭环总控] 有证据满足验收",
+          "action": "请求独立验收而非自己宣布通过",
+          "reason": "避免自证完成"
+        },
+        {
+          "condition": "[能力路由公共模块] agent无binding",
+          "action": "escalate列缺失接口",
+          "reason": "禁止任意shell执行原脚本"
+        },
+        {
+          "condition": "[能力路由公共模块] 只有whole-suite bridge",
+          "action": "请求明确suite任务并保留来源局限",
+          "reason": "不将suite结果冒充单点action"
+        },
+        {
+          "condition": "[能力路由公共模块] 输入单位不匹配",
+          "action": "拒绝并要求显式转换",
+          "reason": "防Hz/MHz与s/ns混淆"
+        },
+        {
+          "condition": "[原始测量与证据公共模块] counts非法",
+          "action": "拒绝进入拟合但保留证据并记已执行成本",
+          "reason": "坏数据不能悄悄丢弃"
+        },
+        {
+          "condition": "[原始测量与证据公共模块] 重复request签名不同",
+          "action": "escalate幂等冲突",
+          "reason": "不可缓存错版本测量"
+        },
+        {
+          "condition": "[原始测量与证据公共模块] 同记录被标fresh",
+          "action": "拒绝独立验证声明",
+          "reason": "重放不能替代新测量"
+        },
+        {
+          "condition": "[拟合诊断公共模块] 错模型或alias",
+          "action": "提出change_scan或escalate并保留原拟合",
+          "reason": "不得编造唯一参数"
+        },
+        {
+          "condition": "[拟合诊断公共模块] 边界解",
+          "action": "提出受限扩窗或上游复校",
+          "reason": "不默许外推"
+        },
+        {
+          "condition": "[拟合诊断公共模块] 诊断充分",
+          "action": "仅建议verify",
+          "reason": "独立验收仍需fresh/参考"
+        },
+        {
+          "condition": "[参数版本与失效公共模块] revision过期",
+          "action": "拒绝候选并重新读取",
+          "reason": "避免并发旧值覆盖"
+        },
+        {
+          "condition": "[参数版本与失效公共模块] 验证失败",
+          "action": "回退完整关联参数集并保留失败证据",
+          "reason": "不能部分恢复造成新工作点"
+        },
+        {
+          "condition": "[参数版本与失效公共模块] source_suite_only结果",
+          "action": "记录为来源证据不自动写硬件",
+          "reason": "模拟结果不可外推真实设备"
+        },
+        {
+          "condition": "[独立验收公共模块] 只提供旧READY或文件存在",
+          "action": "拒绝完成结论并要求新证据",
+          "reason": "存在不等于运行成功"
+        },
+        {
+          "condition": "[独立验收公共模块] 训练与验证同数据",
+          "action": "请求fresh验证",
+          "reason": "防选择偏差"
+        },
+        {
+          "condition": "[独立验收公共模块] 数值/阈值边界敏感",
+          "action": "要求敏感性证据或限定结论",
+          "reason": "均值稳定不等于判定稳定"
+        }
+      ],
+      "retest_rules": [
+        "s05→s04、d07→d06 使用 fresh operation_id，不复用候选选择数据；更新参数后按精确字段+owner下游传播失效。",
+        "[mission_supervisor · 测控总控] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[mission_supervisor · 测控总控] 只提出结构化建议；执行/提交由宿主硬门禁完成",
+        "[capability_router · 后端能力与实验路由] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[capability_router · 后端能力与实验路由] 只提出结构化建议；执行/提交由宿主硬门禁完成",
+        "[evidence_steward · 测量证据管家] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[evidence_steward · 测量证据管家] 只提出结构化建议；执行/提交由宿主硬门禁完成",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 只提出结构化建议；执行/提交由宿主硬门禁完成",
+        "[parameter_registry · 参数版本与回退管家] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[parameter_registry · 参数版本与回退管家] 只提出结构化建议；执行/提交由宿主硬门禁完成",
+        "[independent_acceptance · 独立验收与指标边界] 状态变化后重读证据和参数版本；不用聊天记忆替代持久状态",
+        "[independent_acceptance · 独立验收与指标边界] 只提出结构化建议；执行/提交由宿主硬门禁完成"
+      ],
+      "retest_routes": [
+        {
+          "from": "s05_readout_optimization",
+          "to": "s04_readout_fidelity",
+          "trigger": "读出频率/幅度优化产生候选或改变分类条件",
+          "semantics": "fresh独立分类/保真度复测后发布；不是DAG反向依赖"
+        },
+        {
+          "from": "d07_cz_optimizer",
+          "to": "d06_cz_xeb",
+          "trigger": "优化器产生候选CZ参数",
+          "semantics": "fresh独立XEB验证，选择与验收数据分离；不是DAG反向依赖"
+        }
+      ],
+      "acceptance": [
+        "活跃注册表恰好15个experiment和1个supervisor；44个procedure唯一归属且无独立agent入口。",
+        "辅助仿真、旧套件和主步骤验收不得混淆；缺失主方法则明确受阻。",
+        "[mission_supervisor · 测控总控] 任务身份/来源/预算一致",
+        "[mission_supervisor · 测控总控] 不跳依赖",
+        "[mission_supervisor · 测控总控] 仅输出建议",
+        "[mission_supervisor · 测控总控] 无直接hardware写权限",
+        "[capability_router · 后端能力与实验路由] 真实capability与任务吻合",
+        "[capability_router · 后端能力与实验路由] 不推断硬件连通",
+        "[capability_router · 后端能力与实验路由] 数据结构和控制范围已核对",
+        "[evidence_steward · 测量证据管家] 证据ID/哈希/版本可解引用",
+        "[evidence_steward · 测量证据管家] 失败不覆盖",
+        "[evidence_steward · 测量证据管家] 没有私有真值进入策略输入",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 模型与采样假设逐项检查",
+        "[fit_diagnostics · 拟合与可辨识性诊断] 所有替代解释和不确定性保留",
+        "[parameter_registry · 参数版本与回退管家] 事务版本/身份可核对",
+        "[parameter_registry · 参数版本与回退管家] 依赖失效传播完整",
+        "[parameter_registry · 参数版本与回退管家] 提交权不在模型",
+        "[independent_acceptance · 独立验收与指标边界] 每项criteria可复算",
+        "[independent_acceptance · 独立验收与指标边界] 来源/哈希/版本匹配",
+        "[independent_acceptance · 独立验收与指标边界] 独立oracle及负例",
+        "[independent_acceptance · 独立验收与指标边界] 失败/限制准确披露"
+      ],
+      "budgets": {
+        "max_attempts": 3,
+        "max_shots": 0,
+        "max_seconds": 3600
+      },
+      "budget_semantics": "总控不自行采集shots；实验消耗记入其owner/方法预算。公共模块不得扩大任务授权。",
+      "capability": "orchestrator",
+      "execution_status": "policy_contract",
+      "main_method_execution_status": "policy_contract",
+      "source_support": "总控协议与已有控制平面代码配合；公用模块不是独立智能体。实际持久化/幂等/回退实现以运行器测试与binding为准，不宣称全部真实设备能力已接通。",
+      "sources": [
+        {
+          "file": "resources/source_materials/06_工作脚本与数据/cal_manual_d0.md",
+          "locator": "实验步骤映射；工程事务/权限为本包补充合同"
+        },
+        {
+          "file": "resources/new_attachments/p0-report-extracted.txt",
+          "locator": "L83–124，数据与真值边界"
+        },
+        {
+          "file": "resources/previous_edition/agents/mission_supervisor/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        },
+        {
+          "file": "resources/previous_edition/agents/capability_router/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        },
+        {
+          "file": "resources/previous_edition/agents/evidence_steward/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        },
+        {
+          "file": "resources/previous_edition/agents/fit_diagnostics/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        },
+        {
+          "file": "resources/previous_edition/agents/parameter_registry/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        },
+        {
+          "file": "resources/previous_edition/agents/independent_acceptance/card.md",
+          "locator": "上一版公共职责完整来源，当前合并于唯一总控"
+        }
+      ],
+      "card_path": "agents/supervisor/card.md",
+      "prompt_path": "agents/supervisor/prompt.md"
+    }
+  ]
+}

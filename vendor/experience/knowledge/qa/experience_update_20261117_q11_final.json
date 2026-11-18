@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-11-16T18:02:46.551103+00:00",
+  "kind": "offline_existing_measurement_knowledge_archival_not_new_hardware_or_full_workflow_acceptance",
+  "passed": true,
+  "knowledge_file": "knowledge/field_case_20261117_q11.md",
+  "knowledge_sha256": "b5456b2d83bfcb388a28638c15a625d453f3a7c011579f2e36b718d22735c392",
+  "knowledge_local_links_verified": 35,
+  "intake_snapshot_files_verified": 30,
+  "external_historical_references": {
+    "checked": 1092,
+    "matched": 1089,
+    "unmatched": 3,
+    "scope": "Three historical code revisions retained explicitly; this is not a claim all code references match or that the analysis was rerun."
+  },
+  "protected_existing_files_unchanged": 1751,
+  "old_history_preserved": true,
+  "existing_changed_before_manifest_update": [
+    "index.html",
+    "MANIFEST.json",
+    "README.md",
+    "knowledge/evidence_index.md",
+    "knowledge/single_qubit_diagnostics.md",
+    "portal_docs/build_manifest.json",
+    "portal_docs/README.html",
+    "knowledge/qa/README.md",
+    "portal_docs/knowledge/evidence_index.html",
+    "portal_docs/knowledge/single_qubit_diagnostics.html"
+  ],
+  "documentation": {
+    "passed": true,
+    "checks": 631,
+    "characters": 67025
+  },
+  "catalog": {
+    "schema_version": 1,
+    "mode": "catalog",
+    "passed": true,
+    "details": {
+      "catalog": {
+        "agents": 16,
+        "experiments": 15,
+        "single_qubit_steps": 8,
+        "two_qubit_steps": 7,
+        "supervisors": 1,
+        "cards_and_prompts": 32,
+        "internal_procedures": 44,
+        "preserved_detail_strings": 1892,
+        "public_module_details": 268,
+        "cycles": 0
+      },
+      "previous_edition": {
+        "previous_files_preserved": 1442,
+        "errors": []
+      }
+    },
+    "errors": [],
+    "scope": "read-only artifact/evidence verification; no experiments or network calls"
+  },
+  "portal": {
+    "html_files": 56,
+    "agent_ids": 16,
+    "all_local_file_links_exist": true,
+    "local_links_checked": 630,
+    "exact_markdown_text_preserved": 55,
+    "javascript_syntax": "pass",
+    "remote_embedded_assets": 0
+  },
+  "visual_review": {
+    "status": "not_performed",
+    "reason": "This build validates HTML structure and links; visual inspection was not performed."
+  },
+  "hardware_actions": false,
+  "instrument_connections": false,
+  "runtime_driver_original_F8_changes": false,
+  "model_network_calls": false,
+  "failures": [],
+  "edition": "final_Q11_session_supplement",
+  "final_intake_snapshot_files_verified": 59,
+  "final_external_references": {
+    "checked": 599,
+    "matched": 597,
+    "unmatched_historical_only": 2,
+    "official_final_reference_mismatches": 0,
+    "scope": "The two mismatches are retained only in the preserved initial failed audit; final official result references match."
+  },
+  "scientific_audits": {
+    "final_RB": {
+      "total": 2181,
+      "passed": 2181,
+      "failed": 0
+    },
+    "coherence_v3": {
+      "total": 128,
+      "passed": 128,
+      "failed": 0
+    },
+    "scope": "Existing independent scientific audits archived and hashes checked, not re-executed during documentation update."
+  },
+  "initial_20261117_QA_preserved": true,
+  "final_session_parameter_file": "resources/field_updates/20261117/final_q11/calibration/Q11_validated_session_20261117.json",
+  "Q18_Q19_scope": "Separate future object case; no completion claim added."
+}

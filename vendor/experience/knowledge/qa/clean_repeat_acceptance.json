@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "passed": true,
+  "scope": "只对18文档的新副本与当前目录做静态复验；资源/其他模块只读链接本包，不宣称整包冷运行或浏览器验证",
+  "runs": [
+    {
+      "kind": "fresh_document_copy",
+      "index": 1,
+      "returncode": 0,
+      "checks": 611,
+      "same_artifact_hashes": true
+    },
+    {
+      "kind": "fresh_document_copy",
+      "index": 2,
+      "returncode": 0,
+      "checks": 611,
+      "same_artifact_hashes": true
+    },
+    {
+      "kind": "same_workspace_repeat",
+      "returncode": 0,
+      "checks": 611
+    }
+  ],
+  "created_at": "2026-10-24T03:21:29.208551+00:00"
+}

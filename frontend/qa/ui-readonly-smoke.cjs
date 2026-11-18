@@ -1,0 +1,55 @@
+const fs = require("node:fs");
+const path = require("node:path");
+const assert = require("node:assert/strict");
+const { chromium } = require(process.env.QCAL_PLAYWRIGHT_ROOT || "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1112-611-0_26.1112.611.0_x64__3k8sg7r9htsxt/dependencies/node/node_modules/playwright");
+const outputDir = path.resolve(__dirname, "../qa-artifacts");
+const output = { tests: [], pageErrors: [], consoleErrors: [], networkErrors: [], actions: "Read-only UI: no workflow command or chat request", screenshots: [] };
+let browser, page;
+async function capture(name) { const images = page.locator(".rp-selected-result img"); if (await images.count()) await images.first().evaluate(img => img.complete && img.naturalWidth > 0 ? undefined : new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; })); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))); const target = path.join(outputDir, name + ".png"); await page.screenshot({ path: target, fullPage: true, animations: "disabled" }); output.screenshots.push(target); }
+(async () => {
+  browser = await chromium.launch({ executablePath: process.env.QCAL_BROWSER_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1100 }, locale: "zh-CN" });
+  page = await context.newPage();
+  page.on("pageerror", error => output.pageErrors.push(String(error)));
+  page.on("console", message => { if (message.type() === "error") output.consoleErrors.push(message.text()); });
+  page.on("response", response => { if (response.status() >= 400) output.networkErrors.push({ status: response.status(), url: response.url() }); });
+  page.on("request", request => { if (request.method() !== "GET") throw new Error(`Read-only test attempted ${request.method()} ${request.url()}`); });
+  await page.goto("http://127.0.0.1:8765", { waitUntil: "domcontentloaded" });
+  await page.locator(".rp-live.live").waitFor();
+  await capture("11-final-dashboard-dark");
+  await page.getByRole("button", { name: "工作空间与连接", exact: false }).click();
+  await page.getByRole("dialog", { name: "运行环境", exact: true }).waitFor();
+  await page.getByText("全局执行器当前保持关闭。任务确认通过后，仅为本次任务启用；此状态不表示该测量方法不受支持。", { exact: true }).waitFor();
+  const health = await (await page.request.get("http://127.0.0.1:8765/api/health")).json();
+  output.ownership = health.hardware?.ownership ?? null;
+  if (health.hardware?.ownership?.owners?.length) {
+    await page.getByText("检测到外部测控连接", { exact: true }).waitFor();
+    for (const owner of health.hardware.ownership.owners) assert.ok((await page.getByRole("dialog").innerText()).includes(`PID ${owner.pid}`));
+  }
+  await capture("08-hardware-ownership"); output.tests.push("hardware state explains external ownership and per-task confirmation");
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  const workflows = await (await page.request.get("http://127.0.0.1:8765/api/workflows")).json();
+  const replay = workflows.find(workflow => workflow.mode === "replay" && workflow.name.includes("界面验收 Q18") && workflow.status === "completed");
+  assert.ok(replay);
+  await page.locator(".rp-task-link").filter({ hasText: replay.name }).click();
+  await page.getByText("回放已完成", { exact: true }).waitFor();
+  assert.ok((await page.locator(".canvas-top").innerText()).includes("节点已载入"));
+  assert.equal(await page.locator(".rp-flow-node.historical").count(), replay.nodes.filter(node => node.engineState === "historical").length);
+  output.tests.push("historical replay completion is distinct from verified calibration");
+  await page.getByRole("region", { name: "测量阶段与可用能力" }).waitFor();
+  await page.getByText("双比特执行方法尚未接入", { exact: true }).waitFor();
+  assert.ok((await page.locator(".rp-stage-summary").innerText()).includes("网分预扫描"));
+  output.tests.push("catalog stage strip distinguishes network analyzer, rewire and pulse capabilities");
+  const rabi = replay.nodes.find(node => node.ownerId === "s03_rabi_amplitude");
+  if (rabi) await page.locator(".rp-flow-node").filter({ has: page.getByText(rabi.label, { exact: true }) }).click();
+  await capture("12-final-blueprint-dark");
+  await page.getByRole("button", { name: "切换主题", exact: true }).click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
+  await capture("09-blueprint-light"); output.tests.push("original light theme renders dynamic blueprint");
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await capture("10-blueprint-narrow");
+  assert.ok(await page.locator(".rp-inspector").isVisible());
+  output.tests.push("narrow viewport keeps blueprint and node inspector accessible");
+  assert.deepEqual(output.pageErrors, []); assert.deepEqual(output.networkErrors, []);
+  output.passed = true;
+})().catch(error => { output.passed = false; output.error = error.stack || String(error); console.error(error); process.exitCode = 1; }).finally(async () => { output.finishedAt = new Date().toISOString(); fs.writeFileSync(path.join(outputDir, "ui-readonly-acceptance.json"), JSON.stringify(output, null, 2)); await browser?.close(); console.log(JSON.stringify(output, null, 2)); });

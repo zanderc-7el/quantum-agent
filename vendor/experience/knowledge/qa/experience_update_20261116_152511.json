@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-11-16T08:41:02.152741+00:00",
+  "kind": "transcript_learning_and_existing_evidence_archival_not_new_hardware_or_full_workflow_acceptance",
+  "passed": true,
+  "source_transcript_sha256": "eec0ef5479ce59e7c26017ef5b813028df676c25ae9f0b512d3d72053757f294",
+  "knowledge_file": "knowledge/field_review_20261116_152511.md",
+  "knowledge_sha256": "bb4c6490114bb995e743655c8be3c1b1b2f36b17651c314fc5afad67f1ebe3de",
+  "source_files_verified": 23,
+  "knowledge_local_links_verified": 7,
+  "catalog": {
+    "schema_version": 1,
+    "mode": "catalog",
+    "passed": true,
+    "details": {
+      "catalog": {
+        "agents": 16,
+        "experiments": 15,
+        "single_qubit_steps": 8,
+        "two_qubit_steps": 7,
+        "supervisors": 1,
+        "cards_and_prompts": 32,
+        "internal_procedures": 44,
+        "preserved_detail_strings": 1892,
+        "public_module_details": 268,
+        "cycles": 0
+      },
+      "previous_edition": {
+        "previous_files_preserved": 1442,
+        "errors": []
+      }
+    },
+    "errors": [],
+    "scope": "read-only artifact/evidence verification; no experiments or network calls"
+  },
+  "documentation": {
+    "passed": true,
+    "checks": 619,
+    "documents": 18,
+    "characters": 61855,
+    "failed": []
+  },
+  "model_requests": {
+    "s01_readout_frequency": {
+      "experience_embedded": true,
+      "instruction_chars": 2645,
+      "network_called": false
+    },
+    "s02_qubit_frequency": {
+      "experience_embedded": true,
+      "instruction_chars": 2746,
+      "network_called": false
+    },
+    "s03_rabi_amplitude": {
+      "experience_embedded": true,
+      "instruction_chars": 2713,
+      "network_called": false
+    },
+    "s05_readout_optimization": {
+      "experience_embedded": true,
+      "instruction_chars": 2560,
+      "network_called": false
+    },
+    "supervisor": {
+      "experience_embedded": true,
+      "instruction_chars": 2606,
+      "network_called": false
+    },
+    "s07_t2": {
+      "experience_embedded": true,
+      "instruction_chars": 2368,
+      "network_called": false
+    }
+  },
+  "portal": {
+    "output": "C:\\Users\\o\\Downloads\\量子测控智能体工程包_原流程15步版_20261024\\量子测控智能体工程包_原流程15步版_20261024\\index.html",
+    "checks": {
+      "html_files": 55,
+      "agent_ids": 16,
+      "all_local_file_links_exist": true,
+      "local_links_checked": 579,
+      "exact_markdown_text_preserved": 54,
+      "javascript_syntax": "pass",
+      "remote_embedded_assets": 0
+    },
+    "source_link_warnings": 0
+  },
+  "visual_review": {
+    "status": "not_performed",
+    "reason": "This build validates HTML structure and links; visual inspection was not performed."
+  },
+  "hardware_actions": false,
+  "model_network_calls": false,
+  "protected_files_unchanged": 628,
+  "existing_changed_before_manifest_update": [
+    "index.html",
+    "MANIFEST.json",
+    "README.md",
+    "agents/build_catalog.py",
+    "config/field_guidance_20261116.json",
+    "knowledge/evidence_index.md",
+    "knowledge/field_review_20261116.md",
+    "knowledge/single_qubit_diagnostics.md",
+    "portal_docs/build_manifest.json",
+    "portal_docs/README.html",
+    "agents/s01_readout_frequency/card.md",
+    "agents/s01_readout_frequency/prompt.md",
+    "agents/s02_qubit_frequency/card.md",
+    "agents/s02_qubit_frequency/prompt.md",
+    "agents/s03_rabi_amplitude/card.md",
+    "agents/s03_rabi_amplitude/prompt.md",
+    "agents/s05_readout_optimization/card.md",
+    "agents/s05_readout_optimization/prompt.md",
+    "agents/s07_t2/card.md",
+    "agents/s07_t2/prompt.md",
+    "agents/supervisor/card.md",
+    "agents/supervisor/prompt.md",
+    "knowledge/qa/README.md",
+    "portal_docs/knowledge/evidence_index.html",
+    "portal_docs/knowledge/field_review_20261116.html",
+    "portal_docs/knowledge/single_qubit_diagnostics.html",
+    "portal_docs/agents/s01_readout_frequency/card.html",
+    "portal_docs/agents/s01_readout_frequency/prompt.html",
+    "portal_docs/agents/s02_qubit_frequency/card.html",
+    "portal_docs/agents/s02_qubit_frequency/prompt.html",
+    "portal_docs/agents/s03_rabi_amplitude/card.html",
+    "portal_docs/agents/s03_rabi_amplitude/prompt.html",
+    "portal_docs/agents/s05_readout_optimization/card.html",
+    "portal_docs/agents/s05_readout_optimization/prompt.html",
+    "portal_docs/agents/s07_t2/card.html",
+    "portal_docs/agents/s07_t2/prompt.html",
+    "portal_docs/agents/supervisor/card.html",
+    "portal_docs/agents/supervisor/prompt.html"
+  ],
+  "newline_only_changes_restored": [
+    "config/agent_catalog.json",
+    "config/procedure_catalog.json",
+    "docs/experiment_coverage.md",
+    "agents/d01_flux_spectroscopy/card.md",
+    "agents/d01_flux_spectroscopy/prompt.md",
+    "agents/d02_idle_interaction/card.md",
+    "agents/d02_idle_interaction/prompt.md",
+    "agents/d03_cz_width/card.md",
+    "agents/d03_cz_width/prompt.md",
+    "agents/d04_cz_amplitude/card.md",
+    "agents/d04_cz_amplitude/prompt.md",
+    "agents/d05_cz_detuning/card.md",
+    "agents/d05_cz_detuning/prompt.md",
+    "agents/d06_cz_xeb/card.md",
+    "agents/d06_cz_xeb/prompt.md",
+    "agents/d07_cz_optimizer/card.md",
+    "agents/d07_cz_optimizer/prompt.md",
+    "agents/s04_readout_fidelity/card.md",
+    "agents/s04_readout_fidelity/prompt.md",
+    "agents/s06_t1/card.md",
+    "agents/s06_t1/prompt.md",
+    "agents/s08_single_qubit_rb/card.md",
+    "agents/s08_single_qubit_rb/prompt.md"
+  ],
+  "backup": "C:\\Users\\o\\Downloads\\量子测控智能体工程包_原流程15步版_20261024\\经验续补前备份_20261116_152511",
+  "prior_update_validation": "knowledge/qa/experience_update_20261116.json (historical revision)"
+}

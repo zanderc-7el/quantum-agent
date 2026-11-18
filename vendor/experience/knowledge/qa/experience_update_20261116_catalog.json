@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "mode": "catalog",
+  "passed": true,
+  "details": {
+    "catalog": {
+      "agents": 16,
+      "experiments": 15,
+      "single_qubit_steps": 8,
+      "two_qubit_steps": 7,
+      "supervisors": 1,
+      "cards_and_prompts": 32,
+      "internal_procedures": 44,
+      "preserved_detail_strings": 1892,
+      "public_module_details": 268,
+      "cycles": 0
+    },
+    "previous_edition": {
+      "previous_files_preserved": 1442,
+      "errors": []
+    }
+  },
+  "errors": [],
+  "scope": "read-only artifact/evidence verification; no experiments or network calls"
+}

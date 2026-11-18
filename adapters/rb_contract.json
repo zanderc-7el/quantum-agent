@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "procedureId": "sq_rb",
+  "method": "native paired reference / X/2 interleaved RB complete suite",
+  "requestExtension": {
+    "validationSnapshot": {
+      "version": 1,
+      "runId": "must equal request.runId",
+      "resourceId": "must equal request.resourceId",
+      "parameters": "current readout_hz/readout_amp/drive_hz/drive_amp/drive_length_s/half_pi_amp/xy_delay_s",
+      "parameterVersions": "seven CAL_KEYS versions must match request.parameterVersions exactly; scan-parameter versions do not determine calibration validity",
+      "acceptedEvidence": [
+        {
+          "procedureId": "sq_rabi_amplitude or sq_rabi_time",
+          "status": "passed",
+          "selectionOperationId": "existing current-run adapter operation",
+          "verificationOperationId": "different existing current-run adapter operation with disjoint raw evidence",
+          "ruleVersion": "controller frozen quality rule version"
+        },
+        {
+          "procedureId": "ro_iq01 or ro_optimize or ro_optimize_frequency",
+          "status": "passed",
+          "selectionOperationId": "existing current-run adapter operation",
+          "verificationOperationId": "different existing current-run adapter operation with disjoint raw evidence",
+          "ruleVersion": "controller frozen quality rule version"
+        }
+      ]
+    }
+  },
+  "parameterSchema": {
+    "rb_lengths": {"type":"integer-array", "minimum":1, "maximum":32, "minItems":6, "maxItems":10, "sortedUnique":true, "default":[1,2,3,4,6,8,12,16]},
+    "rb_sequences": {"type":"integer", "const":30},
+    "rb_shots": {"type":"integer", "minimum":100, "maximum":2000, "default":1000},
+    "rb_capture_repeats": {"type":"integer", "minimum":2, "maximum":4, "default":2},
+    "rb_bootstrap_replicates": {"type":"integer", "minimum":200, "maximum":2000, "default":300},
+    "rb_master_seed": {"type":"integer", "minimum":0, "maximum":4294967295, "default":"derived from operationId; independent operation gets new seed schedule"}
+  },
+  "capturePlan": "new readout pre (4 captures), 30 paired seeds with shuffled seed/branch order, new readout post (4 captures). Length order remains ascending and is disclosed.",
+  "calibrationLifecycle": "Current accepted readout/Rabi adapter receipts + matching actual parameters -> immutable calibration.json with calibrationVersion -> frozen native paired schedule with source hash and ideal recovery/timing audit -> new acquisition -> native paired bootstrap estimate -> controller independently verifies before publishing.",
+  "publicationApi": "F8Adapter.publish_calibration(validationSnapshot) -> registered JSON artifact. After sq_rb independent verification passes, append its passed select/verify operation IDs and ruleVersion to acceptedEvidence. Verifies both complete 62-raw-record suites, disjoint data, different seed schedules and unchanged actual parameters, then writes immutable data/calibrations/Qxx_<calibrationVersion>.json. No hardware or parameter-registry mutation.",
+  "metrics": ["r_squared","gate_fidelity","gate_fidelity_ci_low","gate_fidelity_ci_high","reference_drift_fraction","clifford_fidelity","reference_decay_p","interleaved_decay_p","paired_seed_count","bootstrap_success_fraction"],
+  "acceptance": "gate_fidelity is omitted if model/seed-bootstrap publication checks fail; controller owns numerical quality gates and independent second suite. No old TRIAL calibration is silently upgraded.",
+  "cancellation": "Same F8Adapter.execute cancel callable; row-boundary stop requested, forced termination returns unknown. reconcile never reacquires.",
+  "limits": "Conditional IRB model estimate; confidence intervals exclude unknown systematics and drift; pre/post contrast does not prove stationarity. No fixed primitive-count conversion. No real hardware was used to implement/test this adapter."
+}

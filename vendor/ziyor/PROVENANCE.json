@@ -1,0 +1,65 @@
+{
+  "archiveName": "Ziyor_完整版对应源码_20261113.zip",
+  "archiveSha256": "8b03c297a1dd678cf270c1732629ee11297b156e1135d813f6ca18f61aa95a4e",
+  "files": [
+    {
+      "source": "src/feature/local-model/domain/local-agent-protocol.ts",
+      "sha256": "f9b682702896236df90629e023e6eaac0ed6b9ea6a75428cf1dfdb5049c17d5b",
+      "bytes": 3474
+    },
+    {
+      "source": "src/feature/local-model/domain/local-agent-tool-validation.ts",
+      "sha256": "bec32eb1c7eab6412581d8c67c723c86f6577a898db853a897ca75267f44ab45",
+      "bytes": 1580
+    },
+    {
+      "source": "src/feature/local-model/domain/local-agent-tool.ts",
+      "sha256": "5d64b94a3bcf3d625e9bfcb324e26ea1f5f059c055139e01121244141880b6e9",
+      "bytes": 1320
+    },
+    {
+      "source": "src/feature/local-model/domain/local-agent-limits.ts",
+      "sha256": "3572312ebe5676fc11191a4aba5c8dbefffc8672621052305966b27fbcdc8596",
+      "bytes": 313
+    },
+    {
+      "source": "src/feature/local-model/application/local-agent-runtime.ts",
+      "sha256": "7fac0119634b47d9d54307e97a65c2424eb0753a2bd2a020f3c2ca4985b81aee",
+      "bytes": 6231
+    },
+    {
+      "source": "src/feature/chat/domain/runtime-events.ts",
+      "sha256": "ea6daee4327c77d143bd17455d58bed651fd0cef580a5eeed12f5c814d2a2223",
+      "bytes": 6145
+    }
+  ],
+  "usage": {
+    "direct_runtime_imports": [
+      "local-agent-protocol.ts",
+      "local-agent-tool-validation.ts"
+    ],
+    "adapted_logic": [
+      "local-agent-runtime.ts tool-observation loop, bounded rounds, parse repair"
+    ],
+    "excluded": [
+      "filesystem/shell/browser/MCP executors",
+      "desktop UI",
+      "experimental state control"
+    ]
+  },
+  "upstreamPackage": {
+    "name": "ziyor",
+    "version": "37.12.27",
+    "declaredLicense": "Apache-2.0",
+    "packageJsonSha256": "3dfebeb820204a5e8f7ea67b32cd24511be132f3e8850aca327e2654ae6f1548"
+  },
+  "licensingNote": "No root LICENSE file found in supplied archive; upstream package metadata declares Apache-2.0. Verify license text before redistribution.",
+  "adaptations": {
+    "agent/src/brain.mjs": "Bounded model/action/observation loop adapted; local tools replaced with request-only observation/rule/decision tools. No workspace executors imported.",
+    "directImports": [
+      "src/feature/local-model/domain/local-agent-protocol.ts",
+      "src/feature/local-model/domain/local-agent-tool-validation.ts"
+    ],
+    "agent/src/validation.mjs": "New strict experimental proposal validation; Python remains execution authority."
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "ADC": {
+    "S21": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\S21Q11_20261117075501.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\S21Q11_20261117084146.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\S21Q18_20261117075708.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\S21Q18_20261117091730.qdat"
+      ]
+    },
+    "TimeRabi": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ11_20261117075625.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ11_20261117082054.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ11_20261117082418.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ11_20261117090555.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ18_20261117075832.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ18_20261117083005.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ18_20261117083355.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\TimeRabiQ18_20261117092211.qdat"
+      ]
+    },
+    "get_ReadoutM": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117075628.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117081540.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117082421.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117083916.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117085416.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117090322.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q11_20261117091347.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117075834.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117082425.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117083358.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117085433.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117085627.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117085745.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117090303.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117091459.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\get_ReadoutM_Q18_20261117093002.qdat"
+      ]
+    },
+    "Repeat_SNR_probCarryScale": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Repeat_SNR_probCarryScaleQ11_20261117080155.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Repeat_SNR_probCarryScaleQ18_20261117080253.qdat"
+      ]
+    },
+    "Repeat_SNR_Freq": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Repeat_SNR_FreqQ11_20261117080738.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Repeat_SNR_FreqQ18_20261117081017.qdat"
+      ]
+    },
+    "AllXY": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117081607.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117081635.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117081703.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117081730.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117091343.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117082453.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117082520.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117082548.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117082615.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117085500.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117085528.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117085556.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117085623.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\AllXY_20261117092958.qdat"
+      ]
+    },
+    "Spectrum": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Spectrum_20261117084354.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\Spectrum_20261117091938.qdat"
+      ]
+    },
+    "T1": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\T1_20261117084603.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\T1_20261117090739.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\T1_20261117085929.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\T1_20261117092355.qdat"
+      ]
+    },
+    "Ramsey": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ11_20261117084837.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ11_20261117085111.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ11_20261117090922.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ11_20261117091106.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ18_20261117090112.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ18_20261117090259.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ18_20261117092539.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\RamseyQ18_20261117092723.qdat"
+      ]
+    },
+    "Echo": {
+      "Q11": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\EchoQ11_20261117085410.qdat",
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\EchoQ11_20261117091316.qdat"
+      ],
+      "Q18": [
+        "D:\\\u603b\u4f53-8\u53f7\u673a\u6d4b\u8bd5\\20261117_Agent_F8_Q11_Q18\u590d\u73b0\\raw\\2026\\1117\\EchoQ18_20261117092931.qdat"
+      ]
+    }
+  }
+}

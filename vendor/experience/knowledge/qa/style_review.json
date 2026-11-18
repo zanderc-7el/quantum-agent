@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "status": "reviewed",
+  "bindings": {
+    "report": {
+      "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/qa/report.md",
+      "sha256": "ca8b782444ab3b0ef347eb7ef381c4019fa45a66af87d750fe8ae95c02eabf3b"
+    },
+    "baseline": {
+      "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/qa/baseline_previous_edition.md",
+      "sha256": "ef8b22616ecc492b7942978759facc0258064f1d019a342a216d94cbac881823"
+    },
+    "artifacts": [
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/README.md",
+        "sha256": "8b8364cc1de7eca80e920c6aa64747f51e516036b5fb8906e61a7c6a93607b01"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/architecture.md",
+        "sha256": "ec94c5548d3808dc7a6015fb994de16cfce15e3fb39efeaa0fd7c5b10e208f97"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/build_record.md",
+        "sha256": "e7c247f6aed7dd6da28f0c0e9050783deeb3803c727b3848ec0c70875821ea2c"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/hardware_adapter.md",
+        "sha256": "ad2befb84921363f7a142f5997d7b6afa61e9a1d39cc3430d7d9f9ff0ee55b5c"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/reorganization.md",
+        "sha256": "1b1d453ac84c0be1cb61fa72071f82c2c3d18c52c12b7b80ce226a6e4b00bcc7"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/supervisor_policy.md",
+        "sha256": "bc9eec550efc2b71d9dc5313956dbf2fcd18ffd7f753a8dd49b0da147a6a180c"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/usage_walkthrough.md",
+        "sha256": "e21175ded8ca5d1faa7b6bc7afc8d0c7de51d884abf64ae9c27920c0208cc9aa"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/docs/validation_strategy.md",
+        "sha256": "da83937766ac0acc0cb0f424e50722c3f96fd2dea996b8c80ec263367d1bcec5"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/agent_internal_loop.md",
+        "sha256": "e46c185c8b33c9b399413960cbf2df88809e15b8909911c6d2e2866b795bcaf9"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/evidence_index.md",
+        "sha256": "0c5a3bdb75a28d2480c601d658ff10fc56ba2e06ccdbfe13f47b881e0b10b1fe"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/known_limitations.md",
+        "sha256": "c69aee07bc4bd4e909bcd195e41e136933e0486273ffb4f814e906b433b62f63"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/parameter_dependencies.md",
+        "sha256": "aa6836a0bbf28350a4a5dedb7aa545a3009b846ceb85490d92570dfa6df88f69"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/procedure_ownership.md",
+        "sha256": "169b87921e0e0a8d44a2477c70761b330585518acbfb55dd8d9733a5b4a92eb6"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/single_qubit_diagnostics.md",
+        "sha256": "753efe0b20e9a0ca4ed4d9bb77bf1aaaf3fc10bef31c0c745ae8f0cdaf694b2f"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/two_qubit_diagnostics.md",
+        "sha256": "a5b8d44c4bf4c938f88c898240020d21a18a1ebda0f42f412e73bb73534b02e5"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/knowledge/worked_cases.md",
+        "sha256": "8f894a1f27b7bdf61c00052ccf892f95668c1ea993a2f049b20b5eee03a1d810"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/output/README.md",
+        "sha256": "f835284cdbf4c4bdc6d3e70a9041aab8a796bd41cab58744e54f540119ae2e17"
+      },
+      {
+        "path": "/Users/yang/Desktop/项目/量子/量子测控智能体工程包_原流程15步版_20261024/resources/SOURCE_NOTES.md",
+        "sha256": "f268413143fac24b505f306828b9bfcebc265c94bcf23fc6411b51a1c83fc81e"
+      }
+    ],
+    "rules": {
+      "SKILL.md": "5e9576fbd62793261b03e91dda63f54abbdd8a5d691488f5f0b443e27ab8ef3a",
+      "references/before-after-benchmarks.md": "fbeaa6663beb3d859a306d5958e951ca260b038135b3bfec533b5266265160ab",
+      "references/chinese-language-errors.md": "5361751c16854c85cfec64e1f8e3f295770d338133a955b76afc5f81b815db31",
+      "references/corpus-method.md": "98ab2a006d0f24b94c8696b033bc8c6da2dc6593a3f71b45e7bbc28b00fe1ed5",
+      "references/hard-soft-review.md": "86db17938d17dd03e4aab56ae082f69ca0da20561ca1c6d8792bbdf728b82c0b",
+      "references/research-report-profile.md": "6a6d266f3d20c5aae28e75c8e53f264c4e488fa5f5bec8c9568b85ecdb0bea90",
+      "references/style-findings.md": "52a17c8f5913623c576dd3fe011326050177fde143279408d2460b2c8f029f6e",
+      "references/validation-cases.md": "ad8c5bc83f5d7e481e3873175306619f29ff9856c2dc4875735fff79d1ae6a1c",
+      "scripts/check_pre_ai_style.py": "0437d0988b81a85008be53a9370cfd8d8d804a80d06e3c37d20286c99143058f",
+      "scripts/check_research_delivery.py": "9590805a21568c33f2d89fb4de250700fc1a87e91b1f03fdc0c36016e238d8bb"
+    }
+  },
+  "reviewer": "numerics_review (Codex subagent; 非外部专家审签)",
+  "reviewed_at": "2026-10-24T03:21:28.943106+00:00",
+  "checks": {
+    "grammar": {
+      "passed": true,
+      "notes": "逐份审阅18份中文技术文档。主语区分原步骤Agent、内部procedure、总控与公共服务；保留公式、单位、符号和适用范围，表格分隔符已修复并检查。"
+    },
+    "structure": {
+      "passed": true,
+      "notes": "README先呈现原8单/7双步骤表和用法；架构按步骤内部闭环与总控跨步骤分工；知识精确映射唯一owner；旧QA及角色资料归档，不把旧结果当新版结论。"
+    },
+    "facts": {
+      "passed": true,
+      "notes": "依据workflow_ownership与新catalog核对15+1、44方法唯一归属、s04/s05位置及d03主方法chevron；现有报告字段对齐agent_execution_report.json/original_step_complete/overall_workflow_complete。T1/Ramsey原源码问题仍未修。"
+    },
+    "uncertainty": {
+      "passed": true,
+      "notes": "区分原主方法和辅助执行，时长Rabi不替代幅度、Ramsey不替代CPMG、CZ套件不替代XEB；worked cases明确合成非设备标准，统计方法和SDK待实现边界保留。没有声称新版视觉验收或联网模型质量通过。"
+    },
+    "document_match": {
+      "passed": true,
+      "notes": "审校文本直接由18份保存的Markdown合并并绑定SHA256；相对链接、表格、科学公式保留与案例数值均由新611项静态检查核对。当前无DOCX/PDF或浏览器验收要求。"
+    }
+  },
+  "findings": {
+    "69a0cb6989e8cfa264d7": {
+      "disposition": "false_positive",
+      "notes": "扫描器称前两段缺数字，但标题已含15，开篇明确8个单比特、7个双比特和1个总控。该段为技术组织定义而非新闻事件，语义与结构均适合本报告，因此保留。"
+    }
+  },
+  "factual_changes": {
+    "passed": true,
+    "notes": "114类数字/链接标记变化主要来自15个新owner ID、44方法逐项索引、相对链接及归属表。原科学公式和worked case数值由独立静态检查确认保留；旧固定测试数、旧运行统计和旧PASS改为本轮实际记录入口，不伪造新版数字。统计/物理边界、原缺陷反例未被抹去。"
+  }
+}

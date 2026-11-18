@@ -1,0 +1,149 @@
+{
+  "id": "arclight-private-f8-q11-v1",
+  "enabled": false,
+  "runner": "adapters/arclight_runtime/platform_worker.py",
+  "runnerSha256": "d62d6453cad6d6fdf3a324611b549a2aa875dcc6911a208b208f3919f65fed59",
+  "sourceManifest": "adapters/arclight_runtime/source_manifest.json",
+  "python": "D:/豆包/量子/arclight_单比特全流程_20261117/runtime/Scripts/python.exe",
+  "visaLibrary": "C:/Windows/System32/visa64.dll",
+  "runtimeRoot": "adapters/arclight_runtime",
+  "hardwareLock": "D:/豆包/量子/arclight_chassis_10_100_16_105.lock",
+  "hardwareLocks": [
+    "D:/豆包/量子/arclight_chassis_10_100_16_105.lock",
+    "D:/总体-8号机测试/ADC_Agent.lock"
+  ],
+  "instrument": {
+    "id": "CeyearStationF8",
+    "address": "TCPIP::10.100.16.105::7110::SOCKET",
+    "host": "10.100.16.105",
+    "port": 7110,
+    "xyPhysical": [
+      0,
+      0
+    ],
+    "readoutPhysical": [
+      8,
+      0
+    ],
+    "adcPhysical": [
+      0,
+      0
+    ]
+  },
+  "resources": {
+    "Q11": {
+      "q": "Q11",
+      "calibrationStatus": "historical_seed_requires_fresh_measurement",
+      "readout_hz": 7009510000.0,
+      "readout_amp": 0.8,
+      "drive_hz": 4862690000.0,
+      "drive_amp": 0.98,
+      "drive_length_s": 3.2e-07,
+      "half_pi_amp": 0.98,
+      "xy_delay_s": 1e-07,
+      "xy_attenuation_db": 3.75,
+      "xy_filter_mhz": 4700,
+      "readout_width_s": 2.2e-06,
+      "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+    }
+  },
+  "parameterBounds": {
+    "readout_hz": [
+      6500000000.0,
+      7600000000.0
+    ],
+    "readout_amp": [
+      0.01,
+      0.98
+    ],
+    "drive_hz": [
+      4000000000.0,
+      5500000000.0
+    ],
+    "drive_amp": [
+      0.01,
+      0.99
+    ],
+    "drive_length_s": [
+      4e-09,
+      2e-06
+    ],
+    "half_pi_amp": [
+      0.005,
+      0.99
+    ],
+    "xy_delay_s": [
+      0,
+      1e-06
+    ],
+    "xy_attenuation_db": [
+      0,
+      12
+    ],
+    "xy_filter_mhz": [
+      4700,
+      4700
+    ],
+    "readout_width_s": [
+      1.2e-06,
+      4e-06
+    ],
+    "pulse_compatibility": {
+      "enum": [
+        "f8_validated_short_half_dc_buff2ns_v1"
+      ]
+    },
+    "shots": [
+      100,
+      2047
+    ],
+    "capture_repeats": [
+      1,
+      6
+    ],
+    "acquisitions_per_point": [
+      1,
+      4
+    ],
+    "points": [
+      9,
+      161
+    ],
+    "start_s": [
+      0,
+      0.0001
+    ],
+    "stop_s": [
+      1e-08,
+      0.0001
+    ],
+    "span_hz": [
+      100000.0,
+      100000000.0
+    ],
+    "rotation_hz": [
+      -2000000.0,
+      2000000.0
+    ],
+    "amp_start": [
+      0,
+      0.98
+    ],
+    "amp_stop": [
+      0.01,
+      0.99
+    ],
+    "pi_pulses": [
+      1,
+      16
+    ],
+    "spectroscopy_width_s": [
+      1e-07,
+      1.2e-05
+    ]
+  },
+  "maximumTotalShots": 12000000,
+  "maximumPoints": 15000,
+  "maximumRunSeconds": 7200,
+  "cancelGraceSeconds": 35
+}

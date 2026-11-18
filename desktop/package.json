@@ -1,0 +1,36 @@
+{
+  "name": "qcal-desktop",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Local Windows desktop for the quantum control platform",
+  "author": "Quantum Control Team",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "smoke:electron": "node scripts/smoke-electron.cjs",
+    "setup:electron": "node scripts/install-electron.cjs",
+    "prepare:runtime": "node scripts/prepare-runtime.cjs",
+    "pack": "npm run prepare:runtime && node scripts/build.cjs dir",
+    "dist": "npm run prepare:runtime && node scripts/build.cjs portable",
+    "dist:installer": "npm run prepare:runtime && node scripts/build.cjs nsis"
+  },
+  "devDependencies": { "electron": "45.3.3", "electron-builder": "26.18.0" },
+  "build": {
+    "appId": "cn.quantum.qcal.desktop",
+    "productName": "量子测控智能体",
+    "asar": true,
+    "compression": "normal",
+    "npmRebuild": false,
+    "electronDist": "node_modules/electron/dist",
+    "directories": { "output": "dist", "buildResources": "assets" },
+    "files": ["src/**", "assets/**", "package.json"],
+    "extraResources": [
+      { "from": "resources/node", "to": "node" },
+      { "from": "resources/desktop.config.json", "to": "desktop.config.json" }
+    ],
+    "win": { "target": ["portable"], "icon": "assets/icon.ico", "signExecutable": false, "executableName": "QuantumControl" },
+    "portable": { "artifactName": "QuantumControl-${version}-portable.exe", "requestExecutionLevel": "user" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "QuantumControl-${version}-Setup.exe" }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "edition": "original_workflow_15_steps",
+  "created_at": "2026-10-24T03:22:54.013120+00:00",
+  "scope": "独立只读领域审查：原始8+7方框、唯一方法归属、主方法与辅助方法边界；不代表全部实验实机验证。",
+  "passed": true,
+  "observed": {
+    "registered_agents": 16,
+    "experiment_agents": 15,
+    "single_qubit_steps": 8,
+    "two_qubit_steps": 7,
+    "internal_procedures": 44
+  },
+  "checks": [
+    {
+      "name": "s04_iq_before_s05_readout_optimization",
+      "passed": true
+    },
+    {
+      "name": "unique_primary_owner_and_cross_owner_tools_distinguished",
+      "passed": true
+    },
+    {
+      "name": "s03_amplitude_vs_duration_rabi",
+      "passed": true
+    },
+    {
+      "name": "s07_cpmg_vs_ramsey",
+      "passed": true
+    },
+    {
+      "name": "d06_xeb_vs_cz_diagnostic_suite",
+      "passed": true
+    },
+    {
+      "name": "d03_main_method_is_chevron",
+      "passed": true
+    },
+    {
+      "name": "qqswap_not_zz_and_60ns_is_example",
+      "passed": true
+    },
+    {
+      "name": "conditional_post_bootstrap_methods_not_mandatory_initial_reads",
+      "passed": true
+    }
+  ],
+  "resolved_findings": [
+    {
+      "owner": "d03_cz_width",
+      "problem": "初稿主方法指向前置设置 tq_cz_setup，与原流程 CZ 宽度粗扫不符。",
+      "resolution": "作者已改为 tq_cz_chevron；本次重新读取 ownership/catalog 已确认。"
+    }
+  ],
+  "remaining_blockers": [],
+  "evidence_sha256": {
+    "config/workflow_ownership.json": "971300fcd720949d7fed3bf7a8c715976ed18f6b19365ef1e6a02f6ac9d09baa",
+    "config/agent_catalog.json": "65979549c7844d64c0c9ff182473cb63d6bbdacb341e58f8c6106e7fafed38e7",
+    "config/procedure_catalog.json": "a6a3a2039368dfa3d7494cedb3508390b5095ce71f1b509790fd89f27857e0ef"
+  }
+}

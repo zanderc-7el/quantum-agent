@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-11-16T17:18:00.644178+00:00",
+  "kind": "offline_existing_measurement_knowledge_archival_not_new_hardware_or_full_workflow_acceptance",
+  "passed": true,
+  "knowledge_file": "knowledge/field_case_20261117_q11.md",
+  "knowledge_sha256": "bbd178e01c8c08b1e6c4994a0ed06e933e2a17c6631bed9ff635cb8f5d637ddd",
+  "knowledge_local_links_verified": 19,
+  "intake_snapshot_files_verified": 30,
+  "external_historical_references": {
+    "checked": 1092,
+    "matched": 1089,
+    "unmatched": 3,
+    "scope": "Three historical code revisions retained explicitly; this is not a claim all code references match or that the analysis was rerun."
+  },
+  "protected_existing_files_unchanged": 1751,
+  "old_history_preserved": true,
+  "existing_changed_before_manifest_update": [
+    "index.html",
+    "README.md",
+    "knowledge/evidence_index.md",
+    "knowledge/single_qubit_diagnostics.md",
+    "portal_docs/build_manifest.json",
+    "portal_docs/README.html",
+    "knowledge/qa/README.md",
+    "portal_docs/knowledge/evidence_index.html",
+    "portal_docs/knowledge/single_qubit_diagnostics.html"
+  ],
+  "documentation": {
+    "passed": true,
+    "checks": 625,
+    "characters": 64395
+  },
+  "catalog": {
+    "schema_version": 1,
+    "mode": "catalog",
+    "passed": true,
+    "details": {
+      "catalog": {
+        "agents": 16,
+        "experiments": 15,
+        "single_qubit_steps": 8,
+        "two_qubit_steps": 7,
+        "supervisors": 1,
+        "cards_and_prompts": 32,
+        "internal_procedures": 44,
+        "preserved_detail_strings": 1892,
+        "public_module_details": 268,
+        "cycles": 0
+      },
+      "previous_edition": {
+        "previous_files_preserved": 1442,
+        "errors": []
+      }
+    },
+    "errors": [],
+    "scope": "read-only artifact/evidence verification; no experiments or network calls"
+  },
+  "portal": {
+    "html_files": 56,
+    "agent_ids": 16,
+    "all_local_file_links_exist": true,
+    "local_links_checked": 608,
+    "exact_markdown_text_preserved": 55,
+    "javascript_syntax": "pass",
+    "remote_embedded_assets": 0
+  },
+  "visual_review": {
+    "status": "not_performed",
+    "reason": "This build validates HTML structure and links; visual inspection was not performed."
+  },
+  "hardware_actions": false,
+  "instrument_connections": false,
+  "runtime_driver_original_F8_changes": false,
+  "model_network_calls": false,
+  "failures": []
+}

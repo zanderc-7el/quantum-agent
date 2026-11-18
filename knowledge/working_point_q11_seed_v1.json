@@ -1,0 +1,90 @@
+{
+  "schema": "working-point-seed/1",
+  "status": "seed_only",
+  "sourceId": "Q11_historical_point_rabi_20261118",
+  "resourceId": "Q11",
+  "sourceJob": "Q11_historical_point_rabi",
+  "parameters": {
+    "readout_hz": 7009510000.0,
+    "readout_amp": 0.8,
+    "readout_width_s": 2.2e-06,
+    "drive_hz": 4862690000.0,
+    "drive_amp": 0.98,
+    "drive_length_s": 3.2e-07,
+    "half_pi_amp": 0.98,
+    "xy_delay_s": 1e-07,
+    "xy_attenuation_db": 3.75,
+    "xy_filter_mhz": 4700,
+    "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+  },
+  "sourceFiles": [
+    {
+      "kind": "raw",
+      "name": "raw_scan.npz",
+      "path": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\results\\20261118_000104_442041_live_Q11_historical_point_rabi\\raw_scan.npz",
+      "sha256": "f652f798ca0c04f2d22bf3fa55de266d34b02025b8979114f7c6cee766d2412f",
+      "bytes": 3513562
+    },
+    {
+      "kind": "job",
+      "name": "job.json",
+      "path": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\results\\20261118_000104_442041_live_Q11_historical_point_rabi\\job.json",
+      "sha256": "44b8fe4c5a01f3a36bf8e0d0f574e38e31341748bcf57b693fa810938f5381a4",
+      "bytes": 7589
+    },
+    {
+      "kind": "receipt",
+      "name": "status.json",
+      "path": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\results\\20261118_000104_442041_live_Q11_historical_point_rabi\\status.json",
+      "sha256": "9383024178920655889b25d655172e937fb0a21ccfd0ffc3887f5caf011effe4",
+      "bytes": 4080
+    },
+    {
+      "kind": "analysis",
+      "name": "single_qubit_result.json",
+      "path": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\results\\20261118_000104_442041_live_Q11_historical_point_rabi\\single_qubit_result.json",
+      "sha256": "9cd8290c698cd6294c7dd9d26571b469e888c8c07c877228f22b636b03bc2a31",
+      "bytes": 5003
+    },
+    {
+      "kind": "completion",
+      "name": "measurement_completion_20261118.json",
+      "path": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\measurement_completion_20261118.json",
+      "sha256": "4c2d3e44f6162ba9f8e343e637606dafb041347c7fa3332d2fddf7b5c050bc74",
+      "bytes": 9907
+    }
+  ],
+  "sourceReport": {
+    "path": "D:\\豆包\\量子\\quantum-control-platform\\reports\\Q11_historical_workpoint_exact_recipe_20261118.json",
+    "sha256": "922076135eff2e308710074430d63a55e32e0025d886f79ed8859a37708edd38"
+  },
+  "physicalRouting": {
+    "xyPhysical": [
+      0,
+      0
+    ],
+    "readoutPhysical": [
+      8,
+      0
+    ],
+    "adcPhysical": [
+      0,
+      0
+    ]
+  },
+  "historicalScan": {
+    "start_s": 0,
+    "stop_s": 2.4e-06,
+    "points": 61,
+    "capture_repeats": 2,
+    "shots": 2000,
+    "acquisitions_per_point": 1,
+    "order_seed": 20261117
+  },
+  "meaning": "历史 TimeRabi 参数仅为新任务起点；不复制原始测量为新结果，不继承任何通过状态或校准版本。",
+  "limitations": [
+    "历史 full-X Rabi 本身不证明 X/2 已验证。",
+    "当前为已审计 ArcLight runtime；不宣称与历史全部入口源码完全相同。",
+    "历史独立 IQ 投影不作为本任务参考；本轮结果须按当前流程重新采集和独立验收。"
+  ]
+}
