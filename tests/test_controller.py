@@ -1244,7 +1244,15 @@ class ControllerContracts(unittest.TestCase):
             result['parameters'] = deepcopy(request['parameters'])
             return result
         scoped.execute = actual_context_receipt
+        # This test opts a fake into the physical scope contract. Supply an
+        # explicit offline budget fixture as well; real-adapter admission is
+        # exercised separately with native hardware-free plans.
+        self.adapter.build_plan = lambda request: {'estimated_total_shots': 1}
+        scoped.build_plan = self.adapter.build_plan
+        budget = {'version': 'selection-verification-budget/1', 'selectionShots': 1,
+                  'verificationShotsUpperBound': 1, 'reservation': False}
         with patch.object(self.controller, 'hardware_ownership', return_value={'verified': True, 'owners': []}), \
+             patch.object(self.controller, '_selection_budget', return_value=budget), \
              patch.object(self.adapter, 'validation_parameter_keys', return_value=('readout_hz', 'drive_hz'), create=True), \
              patch.object(self.adapter, 'with_execution_enabled', return_value=scoped, create=True) as factory:
             self.assertTrue(self.controller._execute_node(wf['id'], wf['nodes'][0]['id']))

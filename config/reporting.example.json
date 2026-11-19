@@ -1,0 +1,4 @@
+{
+  "runtimeNodeModules": "C:/path/to/runtime/node_modules",
+  "nodeExecutable": "C:/path/to/node.exe"
+}

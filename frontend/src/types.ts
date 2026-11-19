@@ -37,6 +37,7 @@ export interface WorkingPointCoverage {
 export interface ReadoutRevalidation {
   id: string; state: string; resourceId: string; sourceAttemptId: string;
   optimizerNodeId: string; rabiNodeId: string; origin?: string;
+  validationStatus?: string; withdrawalOperationId?: string; lastFixedAttemptId?: string; endedAt?: string;
   values: { readout_hz: number; readout_amp: number };
   parameterVersions: Record<string, number>;
 }
@@ -53,6 +54,7 @@ export interface ReadoutWithdrawalRequest {
 }
 export interface ExperimentNode {
   id: string;
+  resourceId?: string;
   name: string;
   label: string;
   status: NodeStatus;
@@ -74,6 +76,8 @@ export interface ExperimentNode {
   editableParameterKeys?: string[];
 }
 export interface Workflow {
+  /** Task-scoped handoff authorization; not a live device connection receipt. */
+  hardwareConfirmed?: boolean;
   /** Backend acquisition-attempt timestamps; elapsed includes pauses and model waits. */
   firstAcquisitionAt?: string | null;
   finishedAt?: string | null;
@@ -92,6 +96,7 @@ export interface Workflow {
   maxWorkflowAttempts?: number;
   supplementalAcceptance?: { policyVersion: string; policyHash: string; installedAt: string; reason: string; applicableProcedures: string[] };
   readoutRevalidations?: Record<string, ReadoutRevalidation>;
+  rbDiagnostic?: RbDiagnosticMarker;
   lastReadoutWithdrawal?: ReadoutWithdrawal;
   maxTotalShots?: number;
   reservedShots?: number;
@@ -151,12 +156,14 @@ export interface MeasurementResult {
   selectionResult?: MeasurementResult;
   supplementalQuality?: SupplementalQuality;
   stale?: boolean;
+  partial?: boolean;
+  verificationPending?: boolean;
   dataKind: "historical" | "real";
   sourceRunId?: string; acquiredAt?: string;
   metrics: Record<string, number | null>; units?: Record<string, string>;
   quality: { status: "passed" | "failed" | "unverified"; reasons: string[] };
   artifacts: Artifact[];
-  series?: { name: string; x: number[]; y: number[]; xUnit?: string; yUnit?: string }[];
+  series?: { name: string; x: number[]; y: number[]; xUnit?: string; yUnit?: string; fit?: boolean }[];
   parameters?: Record<string, unknown>; provenance?: unknown; methodLabel?: string;
 }
 export interface Rule {
@@ -165,7 +172,31 @@ export interface Rule {
   policyStatus?: string; publishedAt?: string; sourceSha256?: string;
 }
 export interface Attempt { id: string; nodeId: string; number: number; state: string; startedAt: string; endedAt?: string; parameters: Record<string, unknown>; parameterVersions: Record<string, number>; result?: MeasurementResult; error?: unknown; operationId: string; mode: string; procedureId?: string; }
-export interface Decision { id: string; nodeId: string; attemptId?: string; createdAt: string; source: "rule" | "model" | "operator"; action: string; reason: string; evidenceIds: string[]; ruleId?: string; parameterChanges?: Record<string, unknown>; targetNodeId?: string; invalidatedNodes?: string[]; status?: string; }
+export interface SelectionVerificationBudgetLookahead {
+  version: "selection-verification-budget/1";
+  selectionShots: number; verificationShotsUpperBound: number; jointShots: number; remainingShotsAtCheck: number;
+  verificationBasis: "same_sampling_counts_after_calibration_only" | "arclight_single_setting_same_shots_captures_blocks";
+  reservation: false; candidateKnown: false; actualVerificationPlanRechecked: true;
+}
+export interface RbDiagnosticMarker {
+  id: string; commandOperationId: string; policyVersion: "rb-after-cpmg-diagnostic/1";
+  state: "queued" | "running" | "completed" | "failed" | "interrupted" | "invalidated";
+  sourceNodeId: string; sourceAttemptId: string; targetNodeId: string; attemptId: string | null;
+  sourceProofSha256: string; physicalParameterVersions: Record<string, number>;
+  requestedAt: string; finishedAt?: string; resultStatus?: string; publication: "disabled_diagnostic_only";
+}
+export interface RbDiagnosticInspection {
+  schema: "qcal-rb-diagnostic-inspection/1"; workflowId: string; revision: number;
+  policyVersion: "rb-after-cpmg-diagnostic/1"; eligible: boolean; reasons: { code: string; message: string }[];
+  sourceNodeId?: string; sourceAttemptId?: string; targetNodeId?: string; sourceProofSha256?: string;
+  physicalParameterVersions?: Record<string, number>; budgetLookahead?: SelectionVerificationBudgetLookahead;
+  marker: RbDiagnosticMarker | null;
+}
+export interface RbDiagnosticRequest {
+  action: "queue_rb_diagnostic"; operationId: string; expectedRevision: number; nodeId: string; attemptId: string;
+  policyVersion: "rb-after-cpmg-diagnostic/1"; sourceProofSha256: string;
+}
+export interface Decision { budgetLookahead?: SelectionVerificationBudgetLookahead; id: string; nodeId: string; attemptId?: string; createdAt: string; source: "rule" | "model" | "operator"; action: string; reason: string; evidenceIds: string[]; ruleId?: string; parameterChanges?: Record<string, unknown>; targetNodeId?: string; invalidatedNodes?: string[]; status?: string; }
 export interface NodeDetail { node: ExperimentNode; attempts: Attempt[]; decisions: Decision[]; rules: Rule[]; parameterBounds?: ParameterBounds; parameters?: Record<string, unknown>; }
 export interface Resource { id: string; label: string; engineKey?: string; [key: string]: unknown; }
 export interface AdapterIdentity { id?: string; name?: string }

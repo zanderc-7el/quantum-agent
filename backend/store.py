@@ -11,13 +11,15 @@ import threading
 import time
 
 from .common import ROOT, dumps, now
+from .result_archive import ensure_schema, backfill, record_attempt, SCHEMA_VERSION
 
 sys.path.insert(0, str(ROOT / 'vendor' / 'experience'))
 from quantum_agents.runtime import Runtime, StepSpec, Budget  # noqa: E402
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path, *, root=None):
         self.path = Path(path)
+        self.root = Path(root) if root is not None else self.path.parent.parent
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.changed = threading.Condition(self.lock)
@@ -32,6 +34,10 @@ class Store:
             CREATE TABLE IF NOT EXISTS platform_effects(operation_id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, attempt_id TEXT NOT NULL, state TEXT NOT NULL, request TEXT NOT NULL, result TEXT);
             CREATE TABLE IF NOT EXISTS platform_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
             ''')
+            with rt._transaction():
+                if ensure_schema(rt.db):
+                    backfill(rt.db, self.root)
+                    rt.db.execute('INSERT INTO platform_archive_migrations VALUES(?,?)', (SCHEMA_VERSION, now()))
 
     @contextmanager
     def connect(self):
@@ -85,10 +91,10 @@ class Store:
                 'SELECT payload FROM platform_decisions WHERE workflow_id=? AND node_id=? ORDER BY rowid', (workflow_id, node_id))]
             return attempts, decisions
 
-    @staticmethod
-    def attempt(rt, workflow_id, attempt):
+    def attempt(self, rt, workflow_id, attempt):
         rt.db.execute('INSERT OR REPLACE INTO platform_attempts VALUES(?,?,?,?,?)',
                       (attempt['id'], workflow_id, attempt['nodeId'], attempt['number'], dumps(attempt)))
+        record_attempt(rt.db, workflow_id, attempt, self.root)
 
     @staticmethod
     def decision(rt, workflow_id, decision):

@@ -13,6 +13,45 @@ function fixture() {
   return { records, options, store: createRemoteChatStore(options) };
 }
 const reply = (sessionId = "session-a", message = "实际状态说明"): ChatReply => ({ sessionId, message, status: "ok", model: "model-a" });
+test("new conversation archives the old session and starts without inheriting model context", async () => {
+  const { store, records, options } = fixture();
+  await store.send(scope, "旧问题", async () => reply());
+  const next = store.newConversation(scope);
+  assert.equal(next.messages.length, 0); assert.equal(next.sessionId, undefined);
+  assert.ok(next.generation); assert.ok([...records.keys()].some(key => key.includes(":history:")));
+  const reloaded = createRemoteChatStore(options);
+  assert.equal(reloaded.get(scope).generation, next.generation);
+  let sentSession: string | undefined = "unexpected";
+  await reloaded.send(scope, "新问题", async (_text, session) => { sentSession = session; return reply("new-session"); });
+  assert.equal(sentSession, undefined);
+  assert.ok([...records.entries()].filter(([key]) => key.includes(":history:")).some(([, raw]) => JSON.parse(raw).sessionId === "session-a"));
+});
+test("late success and late failure remain in their archived conversation while new request is running", async () => {
+  for (const fails of [false, true]) {
+    const { store, records } = fixture();
+    let finish!: (reply: ChatReply) => void, reject!: (cause: Error) => void, finishNew!: (reply: ChatReply) => void;
+    const first = store.send(scope, "旧的慢请求", () => new Promise((resolve, fail) => { finish = resolve; reject = fail; }));
+    await Promise.resolve(); store.newConversation(scope);
+    const second = store.send(scope, "新请求", () => new Promise(resolve => { finishNew = resolve; }));
+    await Promise.resolve();
+    if (fails) reject(new Error("old failure")); else finish(reply("old-session", "旧的迟到回复"));
+    await first;
+    assert.deepEqual(store.get(scope).messages.map(item => item.text), ["新请求"]);
+    assert.equal(store.get(scope).pending?.state, "running");
+    finishNew(reply("new-session", "新的回复")); await second;
+    assert.equal(store.get(scope).sessionId, "new-session");
+    const archived = [...records.entries()].find(([key]) => key.includes(":history:"));
+    assert.ok(archived); assert.equal(JSON.parse(archived[1]).messages.length, 2);
+    assert.match(JSON.parse(archived[1]).messages[1].text, fails ? /old failure/ : /旧的迟到回复/);
+  }
+});
+test("new conversation refuses to discard old cache when archive storage is unavailable", async () => {
+  const records = new Map<string,string>(); let fail = false;
+  const store = createRemoteChatStore({ storage: () => ({ getItem: key => records.get(key) ?? null, setItem: (key, value) => { if (fail) throw new Error("disk full"); records.set(key, value); } }) });
+  await store.send(scope, "保留", async () => reply()); fail = true;
+  assert.throws(() => store.newConversation(scope), /旧对话保存失败/);
+  assert.equal(store.get(scope).sessionId, "session-a"); assert.equal(store.get(scope).messages.length, 2);
+});
 test("completed task conversation and session survive renderer reload without workflow state", async () => {
   const { store, records, options } = fixture();
   await store.send(scope, "目前测到哪一步", async () => reply());

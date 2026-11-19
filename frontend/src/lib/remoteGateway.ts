@@ -1,4 +1,4 @@
-import type { AdapterIdentity, AppState, Catalog, CreateWorkflowInput, NodeDetail, Policy, ReadoutWithdrawalRequest, RemoteAction, Workflow } from "../types.ts";
+import type { AdapterIdentity, AppState, Catalog, CreateWorkflowInput, NodeDetail, Policy, ReadoutWithdrawalRequest, RbDiagnosticInspection, RbDiagnosticRequest, RemoteAction, Workflow } from "../types.ts";
 import type { WorkflowGateway } from "./gateway.ts";
 import type { User } from "./auth.ts";
 import type { MembershipModelCatalog, MembershipStatus, SendCodeResult } from "./account.ts";
@@ -8,6 +8,10 @@ import type { BudgetValues } from "./budgetEdit.ts";
 export interface LocalSession { token: string; actor: Omit<User, "username"> & { username?: string }; }
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
 export interface ChatReply { sessionId: string; message: string; status: string; model?: string; decisions?: unknown[]; }
+export interface ReportExportRequest { operationId: string; expectedRevision: number; format: "pptx"; appendixCount: 16 | 64; }
+export interface ReportExportJob { id: string; workflowId: string; revision: number; status: "queued" | "processing" | "completed" | "failed" | "interrupted"; createdAt: string; operationId?: string; appendixCount?: 16 | 64; downloadUrl?: string; error?: { code: string; message: string }; }
+export interface ArchiveStatus { schemaVersion: number; storage: string; location: string; local: { recordCount: number; acquisitionCount: number; attemptCount: number; reportCount: number; latestArchivedAt?: string }; cloud: { configured: boolean; state: string; pendingCount: number; syncedCount: number; message: string }; }
+export interface ArchiveItem { id: string; kind: "acquisition" | "attempt" | "report"; workflowId: string; workflowName?: string; nodeLabel?: string; resourceId?: string; mode?: "real" | "replay"; qualityStatus?: string; role?: string; createdAt: string; acquiredAt?: string; artifactCount: number; revision?: number; }
 export interface Health { status: string; agent: unknown; hardware: unknown; version: string; adapter?: AdapterIdentity; capabilities?: unknown; projectId?: string; projectRoot?: string; }
 export class ApiError extends Error {
   status: number;
@@ -23,12 +27,19 @@ export interface RemoteGateway extends WorkflowGateway {
   node(id: string, nodeId: string): Promise<NodeDetail>;
   liveSeries(id: string, nodeId: string, after: number, operationId: string | null, signal?: AbortSignal): Promise<LiveSeriesPage>;
   report(id: string): Promise<unknown>;
-  chat(message: string, workflowId?: string, sessionId?: string): Promise<ChatReply>;
+  createReportExport(id: string, request: ReportExportRequest): Promise<ReportExportJob>;
+  reportExport(id: string): Promise<ReportExportJob>;
+  reportExports(workflowId: string): Promise<ReportExportJob[]>;
+  archiveStatus(): Promise<ArchiveStatus>;
+  archiveList(workflowId?: string): Promise<{ items: ArchiveItem[]; nextCursor?: string }>;
+  chat(message: string, workflowId?: string, sessionId?: string, nodeId?: string): Promise<ChatReply>;
   command(id: string, action: RemoteAction, targetNodeId?: string): Promise<Workflow>;
   parameters(id: string, nodeId: string, expectedRevision: number, parameters: Record<string, number>): Promise<Workflow>;
   budget(id: string, expectedRevision: number, budget: BudgetValues, reason: string): Promise<Workflow>;
   supplementalAcceptance(id: string, expectedRevision: number, reason: string): Promise<Workflow>;
   readoutWithdrawal(id: string, request: ReadoutWithdrawalRequest): Promise<Workflow>;
+  rbDiagnosticInspection(id: string): Promise<RbDiagnosticInspection>;
+  queueRbDiagnostic(id: string, request: RbDiagnosticRequest): Promise<Workflow>;
   connection(listener: (state: ConnectionState) => void): () => void;
   accountStatus(): Promise<MembershipStatus>;
   accountModels(): Promise<MembershipModelCatalog>;
@@ -138,6 +149,15 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
       const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/supplemental-acceptance`, "POST", { operationId: crypto.randomUUID(), expectedRevision, policyVersion: "capture-consistency/1", reason });
       acceptWorkflow(value); return value;
     },
+    rbDiagnosticInspection: id => read<RbDiagnosticInspection>(`/workflows/${encodeURIComponent(id)}/rb-diagnostic`),
+    async queueRbDiagnostic(id, request) {
+      const { operationId, expectedRevision, nodeId, attemptId, policyVersion, sourceProofSha256 } = request;
+      const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/actions`, "POST", {
+        action: "queue_rb_diagnostic", operationId, expectedRevision, nodeId, attemptId, policyVersion, sourceProofSha256,
+      });
+      if (value.id !== id) throw new ApiError("工作流回执不匹配，请刷新状态核对。", 502);
+      acceptWorkflow(value); return value;
+    },
     async readoutWithdrawal(id, request) {
       const { operationId, expectedRevision, revalidationId, sourceAttemptId, reason } = request;
       const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/readout-withdrawal`, "POST", { operationId, expectedRevision, revalidationId, sourceAttemptId, reason });
@@ -169,7 +189,12 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
       return read<LiveSeriesPage>(`/workflows/${encodeURIComponent(id)}/nodes/${encodeURIComponent(nodeId)}/live-series?${query}`, { signal });
     },
     report: id => read<unknown>(`/workflows/${encodeURIComponent(id)}/report`),
-    chat: (message, workflowId, sessionId) => write<ChatReply>("/chat", "POST", { message, workflowId, sessionId }),
+    createReportExport: (id, request) => write<ReportExportJob>(`/workflows/${encodeURIComponent(id)}/report-exports`, "POST", request),
+    reportExport: id => read<ReportExportJob>(`/report-exports/${encodeURIComponent(id)}`),
+    reportExports: id => read<ReportExportJob[]>(`/workflows/${encodeURIComponent(id)}/report-exports`),
+    archiveStatus: () => read<ArchiveStatus>("/archive/status"),
+    archiveList: workflowId => read<{ items: ArchiveItem[]; nextCursor?: string }>(`/archive?limit=30${workflowId ? `&workflowId=${encodeURIComponent(workflowId)}` : ""}`),
+    chat: (message, workflowId, sessionId, nodeId) => write<ChatReply>("/chat", "POST", { message, workflowId, sessionId, ...(nodeId ? { nodeId } : {}) }),
   };
 }
 

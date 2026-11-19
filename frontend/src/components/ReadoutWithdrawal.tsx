@@ -18,15 +18,43 @@ export function ReadoutWithdrawalForm({ marker, reason, busy, locked, error, onR
   </form>;
 }
 
-export function ReadoutWithdrawalReceipt({ receipt }: { receipt: Receipt }) {
+/** Presentation only: never promote the immutable withdrawal receipt itself. */
+export function verifiedRestoredReadout(workflow: Workflow | undefined, receipt: Receipt): ReadoutRevalidation | undefined {
+  if (workflow?.mode !== 'real' || receipt.source !== 'operator_withdrawal') return;
+  const markers = Object.entries(workflow.readoutRevalidations ?? {}).filter(([resourceId, marker]) =>
+    resourceId === marker.resourceId && marker.id === receipt.revalidationId
+    && marker.withdrawalOperationId === receipt.operationId && marker.origin === 'operator_withdrawal');
+  if (markers.length !== 1) return;
+  const marker = markers[0][1];
+  if (marker.state !== 'completed' || marker.validationStatus !== 'verified' || !marker.lastFixedAttemptId
+      || !marker.endedAt || !Number.isFinite(Date.parse(marker.endedAt))) return;
+  const nodes = workflow.nodes.filter(node => node.id === marker.optimizerNodeId);
+  if (nodes.length !== 1) return;
+  const node = nodes[0], result = node.result;
+  if (node.resourceId !== marker.resourceId || node.procedureId !== 'ro_optimize' || node.engineState !== 'verified' || node.status !== 'success'
+      || node.latestAttemptId !== marker.lastFixedAttemptId || result?.dataKind !== 'real'
+      || result.stale || result.quality.status !== 'passed') return;
+  for (const key of ['readout_hz', 'readout_amp'] as const) {
+    const value = marker.values[key], version = marker.parameterVersions[key];
+    if (!Number.isFinite(value) || !Number.isInteger(version) || version < 0
+        || receipt.after.values[key] !== value || receipt.after.parameterVersions[key] !== version
+        || node.parameters?.[key] !== value || node.parameterVersions?.[key] !== version
+        || result.parameters?.[key] !== value) return;
+  }
+  return marker;
+}
+
+export function ReadoutWithdrawalReceipt({ receipt, workflow }: { receipt: Receipt; workflow?: Workflow }) {
   const format = (value: number | undefined) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 12 }) : '未记录';
+  const verified = verifiedRestoredReadout(workflow, receipt);
   return <details className="rp-readout-receipt" open><summary>最近一次读出候选撤回</summary>
-    <p>撤回记录的验收状态：{receipt.validationStatus === 'unverified' ? '未重新验证（unverified）' : `待核对（${receipt.validationStatus}）`}。当前测量进展见蓝图。</p>
+    <p>撤回当时状态：{receipt.validationStatus === 'unverified' ? '未重新验证（unverified）' : `待核对（${receipt.validationStatus}）`}。这是保留的历史回执。</p>
+    {verified && <div className="rp-info" aria-label="恢复基准后的读出复验状态"><p>恢复基准后的读出独立复验：已通过诊断验收。</p><p>当前读出优化节点、参数及版本与该次恢复记录一致。</p><small>复验来源：{verified.lastFixedAttemptId} · 完成于 {new Date(verified.endedAt!).toLocaleString('zh-CN')}</small></div>}
     <table><thead><tr><th>参数</th><th>撤回前 / 版本</th><th>恢复基准 / 新版本</th></tr></thead><tbody>
       {([['readout_hz', '读出频率（Hz）'], ['readout_amp', '读出幅度（a.u.）']] as const).map(([key, label]) => <tr key={key}><th>{label}</th><td>{format(receipt.before.values[key])} / v{receipt.before.parameterVersions[key] ?? '未记录'}</td><td>{format(receipt.after.values[key])} / v{receipt.after.parameterVersions[key] ?? '未记录'}</td></tr>)}
     </tbody></table>
     <p className="rp-readout-source">候选来源：{receipt.sourceEvidence.optimizerAttemptId}<br />原 IQ 验收来源：{receipt.sourceEvidence.baselineIqAttemptId}</p>
-    <p>待复测节点：{receipt.invalidatedNodes.length} 项。原因：{receipt.reason}</p>
+    <p>撤回当时标记待复测节点：{receipt.invalidatedNodes.length} 项。原因：{receipt.reason}</p>
     <small>{receipt.createdAt} · {receipt.ruleVersion}</small>
   </details>;
 }
@@ -63,6 +91,6 @@ export default function ReadoutWithdrawal({ workflow, gateway }: { workflow: Wor
     {!draft && candidates.map(marker => <button className="secondary rp-budget-edit-button" key={marker.id} onClick={() => begin(marker)}>撤回读出候选并重新验证{candidates.length > 1 ? ` · ${marker.resourceId}` : ''}</button>)}
     {draft && !saved && <ReadoutWithdrawalForm marker={draft.marker} reason={reason} busy={busy} locked={!!pending.current} error={error} onReason={setReason} onCancel={() => { setDraft(undefined); pending.current = undefined; }} onSubmit={() => void save()} />}
     {message && <p role="status">{message}</p>}
-    {receipt && <ReadoutWithdrawalReceipt receipt={receipt} />}
+    {receipt && <ReadoutWithdrawalReceipt receipt={receipt} workflow={workflow} />}
   </section>;
 }

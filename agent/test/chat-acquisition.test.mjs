@@ -17,6 +17,10 @@ test('chat recorder receives stage and point semantics; measure and proposal too
   const store=new Store(':memory:');const captured=[];
   const outputs=[{type:'tool_call',tool:'measure',arguments:{}},
     {type:'tool_call',tool:'validate_proposal',arguments:{decision:{action:'retry'}}},
+    {type:'tool_call',tool:'audit_reader_text',arguments:{readerDecision:'Decide if verification has completed',
+      claims:[{claim:'verification in progress',evidenceIds:['same-attempt'],scope:'snapshot 8653',limitation:'No completion receipt'}],
+      sentences:[{text:'OFFLINE fixture: snapshot 8653, verification 245/915. No measurement started.',function:'evidence',consumer:'operator',decision:'wait for completion',ifRemoved:'snapshot scope is lost',action:'KEEP',revision:'OFFLINE fixture: snapshot 8653, verification 245/915. No measurement started.'}],
+      retainedLimitations:['Snapshot only'],unresolvedQuestions:[]}},
     {type:'final',content:'OFFLINE fixture: snapshot 8653, verification 245/915. No measurement started.'}];
   try{
     const brain=new Brain(cfg,store,async(_config,messages)=>{
@@ -28,7 +32,7 @@ test('chat recorder receives stage and point semantics; measure and proposal too
     for(const term of ['聊天是只读解释','snapshotAt/workflowRevision','frequencyPoints','totalScanPoints',
       '一个 attempt 可以合法包含不同 /measure 与 /verify operation','telemetry.analysisAccepted'])assert.ok(system.includes(term),term);
     assert.deepEqual(JSON.parse(captured[0].at(-1).content).context,context);
-    const errors=store.events(result.sessionId).filter(e=>e.event_type==='runtime_tool_result').map(e=>e.payload.result.error);
+    const errors=store.events(result.sessionId).filter(e=>e.event_type==='runtime_tool_result'&&!e.payload.result.ok).map(e=>e.payload.result.error);
     assert.deepEqual(errors,['tool_not_allowed','proposal_only_in_decide']);
     assert.ok(!store.events(result.sessionId).some(e=>e.event_type==='decision_proposed'));
     assert.deepEqual(JSON.parse(store.history(result.sessionId)[0].content).context,context);

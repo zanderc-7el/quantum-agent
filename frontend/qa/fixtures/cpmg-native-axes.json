@@ -1,0 +1,337 @@
+{
+  "schema": "cpmg-live-axis-inspection/1",
+  "status": "offline_readonly_contract",
+  "profileId": "arclight-private-f8-q11-v2",
+  "manifestSha256": "1531ee2cd78774e6c6a5e089be54c3f35a98d8c0fdf03aa0547169106527a322",
+  "sourceChecks": [
+    {
+      "path": "adapters/arclight_runtime/platform_specs.py",
+      "sha256": "9d5eb637bfce0690b52830951b79b813ffcebd1d09eaf58c6ca024d2fc798c09",
+      "manifestMatch": true
+    },
+    {
+      "path": "adapters/arclight_runtime/native_single_qubit_specs.py",
+      "sha256": "a289290f7c7d651d81d857bc3d356a6cf5ec48ccf5a6b3eaf15510bd6e9f8367",
+      "manifestMatch": true
+    },
+    {
+      "path": "adapters/arclight_runtime/analyze_single_qubit.py",
+      "sha256": "41b5142c7f3d3b885f1dd8edce70bc29da61dff798ae3a7f85774ebf2f9de329",
+      "manifestMatch": true
+    },
+    {
+      "path": "adapters/arclight_runtime/run_single_qubit.py",
+      "sha256": "483d35d7efaffef9e5353827dcdc1c342702d1e3da5b32f2481a930bbaaa982a",
+      "manifestMatch": true
+    },
+    {
+      "path": "adapters/arclight_runtime/work/server/core/experiment/utils.py",
+      "sha256": "0565308a38fd4703ce13d9c1142449e758b81268babdf0829fc389c530356743",
+      "manifestMatch": true
+    }
+  ],
+  "adapterSha256": "8c82b670148893be09ed497f03178be49ae9225343d3781d105be643d5342a09",
+  "profileSha256": "2a77d880ac6cfa5fdc93115653faffbd8e6a7d58311a7f6da1e34f6deb033f14",
+  "frontendSha256": "64203485a695a75f1d75527f1dae0a5242aeca405a2fbcfdb42b43663dbf76b8",
+  "examples": [
+    {
+      "synthetic": true,
+      "notMeasurementEvidence": true,
+      "pi_pulses": 1,
+      "jobName": "OFFLINE_CONTRACT_N1",
+      "axes": [
+        {
+          "exp.cir.main.wait_a.params": 0.0,
+          "exp.cir.main.wait_0.params": 0.0
+        },
+        {
+          "exp.cir.main.wait_a.params": 1e-06,
+          "exp.cir.main.wait_0.params": 1e-06
+        },
+        {
+          "exp.cir.main.wait_a.params": 2e-06,
+          "exp.cir.main.wait_0.params": 2e-06
+        },
+        {
+          "exp.cir.main.wait_a.params": 3e-06,
+          "exp.cir.main.wait_0.params": 3e-06
+        },
+        {
+          "exp.cir.main.wait_a.params": 4e-06,
+          "exp.cir.main.wait_0.params": 4e-06
+        }
+      ],
+      "axisKey": "exp.cir.main.wait_a.params",
+      "totalDelayMultiplier": 2,
+      "meta": {
+        "name": "CPMG_native_circuit",
+        "type": "1",
+        "qubit": 1,
+        "shots": 128,
+        "readout_mode": "IQ",
+        "sync": "CeyearStationF8",
+        "group": "agent_f8",
+        "expand_mode": "zip",
+        "time_to_read": 0.08,
+        "batch_size": 1,
+        "total_delays_s": [
+          0.0,
+          2e-06,
+          4e-06,
+          6e-06,
+          8e-06
+        ],
+        "pi_pulses": 1,
+        "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+      }
+    },
+    {
+      "synthetic": true,
+      "notMeasurementEvidence": true,
+      "pi_pulses": 2,
+      "jobName": "OFFLINE_CONTRACT_N2",
+      "axes": [
+        {
+          "exp.cir.main.wait_a.params": 0.0,
+          "exp.cir.main.wait_0.params": 0.0,
+          "exp.cir.main.wait_1.params": 0.0
+        },
+        {
+          "exp.cir.main.wait_a.params": 5e-07,
+          "exp.cir.main.wait_0.params": 1e-06,
+          "exp.cir.main.wait_1.params": 5e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 1e-06,
+          "exp.cir.main.wait_0.params": 2e-06,
+          "exp.cir.main.wait_1.params": 1e-06
+        },
+        {
+          "exp.cir.main.wait_a.params": 1.5e-06,
+          "exp.cir.main.wait_0.params": 3e-06,
+          "exp.cir.main.wait_1.params": 1.5e-06
+        },
+        {
+          "exp.cir.main.wait_a.params": 2e-06,
+          "exp.cir.main.wait_0.params": 4e-06,
+          "exp.cir.main.wait_1.params": 2e-06
+        }
+      ],
+      "axisKey": "exp.cir.main.wait_a.params",
+      "totalDelayMultiplier": 4,
+      "meta": {
+        "name": "CPMG_native_circuit",
+        "type": "1",
+        "qubit": 1,
+        "shots": 128,
+        "readout_mode": "IQ",
+        "sync": "CeyearStationF8",
+        "group": "agent_f8",
+        "expand_mode": "zip",
+        "time_to_read": 0.08,
+        "batch_size": 1,
+        "total_delays_s": [
+          0.0,
+          2e-06,
+          4e-06,
+          6e-06,
+          8e-06
+        ],
+        "pi_pulses": 2,
+        "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+      }
+    },
+    {
+      "synthetic": true,
+      "notMeasurementEvidence": true,
+      "pi_pulses": 4,
+      "jobName": "OFFLINE_CONTRACT_N4",
+      "axes": [
+        {
+          "exp.cir.main.wait_a.params": 0.0,
+          "exp.cir.main.wait_0.params": 0.0,
+          "exp.cir.main.wait_1.params": 0.0,
+          "exp.cir.main.wait_2.params": 0.0,
+          "exp.cir.main.wait_3.params": 0.0
+        },
+        {
+          "exp.cir.main.wait_a.params": 2.5e-07,
+          "exp.cir.main.wait_0.params": 5e-07,
+          "exp.cir.main.wait_1.params": 5e-07,
+          "exp.cir.main.wait_2.params": 5e-07,
+          "exp.cir.main.wait_3.params": 2.5e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 5e-07,
+          "exp.cir.main.wait_0.params": 1e-06,
+          "exp.cir.main.wait_1.params": 1e-06,
+          "exp.cir.main.wait_2.params": 1e-06,
+          "exp.cir.main.wait_3.params": 5e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 7.5e-07,
+          "exp.cir.main.wait_0.params": 1.5e-06,
+          "exp.cir.main.wait_1.params": 1.5e-06,
+          "exp.cir.main.wait_2.params": 1.5e-06,
+          "exp.cir.main.wait_3.params": 7.5e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 1e-06,
+          "exp.cir.main.wait_0.params": 2e-06,
+          "exp.cir.main.wait_1.params": 2e-06,
+          "exp.cir.main.wait_2.params": 2e-06,
+          "exp.cir.main.wait_3.params": 1e-06
+        }
+      ],
+      "axisKey": "exp.cir.main.wait_a.params",
+      "totalDelayMultiplier": 8,
+      "meta": {
+        "name": "CPMG_native_circuit",
+        "type": "1",
+        "qubit": 1,
+        "shots": 128,
+        "readout_mode": "IQ",
+        "sync": "CeyearStationF8",
+        "group": "agent_f8",
+        "expand_mode": "zip",
+        "time_to_read": 0.08,
+        "batch_size": 1,
+        "total_delays_s": [
+          0.0,
+          2e-06,
+          4e-06,
+          6e-06,
+          8e-06
+        ],
+        "pi_pulses": 4,
+        "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+      }
+    },
+    {
+      "synthetic": true,
+      "notMeasurementEvidence": true,
+      "pi_pulses": 16,
+      "jobName": "OFFLINE_CONTRACT_N16",
+      "axes": [
+        {
+          "exp.cir.main.wait_a.params": 0.0,
+          "exp.cir.main.wait_0.params": 0.0,
+          "exp.cir.main.wait_1.params": 0.0,
+          "exp.cir.main.wait_2.params": 0.0,
+          "exp.cir.main.wait_3.params": 0.0,
+          "exp.cir.main.wait_4.params": 0.0,
+          "exp.cir.main.wait_5.params": 0.0,
+          "exp.cir.main.wait_6.params": 0.0,
+          "exp.cir.main.wait_7.params": 0.0,
+          "exp.cir.main.wait_8.params": 0.0,
+          "exp.cir.main.wait_9.params": 0.0,
+          "exp.cir.main.wait_10.params": 0.0,
+          "exp.cir.main.wait_11.params": 0.0,
+          "exp.cir.main.wait_12.params": 0.0,
+          "exp.cir.main.wait_13.params": 0.0,
+          "exp.cir.main.wait_14.params": 0.0,
+          "exp.cir.main.wait_15.params": 0.0
+        },
+        {
+          "exp.cir.main.wait_a.params": 6.25e-08,
+          "exp.cir.main.wait_0.params": 1.25e-07,
+          "exp.cir.main.wait_1.params": 1.25e-07,
+          "exp.cir.main.wait_2.params": 1.25e-07,
+          "exp.cir.main.wait_3.params": 1.25e-07,
+          "exp.cir.main.wait_4.params": 1.25e-07,
+          "exp.cir.main.wait_5.params": 1.25e-07,
+          "exp.cir.main.wait_6.params": 1.25e-07,
+          "exp.cir.main.wait_7.params": 1.25e-07,
+          "exp.cir.main.wait_8.params": 1.25e-07,
+          "exp.cir.main.wait_9.params": 1.25e-07,
+          "exp.cir.main.wait_10.params": 1.25e-07,
+          "exp.cir.main.wait_11.params": 1.25e-07,
+          "exp.cir.main.wait_12.params": 1.25e-07,
+          "exp.cir.main.wait_13.params": 1.25e-07,
+          "exp.cir.main.wait_14.params": 1.25e-07,
+          "exp.cir.main.wait_15.params": 6.25e-08
+        },
+        {
+          "exp.cir.main.wait_a.params": 1.25e-07,
+          "exp.cir.main.wait_0.params": 2.5e-07,
+          "exp.cir.main.wait_1.params": 2.5e-07,
+          "exp.cir.main.wait_2.params": 2.5e-07,
+          "exp.cir.main.wait_3.params": 2.5e-07,
+          "exp.cir.main.wait_4.params": 2.5e-07,
+          "exp.cir.main.wait_5.params": 2.5e-07,
+          "exp.cir.main.wait_6.params": 2.5e-07,
+          "exp.cir.main.wait_7.params": 2.5e-07,
+          "exp.cir.main.wait_8.params": 2.5e-07,
+          "exp.cir.main.wait_9.params": 2.5e-07,
+          "exp.cir.main.wait_10.params": 2.5e-07,
+          "exp.cir.main.wait_11.params": 2.5e-07,
+          "exp.cir.main.wait_12.params": 2.5e-07,
+          "exp.cir.main.wait_13.params": 2.5e-07,
+          "exp.cir.main.wait_14.params": 2.5e-07,
+          "exp.cir.main.wait_15.params": 1.25e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 1.875e-07,
+          "exp.cir.main.wait_0.params": 3.75e-07,
+          "exp.cir.main.wait_1.params": 3.75e-07,
+          "exp.cir.main.wait_2.params": 3.75e-07,
+          "exp.cir.main.wait_3.params": 3.75e-07,
+          "exp.cir.main.wait_4.params": 3.75e-07,
+          "exp.cir.main.wait_5.params": 3.75e-07,
+          "exp.cir.main.wait_6.params": 3.75e-07,
+          "exp.cir.main.wait_7.params": 3.75e-07,
+          "exp.cir.main.wait_8.params": 3.75e-07,
+          "exp.cir.main.wait_9.params": 3.75e-07,
+          "exp.cir.main.wait_10.params": 3.75e-07,
+          "exp.cir.main.wait_11.params": 3.75e-07,
+          "exp.cir.main.wait_12.params": 3.75e-07,
+          "exp.cir.main.wait_13.params": 3.75e-07,
+          "exp.cir.main.wait_14.params": 3.75e-07,
+          "exp.cir.main.wait_15.params": 1.875e-07
+        },
+        {
+          "exp.cir.main.wait_a.params": 2.5e-07,
+          "exp.cir.main.wait_0.params": 5e-07,
+          "exp.cir.main.wait_1.params": 5e-07,
+          "exp.cir.main.wait_2.params": 5e-07,
+          "exp.cir.main.wait_3.params": 5e-07,
+          "exp.cir.main.wait_4.params": 5e-07,
+          "exp.cir.main.wait_5.params": 5e-07,
+          "exp.cir.main.wait_6.params": 5e-07,
+          "exp.cir.main.wait_7.params": 5e-07,
+          "exp.cir.main.wait_8.params": 5e-07,
+          "exp.cir.main.wait_9.params": 5e-07,
+          "exp.cir.main.wait_10.params": 5e-07,
+          "exp.cir.main.wait_11.params": 5e-07,
+          "exp.cir.main.wait_12.params": 5e-07,
+          "exp.cir.main.wait_13.params": 5e-07,
+          "exp.cir.main.wait_14.params": 5e-07,
+          "exp.cir.main.wait_15.params": 2.5e-07
+        }
+      ],
+      "axisKey": "exp.cir.main.wait_a.params",
+      "totalDelayMultiplier": 32,
+      "meta": {
+        "name": "CPMG_native_circuit",
+        "type": "1",
+        "qubit": 1,
+        "shots": 128,
+        "readout_mode": "IQ",
+        "sync": "CeyearStationF8",
+        "group": "agent_f8",
+        "expand_mode": "zip",
+        "time_to_read": 0.08,
+        "batch_size": 1,
+        "total_delays_s": [
+          0.0,
+          2e-06,
+          4e-06,
+          6e-06,
+          8e-06
+        ],
+        "pi_pulses": 16,
+        "pulse_compatibility": "f8_validated_short_half_dc_buff2ns_v1"
+      }
+    }
+  ]
+}

@@ -1,10 +1,17 @@
 # 量子测控智能体平台 · Windows 桌面源码
 
-这是 2026-11-18 的完整平台源码快照，包含 React 前端、Electron 桌面端、Python 实验控制器、Ziyor 模型服务、ArcLight/F8 适配器及 15 步经验方法库。两个仓库同步相同源码；`SOURCE_EXPORT.json` 记录文件校验值和导出范围。
+这是 2026-11-19 的完整平台源码快照，包含 React 前端、Electron 桌面端、Python 实验控制器、Ziyor 模型服务、ArcLight/F8 适配器及 15 步经验方法库。两个仓库同步相同源码；`SOURCE_EXPORT.json` 记录文件校验值和导出范围。
 
-Python 控制器是唯一实验状态源。会员模型提出受约束的方案，控制器检查前置条件、参数、预算、资源占用和质量规则后执行。已接入单比特读出、定频、幅度/时间 Rabi、IQ、读出优化、T1、AllXY、Ramsey、Echo、CPMG 和 RB。部分方法已做 Q11 真机验证；这不表示完整单比特链或目标门保真度已通过。实时实验状态以运行任务的本地数据库为准。
+Python 控制器是唯一实验状态源。会员模型提出受约束的方案，控制器检查前置条件、参数、预算、资源占用和质量规则后执行。已接入单比特读出、定频、幅度/时间 Rabi、IQ、读出优化、T1、AllXY、Ramsey、Echo、CPMG 和 RB。实时实验状态与现场验收以运行任务的本地数据库及独立复测记录为准。
 
 源码不含本机 EXE、登录态、原始采集、数据库、日志或阶段 PPT。启动软件不会自动下发测量。
+
+## 本次源码更新
+
+- 蓝图提供当前实验浮动聊天，带入任务及所选节点；支持最小化、新对话和刷新后恢复。
+- 本地归档按任务保留采集、尝试和报告记录，通过登记编号及 SHA256 关联文件；备份时需同时保留数据库与相关数据目录。
+- 桌面可从当前任务快照导出 PPT，重复请求沿用同一导出任务，完成后下载并登记到本地归档。导出使用下述本地运行库配置。
+- 增加受条件约束的 RB 诊断入口，以及候选采集和独立复测的联合 shots 预算预检；保留原生分析、冻结门槛和独立验证流程。
 
 ## 环境与启动
 
@@ -61,7 +68,9 @@ python -m unittest discover -s tests -p "test_*.py"
 
 运行状态与采集结果写入本地 `data/`。刷新或重新打开界面仍使用同一任务。暂停/终止通过任务控制执行，关闭窗口不会结束后台实验；`stop-platform.cmd` 只请求 API 在无活动采集/决策/待核查回执时关闭。
 
-PPT 工具位于 `scripts/export_report_snapshot.py`、`scripts/export_report_pptx.mjs` 和 `scripts/finalize_report_pptx.mjs`，红色模板已包含。详见 `scripts/report_assets/EXPORT_USAGE.txt`。导出需要本地真实数据、登记图像及 presentation artifact 运行库（`RUNTIME_NODE_MODULES` 提供）；外部工具库未随源码打包。界面同时提供 HTML/JSON 报告。
+桌面 PPT 导出使用 `backend/report_exports.py`、`scripts/export_reader_pptx.mjs` 和 `scripts/validate_reader_pptx.py`；红色模板已包含。将 `config/reporting.example.json` 复制为 `config/reporting.local.json`，按本机安装位置填写 `runtimeNodeModules` 和 `nodeExecutable`。其中模块目录必须包含 `@oai/artifact-tool/dist/artifact_tool.mjs`；也可用 `RUNTIME_NODE_MODULES` 提供模块目录。Artifact Tool 外部运行库未随源码打包，需先在本机安装可用版本。生成依赖现有任务快照与已登记图像，导出记录保存在 `data/report_exports/`。
+
+旧离线 PPT 工具仍位于 `scripts/export_report_snapshot.py`、`scripts/export_report_pptx.mjs` 和 `scripts/finalize_report_pptx.mjs`，用法见 `scripts/report_assets/EXPORT_USAGE.txt`。界面同时提供 HTML/JSON 报告。
 
 ## 目录与来源
 

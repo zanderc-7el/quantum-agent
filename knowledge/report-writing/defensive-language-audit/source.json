@@ -1,0 +1,10 @@
+{
+  "sourcePath": "C:\\Users\\o\\Downloads\\defensive-language-audit.skill.zip",
+  "sourceSha256": "d0230b9a90c41548640ba0aab67cdf3f14520806eca114473e0be871c293d3fb",
+  "policyVersion": "defensive-language-audit/report-reader-v1",
+  "files": {
+    "SKILL.md": "6702d85c4f32463fedb25041d32268802c886fbad683398cfbde7aeb3b4aff39",
+    "references\\prompt-template.md": "30cbe61d23bdb060487187cb861b8cff613d2a9e3e362c6a83b000ac5b355a7c",
+    "references\\research-basis.md": "b25dead8164640526245f717a298549173ad71664a966dfff7072d0992f75b1a"
+  }
+}

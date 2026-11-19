@@ -16,6 +16,12 @@ import urllib.request
 from .common import APIError, ROOT, checked_path, digest, dumps, file_hash, ident, now, number
 from .chat_acquisition_context import read_chat_snapshot, acquisition_context, bound_chat_observations
 from .curve_context import attach_curve_summary
+from .capture_diagnostics import (PROCEDURES as CAPTURE_DIAGNOSTIC_PROCEDURES,
+                                  resolve_sources, calculate_diagnostics, attach_diagnostics)
+from .acquisition_budget import verification_probe, selection_lookahead, verify_admission, sampling_context
+from .backtrack_admission import admit_backtrack, eligible_backtracks
+from .accepted_upstream_context import resolve_accepted_upstream, attach_accepted_upstream
+from .rb_diagnostic import build_proof as rb_diagnostic_proof, VERSION as RB_DIAGNOSTIC_VERSION, require as rb_require
 from .model_input_projection import project_model_input, MAX_INPUT_UNITS as MODEL_INPUT_MAX_UNITS
 from .readout_withdrawal import restoration_source, VERSION as READOUT_WITHDRAWAL_VERSION, READOUT_KEYS
 from .catalog import Catalog, VERSION, PARAMETERS, WORKING_POINT_VERSION, WORKING_POINT_OMITTED
@@ -27,6 +33,7 @@ from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, MAX_CASES
                                     audited_bindings, eligible_header, project_failure_case, bounded_context, attach_prior_context,
                                     javascript_json_units_upper_bound)
 from .store import Store, StepSpec, Budget
+from .result_archive import ResultArchive, record_effect
 from .experience import ExperienceLedger
 
 TERMINAL = {'completed', 'failed', 'aborted'}
@@ -63,7 +70,8 @@ def configured_adapter(root):
 class Controller:
     def __init__(self, root=ROOT, *, adapter=None, db_path=None, start_worker=True, brain_url='http://127.0.0.1:8766'):
         self.root = Path(root)
-        self.store = Store(db_path or self.root / 'data' / 'platform.sqlite')
+        self.store = Store(db_path or self.root / 'data' / 'platform.sqlite', root=self.root)
+        self.archive = ResultArchive(self.store, self.root)
         self.catalog = Catalog(self.root)
         self.brain_url = brain_url
         self.stop_event = threading.Event()
@@ -137,6 +145,20 @@ class Controller:
     def _recover_interrupted(self):
         with self.store.transaction() as rt:
             for wf in self.store.workflows(rt):
+                diagnostic = wf.get('rbDiagnostic') or {}
+                if diagnostic.get('state') in ('queued', 'running'):
+                    diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
+                    wf['workflowComplete'] = False
+                    if wf['status'] == 'queued':
+                        wf.update(status='paused', engineState='paused')
+                        self.store.save(rt, wf, 'rb_diagnostic_interrupted', {'message': '服务重启：单次诊断许可已关闭，未自动重发'})
+                        continue
+                    if wf['status'] != 'running':
+                        # Preflight/ownership/reconciliation may have put the
+                        # run in attention while its one-shot permit was open.
+                        # Persist closure without clearing existing quarantine.
+                        self.store.save(rt, wf, 'rb_diagnostic_interrupted', {'message': '服务重启：关闭未结束的单次诊断许可，保留原停机及隔离状态'})
+                        continue
                 if wf['status'] != 'running':
                     continue
                 if wf['mode'] == 'replay':
@@ -309,6 +331,140 @@ class Controller:
                 raise APIError('STALE_ATTEMPT', '该操作对应的尝试已不是当前尝试', 409)
         return None, request_hash
 
+    def _rb_diagnostic_proof(self, rt, wf):
+        self._assert_adapter_binding(wf)
+        self._assert_supplemental_snapshot(wf)
+        target = next((n for n in wf['nodes'] if n['procedureId'] == 'sq_rb'), None)
+        rb_require(target is not None, 'RB_DIAGNOSTIC_SCOPE', '任务没有原登记RB节点')
+        parameters, versions = self._parameters(rt, wf, target)
+        kind = type(self.adapter)
+        proof = rb_diagnostic_proof(self.root, rt.db, wf, parameters, versions,
+            implementation_id=kind.__module__ + '.' + kind.__qualname__)
+        return proof, target, parameters, versions
+
+    def _rb_diagnostic_admission(self, rt, wf):
+        rb_require(wf['status'] in ('paused', 'attention') and wf.get('engineState') not in ('deciding', 'decision_queued')
+                   and not wf.get('cancelRequested'), 'RB_DIAGNOSTIC_CHECKPOINT', '请在无活动采集和决策的检查点准备RB诊断')
+        group = self.profile.get('instrument', {}).get('resourceGroup', 'CY8_SHARED_BUS1')
+        rb_require(not rt.db.execute('SELECT 1 FROM platform_leases WHERE workflow_id=? OR resource=?', (wf['id'], group)).fetchone()
+                   and not rt.db.execute("SELECT 1 FROM platform_effects WHERE state IN ('pending','unknown')").fetchone(),
+                   'RECONCILIATION_REQUIRED', '采集占用或未知回执尚未清空')
+        old = wf.get('rbDiagnostic') or {}
+        rb_require(old.get('state') not in ('queued', 'running'), 'RB_DIAGNOSTIC_ACTIVE', '已有单次RB诊断许可')
+        proof, target, parameters, versions = self._rb_diagnostic_proof(rt, wf)
+        rb_require(target.get('engineState') != 'verified', 'RB_DIAGNOSTIC_ALREADY_VERIFIED', '当前RB已经独立验证，不重复创建诊断许可')
+        admit_backtrack(wf, target)
+        budget = self._validate_plan(wf, target, parameters, versions, 'rb-diagnostic-inspection', joint_budget=True, rt=rt)
+        return proof, budget
+
+    def inspect_rb_diagnostic(self, workflow_id):
+        with read_chat_snapshot(self.store.path) as db:
+            rt = types.SimpleNamespace(db=db, get_parameters=lambda: {
+                r['name']: {'value': json.loads(r['value']), 'revision': r['revision']}
+                for r in db.execute('SELECT * FROM parameters')})
+            wf = self.get(workflow_id, rt)
+            output = {'schema': 'qcal-rb-diagnostic-inspection/1', 'workflowId': workflow_id,
+                      'revision': wf['revision'], 'policyVersion': RB_DIAGNOSTIC_VERSION,
+                      'eligible': False, 'reasons': [], 'marker': deepcopy(wf.get('rbDiagnostic'))}
+            try:
+                proof, budget = self._rb_diagnostic_admission(rt, wf)
+                output.update(eligible=True, budgetLookahead=budget, **{k: proof[k] for k in
+                    ('sourceNodeId', 'sourceAttemptId', 'targetNodeId', 'sourceProofSha256', 'physicalParameterVersions')})
+            except APIError as exc:
+                output['reasons'] = [{'code': exc.code, 'message': exc.message}]
+            return output
+
+    def _queue_rb_diagnostic(self, rt, wf, payload):
+        rb_require(set(payload) == {'action', 'operationId', 'expectedRevision', 'nodeId', 'attemptId', 'policyVersion', 'sourceProofSha256'}
+                   and payload.get('policyVersion') == RB_DIAGNOSTIC_VERSION,
+                   'RB_DIAGNOSTIC_CONTRACT', 'RB诊断请求须使用固定版本及完整来源字段')
+        proof, budget = self._rb_diagnostic_admission(rt, wf)
+        rb_require(payload.get('nodeId') == proof['sourceNodeId'] and payload.get('attemptId') == proof['sourceAttemptId']
+                   and payload.get('sourceProofSha256') == proof['sourceProofSha256'],
+                   'RB_DIAGNOSTIC_SOURCE_CHANGED', '来源或参数已变化，请重新检查诊断条件')
+        if wf.get('rbDiagnostic'):
+            wf.setdefault('rbDiagnosticHistory', []).append(deepcopy(wf['rbDiagnostic']))
+        target = self._node(wf, proof['targetNodeId'])
+        wf['rbDiagnostic'] = {**proof, 'id': ident('rb-diagnostic'), 'commandOperationId': payload['operationId'],
+            'state': 'queued', 'attemptId': None, 'targetAttemptBefore': target['attempt'],
+            'requestedAt': now(), 'budgetLookahead': budget, 'publication': 'disabled_diagnostic_only'}
+        wf.update(status='queued', engineState='diagnostic_queued', currentNodeId=target['id'], workflowComplete=False)
+        self._record_decision(rt, wf, proof['sourceNodeId'], {'action': 'queue_rb_diagnostic',
+            'reason': '保留CPMG未通过与原图依赖，仅授权一套RB首测及独立复测；不发布完整校准',
+            'evidenceIds': [], 'ruleId': RB_DIAGNOSTIC_VERSION, 'diagnosticId': wf['rbDiagnostic']['id'],
+            'sourceAttemptId': proof['sourceAttemptId'], 'sourceProofSha256': proof['sourceProofSha256'],
+            'budgetLookahead': budget}, 'operator')
+
+    def _assert_rb_diagnostic_dispatch(self, rt, wf, node, branch_id, *, attempt_id=None, allow_cancel=False):
+        marker = wf.get('rbDiagnostic') or {}
+        rb_require(marker.get('id') == branch_id and marker.get('policyVersion') == RB_DIAGNOSTIC_VERSION
+                   and marker.get('targetNodeId') == node['id'] and (allow_cancel or not wf.get('cancelRequested')),
+                   'RB_DIAGNOSTIC_SCOPE', '单次诊断许可身份或状态不一致')
+        if attempt_id is None:
+            rb_require(marker.get('state') == 'queued' and marker.get('attemptId') is None
+                       and node['attempt'] == marker.get('targetAttemptBefore'),
+                       'RB_DIAGNOSTIC_CONSUMED', '本次诊断许可已消费或被改变')
+            admit_backtrack(wf, node)
+        else:
+            rb_require(marker.get('state') == 'running' and marker.get('attemptId') == attempt_id
+                       and node.get('latestAttemptId') == attempt_id,
+                       'RB_DIAGNOSTIC_CONSUMED', '复测不属于本次单次诊断许可')
+        proof, _, _, _ = self._rb_diagnostic_proof(rt, wf)
+        rb_require(proof['sourceProofSha256'] == marker.get('sourceProofSha256'),
+                   'RB_DIAGNOSTIC_SOURCE_CHANGED', '参数、图、源码或来源已改变，单次诊断许可失效')
+        return marker
+
+    def _run_rb_diagnostic(self, workflow_id, branch_id):
+        try:
+            wf = self.get(workflow_id)
+            marker = wf['rbDiagnostic']
+            self._execute_node(workflow_id, marker['targetNodeId'], diagnostic_branch_id=branch_id)
+        except APIError as exc:
+            with self.store.transaction() as rt:
+                current = self.get(workflow_id, rt)
+                marker = current.get('rbDiagnostic') or {}
+                if marker.get('id') == branch_id:
+                    stopping = (current['status'] in ('paused', 'aborted') or current.get('cancelRequested')
+                                or current.get('engineState') == 'needs_reconciliation')
+                    marker.update(state='interrupted' if stopping else 'invalidated', errorCode=exc.code)
+                    if not stopping:
+                        current.update(status='attention', engineState='diagnostic_invalidated')
+                    self.store.save(rt, current, 'rb_diagnostic_interrupted' if stopping else 'rb_diagnostic_invalidated',
+                                    {'message': exc.message, 'errorCode': exc.code})
+        finally:
+            with self.store.transaction() as rt:
+                current = self.get(workflow_id, rt)
+                marker = current.get('rbDiagnostic') or {}
+                if marker.get('id') != branch_id:
+                    return
+                node = self._node(current, marker['targetNodeId'])
+                uncertain = self._has_lease(rt, workflow_id) or rt.db.execute(
+                    "SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (workflow_id,)).fetchone()
+                passed = (node.get('latestAttemptId') == marker.get('attemptId') and node.get('engineState') == 'verified'
+                          and node.get('result', {}).get('quality', {}).get('status') == 'passed')
+                interrupted = (current['status'] in ('paused', 'aborted') or uncertain or current.get('cancelRequested')
+                               or current.get('engineState') == 'needs_reconciliation')
+                invalidated = marker.get('state') == 'invalidated'
+                marker.update(state='interrupted' if interrupted else 'invalidated' if invalidated else 'completed' if passed else 'failed', finishedAt=now(),
+                              resultStatus='passed' if passed else node.get('result', {}).get('quality', {}).get('status', 'unverified'))
+                current['workflowComplete'] = False
+                if not interrupted:
+                    current.update(status='attention', engineState='diagnostic_invalidated' if invalidated else 'diagnostic_complete' if passed else 'diagnostic_failed')
+                current['resultSummary'] = {'verifiedNodes': sum(n['engineState'] == 'verified' for n in current['nodes']),
+                    'totalNodes': len(current['nodes']), 'coverage': current['coverage'], 'workflowComplete': False,
+                    'meaning': 'RB诊断已结束；CPMG原结果与原流程依赖保留，原10项流程尚未全部通过'}
+                self._finish_timing(current)
+                self.store.save(rt, current, 'rb_diagnostic_finished', {'message': current['resultSummary']['meaning'],
+                    'diagnosticId': branch_id, 'attemptId': marker.get('attemptId'), 'state': marker['state']})
+
+    @staticmethod
+    def _rb_diagnostic_candidate_contract(result, stage):
+        if result.get('candidateParameters', {}) != {}:
+            result['quality']['status'] = 'failed'
+            result['quality']['reasons'].append('RB诊断回执必须没有待提交校准参数；已保留采集但拒绝该候选')
+            result['diagnosticContract'] = {'accepted': False, 'code': 'RB_DIAGNOSTIC_CANDIDATE_NOT_EMPTY',
+                'stage': stage, 'rawCandidateParameters': deepcopy(result.get('candidateParameters'))}
+
     def action(self, workflow_id, payload):
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
@@ -318,14 +474,27 @@ class Controller:
             action = payload.get('action')
             if wf['status'] in TERMINAL:
                 raise APIError('TERMINAL_RUN', '已结束任务不能再次下发；请创建新任务', 409)
+            diagnostic = wf.get('rbDiagnostic') or {}
+            if diagnostic.get('state') in ('queued', 'running') and action not in ('pause', 'abort', 'reconcile'):
+                raise APIError('RB_DIAGNOSTIC_ACTIVE', '单次RB诊断期间仅允许暂停、终止或回执核查', 409)
+            if (diagnostic and wf.get('currentNodeId') == diagnostic.get('targetNodeId')
+                    and action in ('resume', 'retry', 'approve', 'decide', 'confirm_hardware')):
+                raise APIError('RB_DIAGNOSTIC_CLOSED', 'RB诊断不通过普通继续操作推进；请显式重新检查诊断条件或回退原前置步骤', 409)
+            if action in ('retry', 'backtrack'):
+                target_id = payload.get('targetNodeId') if action == 'backtrack' else payload.get('nodeId')
+                target = self._node(wf, target_id)
+                if target['procedureId'] == 'sq_rb' and any(self._node(wf, d)['engineState'] != 'verified' for d in target['dependsOn']):
+                    raise APIError('PREREQUISITES_MISSING', '普通RB操作必须满足原图全部依赖；诊断须使用独立版本化命令', 409)
             if action == 'start':
                 if wf['status'] != 'draft':
                     raise APIError('INVALID_STATE', '仅草稿可开始', 409)
                 wf['status'], wf['engineState'] = 'queued', 'queued'
+            elif action == 'queue_rb_diagnostic':
+                self._queue_rb_diagnostic(rt, wf, payload)
             elif action == 'pause':
                 if wf['status'] == 'running':
                     wf['cancelRequested'], wf['engineState'] = 'pause', 'pausing_at_checkpoint'
-                elif wf['status'] == 'queued':
+                elif wf['status'] == 'queued' or (diagnostic.get('state') == 'queued' and wf['status'] == 'attention'):
                     wf['status'], wf['engineState'] = 'paused', 'paused'
                 else:
                     raise APIError('INVALID_STATE', '当前状态不能暂停', 409)
@@ -376,7 +545,14 @@ class Controller:
                 if wf['status'] == 'running' or self._has_lease(rt, wf['id']):
                     raise APIError('RESOURCE_BUSY', '等待当前采集结束后再回退', 409)
                 target = payload.get('targetNodeId')
-                self._node(wf, target)
+                target_node = self._node(wf, target)
+                admit_backtrack(wf, target_node)
+                if self._physical_adapter:
+                    self._assert_adapter_binding(wf)
+                    parameters, versions = self._parameters(rt, wf, target_node)
+                    trial, _ = self._readout_retry_parameters(rt, wf, target_node, parameters, versions, {})
+                    self._validate_plan(wf, target_node, trial, versions,
+                        ident('operator-backtrack-plan'), joint_budget=True, rt=rt)
                 origin = payload.get('nodeId') or wf.get('currentNodeId') or target
                 affected = self._invalidate(wf, target, include_target=True)
                 wf['currentNodeId'], wf['status'], wf['engineState'] = target, 'queued', 'backtrack_queued'
@@ -403,6 +579,7 @@ class Controller:
                         recovered['quality'] = {'status': 'unverified', 'reasons': ['已找回采集回执，尚未重新完成本轮独立复测和冻结规则验收']}
                         recovered['artifacts'] = [self._artifact(rt, a) for a in recovered.get('artifacts', [])]
                         rt.db.execute("UPDATE platform_effects SET state='completed',result=? WHERE operation_id=?", (dumps(recovered), effect['operation_id']))
+                        record_effect(rt.db, effect['operation_id'], self.root)
                         row = rt.db.execute('SELECT payload FROM platform_attempts WHERE id=?', (effect['attempt_id'],)).fetchone()
                         if row:
                             attempt = json.loads(row[0])
@@ -419,6 +596,7 @@ class Controller:
                     elif receipt.get('status') in ('cancelled', 'failed_after_shutdown') and receipt.get('shutdownConfirmed') is True:
                         receipt['partialArtifacts'] = [self._artifact(rt, artifact) for artifact in receipt.get('partialArtifacts', [])]
                         rt.db.execute('UPDATE platform_effects SET state=?,result=? WHERE operation_id=?', (receipt['status'], dumps(receipt), effect['operation_id']))
+                        record_effect(rt.db, effect['operation_id'], self.root)
                         row = rt.db.execute('SELECT payload FROM platform_attempts WHERE id=?', (effect['attempt_id'],)).fetchone()
                         if row:
                             attempt = json.loads(row[0])
@@ -441,6 +619,8 @@ class Controller:
                         wf['status'], wf['engineState'] = 'paused', 'reconciled'
             else:
                 raise APIError('INVALID_ACTION', '未知操作')
+            if diagnostic.get('state') in ('queued', 'running') and wf['status'] in ('paused', 'aborted'):
+                diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
             self._finish_timing(wf)
             self.store.save(rt, wf, action, {'message': '操作：' + action})
             rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], hash_value, dumps(wf)))
@@ -904,20 +1084,37 @@ class Controller:
             rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], request_hash, dumps(wf)))
         return wf
 
-    def _validate_plan(self, wf, node, parameters, versions, operation_id):
+    def _validate_plan(self, wf, node, parameters, versions, operation_id, *, joint_budget=False, rt=None):
         if not callable(getattr(self.adapter, 'build_plan', None)):
+            if joint_budget and self._physical_adapter:
+                raise APIError('INVALID_BUDGET', '物理执行器缺少可核查的采集计划')
             return
         request = {'runId': wf['id'], 'nodeId': node['id'], 'attemptId': 'parameter-validation',
                    'operationId': 'validate/' + operation_id, 'resourceId': node['resourceId'],
                    'procedureId': node['procedureId'], 'parameters': parameters, 'parameterVersions': versions,
                    'deadline': time.time() + self.profile.get('maximumRunSeconds', 3600)}
         if node['procedureId'] in ('sq_rb', 'sq_allxy'):
-            with self.store.connect() as rt:
-                request['validationSnapshot'] = self._validation_snapshot(rt, wf, node, parameters, versions)
+            with (nullcontext(rt) if rt is not None else self.store.connect()) as reader:
+                request['validationSnapshot'] = self._validation_snapshot(reader, wf, node, parameters, versions)
         try:
-            self.adapter.build_plan(request)
+            plan = self.adapter.build_plan(request)
+            if joint_budget and self._physical_adapter:
+                return self._selection_budget(wf, request, plan)
         except Exception as exc:
             raise APIError(getattr(exc, 'code', 'INVALID_PLAN'), str(exc)) from None
+
+    def _selection_budget(self, wf, request, plan):
+        """Plan-only lookahead; actual per-operation reservation remains in _call_adapter."""
+        adapter_type = type(self.adapter)
+        parameters, basis = verification_probe(
+            implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__,
+            profile_id=self.profile.get('id'), procedure_id=request['procedureId'],
+            request_parameters=request['parameters'], selection_plan=plan)
+        probe = deepcopy(request)
+        probe['parameters'] = parameters
+        probe['operationId'] = 'budget-verify/' + digest(request['operationId'])
+        verification_plan = self.adapter.build_plan(probe)
+        return selection_lookahead(wf, plan, verification_plan, basis=basis)
 
     def artifact(self, artifact_id):
         with self.store.connect() as rt:
@@ -941,9 +1138,13 @@ class Controller:
                 self.wake.wait(.5)
                 self.wake.clear()
 
-    def _attention(self, workflow_id, state, message, *, node_id=None):
+    def _attention(self, workflow_id, state, message, *, node_id=None, preserve_diagnostic_stop=False):
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
+            if (preserve_diagnostic_stop and wf.get('rbDiagnostic')
+                    and (wf['status'] in ('paused', 'aborted') or wf.get('cancelRequested')
+                         or wf.get('engineState') == 'needs_reconciliation')):
+                return
             if wf['status'] in TERMINAL:
                 return
             if node_id is not None:
@@ -964,21 +1165,26 @@ class Controller:
         try:
             self._assert_adapter_binding(wf)
         except APIError as exc:
-            return self._attention(workflow_id, 'adapter_changed', exc.message)
+            return self._attention(workflow_id, 'adapter_changed', exc.message, preserve_diagnostic_stop=True)
         if wf['engineState'] == 'decision_queued':
             if not self._decide(workflow_id, wf['currentNodeId']):
                 return
             wf = self.get(workflow_id)
         preflight = self.adapter.preflight()
         if not preflight.get('ready'):
-            return self._attention(workflow_id, 'preflight_failed', '当前执行器静态预检未通过，未连接设备')
+            return self._attention(workflow_id, 'preflight_failed', '当前执行器静态预检未通过，未连接设备', preserve_diagnostic_stop=True)
         if not preflight.get('enabled', self.profile.get('enabled', False)) and not wf['hardwareConfirmed']:
-            return self._attention(workflow_id, 'waiting_hardware', '当前执行器尚未启用；等待现场接线和设备独占交接')
+            return self._attention(workflow_id, 'waiting_hardware', '当前执行器尚未启用；等待现场接线和设备独占交接', preserve_diagnostic_stop=True)
         if not (wf['hardwareConfirmed'] or self.profile.get('connectionConfirmedAt')):
-            return self._attention(workflow_id, 'waiting_hardware', '请确认当前是主机读出/XY/采集卡接线')
+            return self._attention(workflow_id, 'waiting_hardware', '请确认当前是主机读出/XY/采集卡接线', preserve_diagnostic_stop=True)
         ownership = self.hardware_ownership(refresh=True)
         if not ownership['verified'] or ownership['owners']:
-            return self._attention(workflow_id, 'waiting_hardware', '检测到其他程序仍连接机箱，等待释放；未下发测量')
+            return self._attention(workflow_id, 'waiting_hardware', '检测到其他程序仍连接机箱，等待释放；未下发测量', preserve_diagnostic_stop=True)
+        diagnostic = wf.get('rbDiagnostic') or {}
+        if diagnostic.get('state') == 'queued':
+            return self._run_rb_diagnostic(workflow_id, diagnostic['id'])
+        if diagnostic and wf.get('currentNodeId') == diagnostic.get('targetNodeId'):
+            return self._attention(workflow_id, 'diagnostic_closed', '单次RB诊断许可已关闭，未自动重发或推进原流程', preserve_diagnostic_stop=True)
         while not self.stop_event.is_set():
             wf = self.get(workflow_id)
             if wf['status'] not in ('queued', 'running'):
@@ -1058,6 +1264,10 @@ class Controller:
         action = wf.get('cancelRequested') or 'pause'
         wf['status'] = 'aborted' if action == 'abort' else 'paused'
         wf['engineState'], wf['cancelRequested'] = wf['status'], None
+        diagnostic = wf.get('rbDiagnostic') or {}
+        if diagnostic.get('state') in ('queued', 'running'):
+            diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
+            wf['workflowComplete'] = False
         self._finish_timing(wf)
         self.store.save(rt, wf, wf['status'], {'message': '已在无活动采集的检查点' + ('终止' if action == 'abort' else '暂停')})
 
@@ -1194,7 +1404,7 @@ class Controller:
             'removedReadoutOverrides': removed_overrides}, 'rule')
         return rabi['id']
 
-    def _execute_node(self, workflow_id, node_id):
+    def _execute_node(self, workflow_id, node_id, *, diagnostic_branch_id=None):
         wf_before = self.get(workflow_id)
         self._assert_adapter_binding(wf_before)
         try:
@@ -1203,12 +1413,14 @@ class Controller:
             self._attention(workflow_id, 'supplemental_acceptance_mismatch', str(exc), node_id=node_id)
             return False
         node_before = self._node(wf_before, node_id)
-        if node_before['procedureId'] == 'sq_rb':
+        if node_before['procedureId'] == 'sq_rb' and diagnostic_branch_id is None:
             if not self._rb_prerequisites_current(workflow_id, node_id):
                 return False
         with self.store.transaction() as rt:
             wf, attempt_id = self.get(workflow_id, rt), ident('attempt')
             node = self._node(wf, node_id)
+            if diagnostic_branch_id is not None:
+                self._assert_rb_diagnostic_dispatch(rt, wf, node, diagnostic_branch_id)
             group = self.profile.get('instrument', {}).get('resourceGroup', 'CY8_SHARED_BUS1')
             if rt.db.execute('SELECT 1 FROM platform_leases WHERE resource=?', (group,)).fetchone():
                 wf['status'], wf['engineState'] = 'attention', 'resource_busy'
@@ -1217,6 +1429,19 @@ class Controller:
             parameters, versions = self._parameters(rt, wf, node)
             marker = self._readout_revalidation(rt, wf, node, parameters, versions)
             parameters = self._readout_revalidation_parameters(node, parameters, marker)
+            lookahead = None
+            if self._physical_adapter:
+                try:
+                    lookahead = self._validate_plan(wf, node, parameters, versions, attempt_id,
+                                                    joint_budget=True, rt=rt)
+                except APIError as exc:
+                    # Admission is before lease, effect, attempt count or result replacement.
+                    wf.update(status='attention', engineState='budget_exhausted' if 'BUDGET' in exc.code else 'plan_rejected')
+                    node.update(status='attention', engineState=wf['engineState'], detail=exc.message,
+                                lastAdmissionError={'code': exc.code, 'message': exc.message, 'at': now()})
+                    self.store.save(rt, wf, 'acquisition_admission_rejected',
+                                    {'nodeId': node_id, 'errorCode': exc.code, 'message': exc.message})
+                    return False
             token = ident('lease')
             rt.db.execute('INSERT INTO platform_leases VALUES(?,?,?,?,?)', (group, workflow_id, attempt_id, 'active', token))
             node['attempt'] += 1
@@ -1229,6 +1454,15 @@ class Controller:
                        'adapterId': self.adapter_id, 'adapterProfileHash': self.adapter_profile_hash,
                        'deadline': time.time() + self.profile.get('maximumRunSeconds', 3600),
                        'outputDir': str(self.root / 'data' / 'runs' / workflow_id / attempt_id), 'leaseToken': token}
+            if diagnostic_branch_id is not None:
+                wf['rbDiagnostic'].update(state='running', attemptId=attempt_id)
+                branch = {k: wf['rbDiagnostic'][k] for k in ('id','policyVersion','commandOperationId',
+                    'sourceNodeId','sourceAttemptId','sourceProofSha256','publication')}
+                request['rbDiagnostic'] = deepcopy(branch)
+                attempt['rbDiagnostic'] = deepcopy(branch)
+            if lookahead is not None:
+                request['budgetLookahead'] = deepcopy(lookahead)
+                attempt['budgetLookahead'] = deepcopy(lookahead)
             if marker:
                 request['readoutRevalidation'] = deepcopy(marker)
                 attempt['readoutRevalidation'] = deepcopy(marker)
@@ -1259,6 +1493,8 @@ class Controller:
             preliminary = evaluate(result, request['procedureId'], 'real', wf['gates'], independent=False)
             self._readout_revalidation_quality(request, preliminary)
             self._apply_supplemental_acceptance(wf, request, preliminary, 'selection')
+            if diagnostic_branch_id is not None:
+                self._rb_diagnostic_candidate_contract(preliminary, 'selection')
             candidate = self._validated_candidate(request['procedureId'], preliminary, 'selection')
             # Only start independent verification once all numerical gates are already satisfied.
             gate_reasons = [r for r in preliminary['quality']['reasons'] if r != '需要独立采集复测']
@@ -1277,6 +1513,8 @@ class Controller:
                     verify_request['parameters'] = verification_parameters(request['procedureId'], verify_request['parameters'], candidate)
                 with self.store.transaction() as rt:
                     current = self.get(workflow_id, rt)
+                    if diagnostic_branch_id is not None:
+                        self._assert_rb_diagnostic_dispatch(rt, current, self._node(current, node_id), diagnostic_branch_id, attempt_id=attempt_id)
                     # The first acquisition is complete and registered. Publish it
                     # now, without implying that independent verification passed.
                     attempt['result'] = {'dataKind': 'real', 'partial': True, 'verificationPending': True,
@@ -1286,6 +1524,11 @@ class Controller:
                     self._node(current).update(engineState='verifying', detail='正在独立复测候选参数',
                         result=deepcopy(attempt['result']), mainProcedureComplete=False)
                     verify_request['validationSnapshot'] = self._validation_snapshot(rt, current, self._node(current), verify_request['parameters'], versions)
+                    if self._physical_adapter:
+                        # Candidate changes are now known. Check only verification's
+                        # actual cost; selection has already consumed its reservation.
+                        verify_request['verificationBudgetCheck'] = verify_admission(
+                            current, self.adapter.build_plan(verify_request), request.get('budgetLookahead'))
                     rt.db.execute('INSERT INTO platform_effects VALUES(?,?,?,?,?,NULL)',
                                   (verify_request['operationId'], workflow_id, attempt_id, 'pending', dumps(verify_request)))
                     self.store.attempt(rt, workflow_id, attempt)
@@ -1302,6 +1545,8 @@ class Controller:
                     result['supplementalQuality'] = deepcopy(preliminary['supplementalQuality'])
                 self._apply_supplemental_acceptance(wf, verify_request, result, 'verification')
                 self._apply_supplemental_acceptance(wf, verify_request, result, 'cross', selection=(request, preliminary))
+                if diagnostic_branch_id is not None:
+                    self._rb_diagnostic_candidate_contract(result, 'verification')
                 repeated_candidate = self._validated_candidate(request['procedureId'], result, 'verification')
                 consistency = self._repeatability(candidate, repeated_candidate,
                                                   preliminary.get('parameters') or request['parameters']) if repeated_candidate is not None else []
@@ -1319,6 +1564,11 @@ class Controller:
             with self.store.transaction() as rt:
                 current = self.get(workflow_id, rt)
                 current_node = self._node(current, node_id)
+                if diagnostic_branch_id is not None:
+                    self._assert_rb_diagnostic_dispatch(rt, current, current_node, diagnostic_branch_id, attempt_id=attempt_id, allow_cancel=True)
+                    result['diagnosticScope'] = {**deepcopy(request['rbDiagnostic']),
+                        'scope': 'rb_only_after_failed_cpmg', 'workflowComplete': False,
+                        'sourceQualityStatus': 'failed', 'publication': 'disabled_diagnostic_only'}
                 rebuild_target = None
                 if result['quality']['status'] == 'passed':
                     context_reasons = self._calibration_context_reasons(rt, current, current_node, result)
@@ -1339,11 +1589,16 @@ class Controller:
                 current_node.update(result=result, progress=100, status='success' if passed else 'attention',
                                     engineState='verified' if passed else 'quality_attention', mainProcedureComplete=passed,
                                     detail='独立复测通过' if passed else '；'.join(result['quality']['reasons']))
+                if diagnostic_branch_id is not None:
+                    current_node['diagnosticScope'] = deepcopy(result['diagnosticScope'])
+                    current_node['detail'] = ('RB诊断独立验收通过；CPMG仍未通过，不发布完整校准' if passed else
+                                              'RB诊断未通过：' + '；'.join(result['quality']['reasons']))
                 # Finish receipts are not claims that the physical RF output is proven OFF.
                 rt.db.execute('DELETE FROM platform_leases WHERE workflow_id=? AND token=?', (workflow_id, token))
                 if passed:
-                    rebuild_target = self._commit_candidate(rt, current, current_node, result.get('candidateParameters', {}), versions)
-                    if current_node['procedureId'] == 'sq_rb' and self._physical_adapter and callable(getattr(self.adapter, 'publish_calibration', None)):
+                    if diagnostic_branch_id is None:
+                        rebuild_target = self._commit_candidate(rt, current, current_node, result.get('candidateParameters', {}), versions)
+                    if diagnostic_branch_id is None and current_node['procedureId'] == 'sq_rb' and self._physical_adapter and callable(getattr(self.adapter, 'publish_calibration', None)):
                         snapshot = self._validation_snapshot(rt, current, current_node, parameters, versions)
                         snapshot['acceptedEvidence'].append({'procedureId': 'sq_rb', 'status': 'passed',
                             'selectionOperationId': attempt['operationId'], 'verificationOperationId': attempt['verificationOperationId'],
@@ -1374,6 +1629,10 @@ class Controller:
             if self._cancel_requested(workflow_id):
                 self._finish_cancel(workflow_id)
                 return False
+            if diagnostic_branch_id is not None:
+                # One explicit permission ends here, on either scientific outcome.
+                # It never enters normal approve/autopilot/publication scheduling.
+                return False
             if passed:
                 if rebuild_target:
                     return current['status'] == 'queued'
@@ -1385,6 +1644,10 @@ class Controller:
         except Exception as exc:
             with self.store.transaction() as rt:
                 current = self.get(workflow_id, rt)
+                if diagnostic_branch_id is not None and isinstance(exc, APIError) and exc.code.startswith('RB_DIAGNOSTIC_'):
+                    diagnostic = current.get('rbDiagnostic') or {}
+                    if diagnostic.get('id') == diagnostic_branch_id:
+                        diagnostic.update(state='invalidated', errorCode=exc.code)
                 stored_node = self._node(current, node_id)
                 stored_result = stored_node.get('result') or {}
                 if stored_node.get('latestAttemptId') == attempt_id and stored_result.get('verificationPending'):
@@ -1394,6 +1657,8 @@ class Controller:
                     attempt['result'] = deepcopy(stored_result)
                 pending = rt.db.execute("SELECT 1 FROM platform_effects WHERE attempt_id=? AND state IN ('pending','unknown')", (attempt_id,)).fetchone()
                 state = 'needs_reconciliation' if pending else 'execution_failed'
+                if not pending and isinstance(exc, APIError) and 'BUDGET' in exc.code:
+                    state = 'budget_exhausted'
                 if pending:
                     rt.db.execute("UPDATE platform_leases SET state='quarantined' WHERE token=?", (token,))
                 else:
@@ -1523,6 +1788,9 @@ class Controller:
                     raise APIError('INVALID_BUDGET', '执行器没有提供可核查的采集预算')
                 with self.store.transaction() as rt:
                     wf = self.get(request['runId'], rt)
+                    if request.get('rbDiagnostic'):
+                        self._assert_rb_diagnostic_dispatch(rt, wf, self._node(wf, request['nodeId']),
+                            request['rbDiagnostic']['id'], attempt_id=request['attemptId'])
                     if wf.get('reservedShots', 0) + estimate > wf.get('maxTotalShots', 8000000):
                         raise APIError('TOTAL_SHOTS_BUDGET', '本任务累计采集预算不足，未下发本次采集')
                     wf['reservedShots'] = wf.get('reservedShots', 0) + estimate
@@ -1538,12 +1806,14 @@ class Controller:
                 elif status in ('cancelled', 'failed_after_shutdown') and receipt.get('shutdownConfirmed') is True:
                     receipt['partialArtifacts'] = [self._artifact(rt, artifact) for artifact in receipt.get('partialArtifacts', [])]
                     rt.db.execute('UPDATE platform_effects SET state=?,result=? WHERE operation_id=?', (status, dumps(receipt), request['operationId']))
+                    record_effect(rt.db, request['operationId'], self.root)
                 else:
                     rt.db.execute("UPDATE platform_effects SET state='unknown',result=? WHERE operation_id=?", (dumps(receipt), request['operationId']))
             raise
         with self.store.transaction() as rt:
             result['artifacts'] = [self._artifact(rt, a) for a in result.get('artifacts', [])]
             rt.db.execute("UPDATE platform_effects SET state='completed',result=? WHERE operation_id=?", (dumps(result), request['operationId']))
+            record_effect(rt.db, request['operationId'], self.root)
             rt._event(request['runId'], 'effect_completed', {'operationId': request['operationId'], 'attemptId': request['attemptId']})
         return result
 
@@ -1685,6 +1955,9 @@ class Controller:
             affected = expanded
         if not include_target:
             affected.discard(node_id)
+        diagnostic = wf.get('rbDiagnostic') or {}
+        if diagnostic and affected:
+            diagnostic.update(state='invalidated', finishedAt=now(), resultStatus='unverified')
         for node in wf['nodes']:
             if node['id'] in affected:
                 node['status'], node['engineState'], node['progress'], node['mainProcedureComplete'] = 'pending', 'stale', 0, False
@@ -1910,7 +2183,13 @@ class Controller:
             'reservedWorkflowShots': wf.get('reservedShots', 0),
             'remainingWorkflowShots': max(0, wf['maxTotalShots'] - wf.get('reservedShots', 0)),
             'selectionAndVerificationBudgetedSeparately': True,
-            'budgetSemantics': 'maximumTotalShots 和 maximumPoints 分别限制一次原生操作。selection 与独立 verification 是两次操作，分别占用任务预算；重试不退还已占用预算。'}
+            'selectionAdmissionRequiresVerificationCapacity': self._physical_adapter,
+            'budgetSemantics': 'maximumTotalShots 和 maximumPoints 分别限制一次原生操作。启动 selection 前必须有首测与后续独立 verification 的联合容量；该预检不扣预算，实际每个 operation 仍只预留一次。verification 只检查自身剩额，不再为首测计费；失败或取消不退还已预留预算。'}
+        adapter_type = type(self.adapter)
+        semantics = sampling_context(implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__,
+            profile_id=self.profile.get('id'), procedure_id=node['procedureId'])
+        if semantics:
+            constraints['samplingSemantics'] = semantics
         if node['procedureId'] != 'ro_power_shift':
             return constraints
         constraints['scanSemantics'] = {
@@ -2068,10 +2347,12 @@ class Controller:
             rescan_context = self._model_readout_rescan_context(rt, wf, node, effective_parameters)
             prior_failure_context = self._prior_failure_context(rt, wf, node)
         attempts, history = self.store.detail(workflow_id, node_id)
+        backtrack_admission = eligible_backtracks(wf, self._ancestors(wf, node))
         payload = {'runId': workflow_id, 'nodeId': node_id, 'revision': wf['revision'], 'mode': 'real',
                    'goal': wf['name'], 'observations': {'result': node.get('result'), 'parameters': effective_parameters,
                    'attempt': node['attempt'], 'remainingAttempts': wf['maxAttemptsPerNode'] - node['attempt']},
-                   'allowedActions': ['retry', 'backtrack', 'wait', 'stop'], 'allowedBacktrackTargets': self._ancestors(wf, node),
+                   'allowedActions': ['retry', 'backtrack', 'wait', 'stop'], 'allowedBacktrackTargets': backtrack_admission['allowed'],
+                   'backtrackAdmission': backtrack_admission,
                    'parameterBounds': self._parameter_schema(node['procedureId']), 'rules': node['rules'], 'history': history[-8:]}
         physical_parameter_bounds = deepcopy(payload['parameterBounds'])
         marker = wf.get('readoutRevalidations', {}).get(node['resourceId'])
@@ -2104,6 +2385,13 @@ class Controller:
         payload = attach_prior_context(payload, prior_failure_context)
         payload = attach_curve_summary(payload, procedure_id=node['procedureId'])
         payload = project_model_input(payload)
+        if node['procedureId'] in CAPTURE_DIAGNOSTIC_PROCEDURES:
+            sources = resolve_sources(self.root, self.store.path, wf, node,
+                implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__)
+            payload = attach_diagnostics(payload, calculate_diagnostics(sources))
+        upstream_context = resolve_accepted_upstream(self.root, self.store.path, wf, node,
+            implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__)
+        payload = attach_accepted_upstream(payload, upstream_context)
         response = self._brain('/decide', payload)
         with self.store.transaction() as rt:
             current = self.get(workflow_id, rt)
@@ -2133,7 +2421,10 @@ class Controller:
                     for key, value in changes.items():
                         self._validate_parameter(key, value, self._parameter_schema(current_node['procedureId']))
                     trial, release_readout = self._readout_retry_parameters(rt, current, current_node, parameters, versions, changes)
-                    self._validate_plan(current, current_node, trial, versions, ident('model-plan'))
+                    lookahead = self._validate_plan(current, current_node, trial, versions, ident('model-plan'),
+                                                    joint_budget=True, rt=rt)
+                    if lookahead is not None:
+                        decision['budgetLookahead'] = lookahead
                     decision['parameterChanges'] = changes
                     if release_readout:
                         decision['readoutRevalidation'] = {'id': release_readout['id'], 'mode': 'full_scan',
@@ -2142,6 +2433,14 @@ class Controller:
                     if changes != requested_changes:
                         decision['requestedParameterChanges'] = requested_changes
                         decision['normalization'] = '执行器脉冲策略及采样网格规范化'
+                elif decision['action'] == 'backtrack':
+                    target = self._node(current, decision['targetNodeId'])
+                    decision['attemptAdmission'] = admit_backtrack(current, target)
+                    if self._physical_adapter:
+                        parameters, versions = self._parameters(rt, current, target)
+                        trial, _ = self._readout_retry_parameters(rt, current, target, parameters, versions, {})
+                        decision['budgetLookahead'] = self._validate_plan(current, target, trial, versions,
+                            ident('model-backtrack-plan'), joint_budget=True, rt=rt)
             except APIError as exc:
                 # Proposal validation happens after the acquisition has already
                 # been recorded. It must never relabel that acquisition as an
@@ -2267,10 +2566,14 @@ class Controller:
         message = payload.get('message')
         if not isinstance(message, str) or not message.strip() or len(message) > 20000:
             raise APIError('INVALID_MESSAGE', '消息不能为空且不能超过 20000 字符')
+        selected_node_id = payload.get('nodeId')
+        if selected_node_id is not None and (not isinstance(selected_node_id, str) or not selected_node_id or not payload.get('workflowId')):
+            raise APIError('INVALID_CHAT_NODE', '所选节点必须属于指定实验任务')
         # Pin workflow, operations and artifact registry to one read-only snapshot.
         # Close it before waiting on the model so acquisition writes remain free.
         with read_chat_snapshot(self.store.path) as db:
             wf = self.get(payload['workflowId'], types.SimpleNamespace(db=db)) if payload.get('workflowId') else None
+            selected_node = self._node(wf, selected_node_id) if selected_node_id is not None else None
             brief = None
             if wf:
                 brief = {k: wf[k] for k in ('id', 'name', 'mode', 'status', 'engineState', 'revision', 'resourceIds', 'workflowComplete')}
@@ -2284,6 +2587,13 @@ class Controller:
                        'notice': '聊天建议不会直接下发设备；实验动作经过Python控制器校验。inspect_observation 仅核查本任务已登记的证据摘要，不读取原始文件；以 dataKind 和 acquiredAt 区分本轮采集与历史记录。采集状态截至 acquisitionState 的快照；扫描几何仅来自已登记且核对过哈希的 plan 元数据。'}
             if wf:
                 context['acquisitionState'] = acquisition_context(db, wf, self.root, now())
+            if selected_node is not None:
+                context['selectedNode'] = self._chat_summary_value({
+                    'workflowId': wf['id'], 'workflowRevision': wf['revision'], 'readOnly': True,
+                    **{k: selected_node.get(k) for k in ('id', 'label', 'procedureId', 'engineState', 'attempt',
+                        'latestAttemptId', 'parameters', 'parameterVersions', 'dependsOn')},
+                    'result': {k: (selected_node.get('result') or {}).get(k) for k in
+                        ('dataKind', 'metrics', 'quality', 'acquiredAt', 'partial', 'verificationPending', 'stale')}})
             observation_budget = max(0, min(60000, 170000 - len(dumps(context)) - len(message)))
             context['observations'], omitted = self._chat_observations(wf, observation_budget, db)
             context['observationSummary'] = {'provided': len(context['observations']), 'omitted': omitted,
@@ -2318,14 +2628,32 @@ class Controller:
         return account_request(self.brain_url, action, payload, timeout=timeout)
 
     def report(self, workflow_id):
-        wf = self.get(workflow_id)
-        nodes = []
-        for node in wf['nodes']:
-            attempts, decisions = self.store.detail(workflow_id, node['id'])
-            nodes.append({'node': node, 'attempts': attempts, 'decisions': decisions})
-        return {'schema': 'qcal-report/1', 'generatedAt': now(), 'workflow': wf, 'nodes': nodes,
-                'events': self.store.events(workflow_id), 'source': 'recorded_data_only',
-                'workflowComplete': wf['workflowComplete']}
+        # One read-only WAL snapshot: a concurrent measurement cannot mix old
+        # workflow quality with new attempts or events in the same report.
+        with read_chat_snapshot(self.store.path) as db:
+            wf = self.get(workflow_id, types.SimpleNamespace(db=db))
+            nodes = []
+            for node in wf['nodes']:
+                attempts = [json.loads(row[0]) for row in db.execute(
+                    'SELECT payload FROM platform_attempts WHERE workflow_id=? AND node_id=? ORDER BY number', (workflow_id, node['id']))]
+                decisions = [json.loads(row[0]) for row in db.execute(
+                    'SELECT payload FROM platform_decisions WHERE workflow_id=? AND node_id=? ORDER BY rowid', (workflow_id, node['id']))]
+                nodes.append({'node': node, 'attempts': attempts, 'decisions': decisions})
+            events = [{**dict(row), 'payload': json.loads(row['payload'])} for row in db.execute(
+                'SELECT * FROM events WHERE run_id=? ORDER BY seq', (workflow_id,))]
+            return {'schema': 'qcal-report/1', 'generatedAt': now(), 'workflow': wf, 'nodes': nodes,
+                    'events': events, 'source': 'recorded_data_only', 'workflowComplete': wf['workflowComplete']}
+
+    def archive_status(self):
+        return self.archive.status()
+
+    def archive_list(self, workflow_id=None, limit=30, cursor=None):
+        if workflow_id:
+            self.get(workflow_id)
+        return self.archive.list(workflow_id, limit, cursor)
+
+    def archive_item(self, archive_id):
+        return self.archive.item(archive_id)
 
     def knowledge(self):
         with self.store.connect() as rt:

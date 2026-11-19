@@ -1,0 +1,36 @@
+.workflow-discussion { position:fixed; bottom:36px; right:28px; z-index:45; }
+.workflow-discussion [hidden] { display:none !important; }
+.workflow-discussion-orb { padding:0; border-radius:50%; box-shadow:0 8px 35px #0003; }
+.workflow-discussion-orb .brand-mark { width:60px; height:60px; border-radius:50%; background:var(--panel-raised); border-color:#628bff80; }
+.workflow-discussion-orb:hover .brand-mark { box-shadow:0 0 26px #628bff45; }
+.workflow-discussion-window { width:min(460px,calc(100vw - 32px)); height:min(680px,calc(100dvh - 100px)); display:flex; flex-direction:column; border:1px solid var(--line); border-radius:22px; background:var(--panel); box-shadow:0 16px 60px #0004; overflow:hidden; color:var(--text); }
+.workflow-discussion-heading { min-height:68px; display:flex; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); flex-shrink:0; }
+.workflow-discussion-heading .brand-mark { width:34px; height:34px; border-radius:50%; }
+.workflow-discussion-heading>div { flex:1; min-width:0; align-self:center; }
+.workflow-discussion-heading strong { font-size:15px; display:block; }
+.workflow-discussion-heading span:not(.brand-mark) { font-size:11px; color:var(--muted); }
+.workflow-discussion-heading button { width:32px; height:34px; padding:0; align-self:center; border-radius:8px; }
+.workflow-discussion-heading button:hover { background:var(--panel-raised); }
+.workflow-discussion-context { display:flex; flex-direction:column; gap:5px; padding:13px 20px; font-size:12px; line-height:1.5; border-bottom:1px solid var(--line); }
+.workflow-discussion-context small { color:var(--muted); }
+.workflow-discussion-messages { overflow-y:auto; flex:1; min-height:100px; padding:20px; overscroll-behavior:contain; }
+.workflow-discussion-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:230px; text-align:center; }
+.workflow-discussion-empty .brand-mark { width:58px; height:58px; border-radius:50%; }
+.workflow-discussion-empty h3 { font-size:18px; margin:20px 0 8px; }
+.workflow-discussion-empty p { max-width:290px; font-size:13px; line-height:1.9; color:var(--muted); margin:0; }
+.workflow-discussion-message { margin:0 0 22px; font-size:13px; line-height:1.85; overflow-wrap:anywhere; }
+.workflow-discussion-message>span { display:block; color:var(--muted); font-size:10px; margin-bottom:5px; }
+.workflow-discussion-message>div { white-space:pre-wrap; }
+.workflow-discussion-message.user { margin-left:38px; }
+.workflow-discussion-message.user>div { border-radius:14px 14px 4px 14px; padding:10px 14px; background:#628bff16; }
+.workflow-discussion-message.user>span { text-align:right; }
+.workflow-discussion-message.notice>div { color:var(--amber); }
+.workflow-discussion-pending { font-size:12px; color:var(--muted); }
+.workflow-discussion-composer { margin:0 16px 16px; padding:12px 14px 9px; border-radius:20px; border:1px solid #628bff66; box-shadow:0 3px 20px #628bff0b; flex-shrink:0; }
+.workflow-discussion-composer textarea { width:100%; min-height:60px; max-height:110px; resize:vertical; border:0; padding:3px 0; background:transparent; color:var(--text); font-size:14px; outline:none; line-height:1.7; }
+.workflow-discussion-composer>div { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.workflow-discussion-composer small { font-size:10px; color:var(--muted); }
+.workflow-discussion-composer button { border-radius:50%; width:34px; height:34px; background:var(--blue); color:white; padding:0; }
+.workflow-discussion-composer button:disabled { opacity:.4; }
+.workflow-discussion-composer>p { color:var(--amber); font-size:11px; line-height:1.6; margin:0 0 8px; }
+@media(max-width:700px) { .workflow-discussion { right:16px; bottom:20px; }.workflow-discussion-window { height:calc(100dvh - 105px); } }

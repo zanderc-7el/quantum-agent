@@ -169,3 +169,19 @@
 .rp-acquisitions > section { min-width: 0; margin: 18px 0; }
 .rp-acquisitions > section > h4 { margin: 0 0 12px; font-size: 13px; color: var(--text-primary, #dbe7f4); }
 .rp-acquisitions > section + section { border-top: 1px solid var(--border, #263243); padding-top: 18px; }
+
+.report-export-control { display:flex; flex-direction:column; gap:5px; align-items:flex-start; }
+.report-export-control>div { display:flex; gap:8px; flex-wrap:wrap; }
+.report-export-control>small { max-width:300px; color:var(--amber); line-height:1.6; }
+.report-export-bar { padding:12px 18px; border-bottom:1px solid var(--line); }
+.rp-report-scroll:has(.human-report-preview) { padding:0; overflow:hidden; display:flex; min-height:650px; }
+.human-report-preview { width:100%; flex:1; min-height:650px; border:0; background:#fff; }
+.local-archive-panel { border:1px solid var(--line); background:var(--panel); border-radius:9px; margin:0 0 16px; font-size:12px; }
+.local-archive-panel summary { display:flex; gap:10px; align-items:center; flex-wrap:wrap; cursor:pointer; padding:13px 16px; }
+.local-archive-panel summary>span { color:var(--green); }
+.local-archive-panel small { color:var(--muted); }
+.local-archive-panel>div { padding:0 16px 16px; overflow:auto; }
+.local-archive-panel p { line-height:1.8; color:var(--muted); }
+.local-archive-panel table { width:100%; border-collapse:collapse; text-align:left; margin-bottom:12px; }
+.local-archive-panel td,.local-archive-panel th { border-top:1px solid var(--line); padding:10px 8px; font-weight:400; font-size:11px; }
+.local-archive-panel td>small { display:block; margin-top:4px; }

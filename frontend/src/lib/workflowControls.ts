@@ -1,6 +1,10 @@
 import type { ExperimentNode, Workflow } from "../types.ts";
+import { rbDiagnosticMarker } from "./rbDiagnostic.ts";
 
 export function workflowControls(workflow: Workflow) {
+  const diagnostic = rbDiagnosticMarker(workflow);
+  const diagnosticActive = !!diagnostic && ["queued", "running"].includes(diagnostic.state);
+  const diagnosticLane = !!diagnostic && (diagnosticActive || workflow.currentNodeId === diagnostic.targetNodeId);
   const terminal = ["completed", "failed", "aborted"].includes(workflow.status);
   const current = terminal ? undefined : workflow.nodes.find(node => node.id === workflow.currentNodeId) ?? workflow.nodes.find(node => ["running", "attention"].includes(node.status));
   const states = [workflow.engineState, current?.engineState];
@@ -14,16 +18,16 @@ export function workflowControls(workflow: Workflow) {
   const attemptsRemain = !current || workflow.maxAttemptsPerNode === undefined || current.attempt < workflow.maxAttemptsPerNode;
   return {
     terminal, current, reconciliation, hardware,
-    start: workflow.status === "draft",
+    start: !diagnosticLane && workflow.status === "draft",
     pause: ["running", "queued"].includes(workflow.status) && !["pausing_at_checkpoint", "stopping_at_checkpoint"].includes(workflow.engineState ?? ""),
-    resume: (workflow.status === "paused" || (budgetUpdated && !budgetDecision)) && !reconciliation && !hardware,
-    recheck: attention && !current && !hardware && !reconciliation && workflow.engineState !== "deciding",
-    decide: workflow.mode === "real" && attention && workflow.policy === "autopilot" && !!current?.result && !current.result.stale && (["quality_attention", "waiting_model"].includes(workflow.engineState ?? "") || budgetDecision || legacyDecisionError) && !hardware && !reconciliation,
-    approve: attention && !budgetUpdated && !hardware && !reconciliation && !blocked && current?.result?.quality?.status === "passed",
-    retry: attention && !budgetUpdated && !!current && !hardware && !reconciliation && !blocked && attemptsRemain,
-    policy: ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
-    backtrack: ["attention", "paused"].includes(workflow.status) && !hardware && !reconciliation && workflow.engineState !== "deciding",
-    edit: workflow.mode === "real" && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
+    resume: !diagnosticLane && (workflow.status === "paused" || (budgetUpdated && !budgetDecision)) && !reconciliation && !hardware,
+    recheck: !diagnosticLane && attention && !current && !hardware && !reconciliation && workflow.engineState !== "deciding",
+    decide: !diagnosticLane && workflow.mode === "real" && attention && workflow.policy === "autopilot" && !!current?.result && !current.result.stale && (["quality_attention", "waiting_model"].includes(workflow.engineState ?? "") || budgetDecision || legacyDecisionError) && !hardware && !reconciliation,
+    approve: !diagnosticLane && attention && !budgetUpdated && !hardware && !reconciliation && !blocked && current?.result?.quality?.status === "passed",
+    retry: !diagnosticLane && attention && !budgetUpdated && !!current && !hardware && !reconciliation && !blocked && attemptsRemain,
+    policy: !diagnosticActive && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
+    backtrack: !diagnosticActive && ["attention", "paused"].includes(workflow.status) && !hardware && !reconciliation && workflow.engineState !== "deciding",
+    edit: !diagnosticActive && workflow.mode === "real" && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
   };
 }
 

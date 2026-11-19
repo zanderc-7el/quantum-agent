@@ -64,6 +64,50 @@ class HTTPContracts(unittest.TestCase):
         self.assertEqual(workflows[0]['id'], wf['id'])
         self.assertEqual(self.adapter.calls, [])
 
+    def test_archive_routes_only_read_results_without_dispatch(self):
+        calls = []
+        self.controller.archive_status = lambda: {'storage': 'local', 'cloudConfigured': False}
+        self.controller.archive_list = lambda **kwargs: calls.append(kwargs) or {'items': [], 'nextCursor': None}
+        self.controller.archive_item = lambda key: {'id': key, 'kind': 'measurement'}
+        status, _, value = self.request('GET', '/api/archive/status')
+        self.assertEqual(status, 200)
+        self.assertFalse(value['cloudConfigured'])
+        status, _, value = self.request('GET', '/api/archive?workflowId=wf-read&limit=12&cursor=abc')
+        self.assertEqual(status, 200)
+        self.assertEqual(calls, [{'workflow_id': 'wf-read', 'limit': 12, 'cursor': 'abc'}])
+        self.assertEqual(self.request('GET', '/api/archive/a-1')[2]['id'], 'a-1')
+        self.assertEqual(self.request('GET', '/api/archive?limit=bad')[0], 400)
+        self.assertEqual(self.adapter.calls, [])
+
+    def test_report_creation_requires_session_and_does_not_dispatch_measurement(self):
+        calls = []
+        class Exports:
+            def create(self, workflow_id, body):
+                calls.append((workflow_id, body))
+                return {'id': 'report-test', 'status': 'queued'}
+            def get(self, key):
+                return {'id': key, 'status': 'queued'}
+            def list(self, workflow_id):
+                return [{'workflowId': workflow_id, 'id': 'report-test', 'status': 'queued'}]
+            def has_active(self):
+                return True
+        self.server.report_exports = Exports()
+        body = {'operationId': 'export-test', 'expectedRevision': 1, 'format': 'pptx', 'appendixCount': 16}
+        endpoint = '/api/workflows/wf-read/report-exports'
+        self.assertEqual(self.request('POST', endpoint, body)[0], 401)
+        token = self.session()
+        self.assertEqual(self.request('POST', endpoint, body, {'X-Qcal-Token': token, 'Origin': 'http://untrusted.example'})[0], 403)
+        self.assertEqual(calls, [])
+        status, _, value = self.request('POST', endpoint, body, {'X-Qcal-Token': token})
+        self.assertEqual((status, value['status']), (202, 'queued'))
+        self.assertEqual(calls, [('wf-read', body)])
+        self.assertEqual(self.request('GET', '/api/report-exports/report-test')[2]['id'], 'report-test')
+        self.assertEqual(self.request('GET', endpoint)[2][0]['workflowId'], 'wf-read')
+        status, _, value = self.request('POST', '/api/system/shutdown', {}, {'X-Qcal-Token': token})
+        self.assertEqual((status, value['error']['code']), (409, 'REPORT_EXPORT_ACTIVE'))
+        self.assertFalse(self.controller.stop_event.is_set())
+        self.assertEqual(self.adapter.calls, [])
+
     def test_invalid_session_origin_and_host_are_rejected(self):
         token = self.session()
         body = {'name': 'must not create', 'resourceIds': ['Q11'], 'mode': 'real'}

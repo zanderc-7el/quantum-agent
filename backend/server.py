@@ -31,53 +31,8 @@ def configured_agent_port(root, override=None):
     return value
 
 def html_report(controller, report):
-    escape = lambda v: html.escape(str(v))
-    wf = report['workflow']
-    parts = ['<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width">',
-             '<title>' + escape(wf['name']) + '</title><style>body{font:15px system-ui;margin:32px auto;max-width:1400px;color:#182331}h1{border-bottom:3px solid #b42624;padding-bottom:18px}section{break-inside:avoid;margin:28px 0}figure{display:inline-block;width:46%;vertical-align:top;margin:1%}img{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f8;padding:16px}small{color:#556}table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}@media print{body{margin:10mm}figure{width:46%}}</style>',
-             '<h1>' + escape(wf['name']) + '</h1>',
-             '<p>来源：' + ('历史实测回放' if wf['mode'] == 'replay' else '本轮真机测量 · ' + escape(wf.get('adapterId', '测量执行器'))) + ' · ' + escape(wf['target']) + '</p>',
-             '<p>流程完整验收：' + ('通过' if report['workflowComplete'] else '尚未全部通过') + '</p>']
-    if wf.get('coverage') == 'working_point':
-        parts.append('<p>任务范围：复刻已有工作点，所选10项脉冲测量。' + escape(wf.get('completionScope', {}).get('meaning', '')) + '</p>')
-        parts.append('<p>历史来源仅作初值（seed_only）：' + escape(wf.get('seedReference', {}).get('sourceId', '')) + '；未复制历史通过状态或 IQ 参考。</p>')
-    for item in report['nodes']:
-        node = item['node']
-        parts.append('<section><h2>' + escape(node['qubits'] + ' · ' + node['label']) + '</h2>')
-        if node.get('engineState') == 'stale':
-            parts.append('<p>当前节点需复测：前置参数已变化。以下保留记录不代表当前参数已通过。</p>')
-        if not item['attempts']:
-            parts.append('<p>尚无该方法的采集记录。</p>')
-        for attempt in item['attempts']:
-            result = attempt.get('result') or {}
-            parts.append('<h3>尝试 ' + str(attempt['number']) + ' · ' + escape(result.get('methodLabel', attempt.get('procedureId', ''))) + '</h3>')
-            quality = result.get('quality', {})
-            parts.append('<p>' + escape(quality.get('status', attempt['state'])) + '：' + escape('；'.join(quality.get('reasons', []))) + '</p>')
-            stages = [('本次采集', result)]
-            if result.get('selectionResult'):
-                stages = [('候选测量', result['selectionResult']), ('独立复测', result)]
-            for label, stage in stages:
-                parts.append('<h4>' + label + '</h4>')
-                if stage.get('supplementalQuality'):
-                    parts.append('<details><summary>重复性补充验收</summary><pre>' + escape(json.dumps(stage['supplementalQuality'], ensure_ascii=False, indent=2)) + '</pre></details>')
-                if stage.get('metrics'):
-                    parts.append('<pre>' + escape(json.dumps(stage['metrics'], ensure_ascii=False, indent=2)) + '</pre>')
-                for artifact in stage.get('artifacts', []):
-                    if artifact['kind'] != 'image':
-                        continue
-                    try:
-                        path, _ = controller.artifact(artifact['id'])
-                        mime = mimetypes.guess_type(path.name)[0] or 'image/png'
-                        encoded = base64.b64encode(path.read_bytes()).decode('ascii')
-                        parts.append('<figure><img src="data:' + mime + ';base64,' + encoded + '"><figcaption>' + escape(artifact['name']) + '</figcaption><small>SHA256 ' + escape(artifact['sha256']) + '</small></figure>')
-                    except (APIError, OSError) as exc:
-                        parts.append('<p>产物校验失败：' + escape(str(exc)) + '</p>')
-                parts.append('<details><summary>' + label + '参数和来源</summary><pre>' + escape(json.dumps({'parameters': stage.get('parameters', attempt.get('parameters')), 'provenance': stage.get('provenance'), 'quality': stage.get('quality'), 'artifacts': stage.get('artifacts')}, ensure_ascii=False, indent=2)) + '</pre></details>')
-        if item['decisions']:
-            parts.append('<h3>决策与回退</h3><pre>' + escape(json.dumps(item['decisions'], ensure_ascii=False, indent=2)) + '</pre>')
-        parts.append('</section>')
-    parts.append('</html>')
-    return ''.join(parts).encode('utf-8')
+    from .human_reports import html_report as render
+    return render(controller, report)
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
@@ -87,6 +42,8 @@ class Server(ThreadingHTTPServer):
         self.session_token = secrets.token_urlsafe(32)
         self.live_series = None
         self.live_series_lock = threading.Lock()
+        self.report_exports = None
+        self.report_exports_lock = threading.Lock()
         super().__init__(address, Handler)
         self.allowed_hosts = {f'127.0.0.1:{self.server_address[1]}', f'localhost:{self.server_address[1]}'}
 
@@ -99,6 +56,13 @@ class Handler(BaseHTTPRequestHandler):
     @property
     def controller(self):
         return self.server.controller
+
+    def _report_exports(self):
+        with self.server.report_exports_lock:
+            if self.server.report_exports is None:
+                from .report_exports import ReportExportService
+                self.server.report_exports = ReportExportService(self.controller)
+            return self.server.report_exports
 
     def log_message(self, fmt, *args):
         # Never print bodies, model prompts, credentials or the local session token.
@@ -245,6 +209,30 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(self.controller.knowledge())
             if path == '/api/workflows':
                 return self._send(self.controller.list())
+            if path == '/api/archive/status':
+                return self._send(self.controller.archive_status())
+            if path == '/api/archive':
+                try:
+                    limit = int(query.get('limit', ['30'])[0])
+                except ValueError:
+                    raise APIError('INVALID_LIMIT', '每页记录数量无效')
+                return self._send(self.controller.archive_list(
+                    workflow_id=query.get('workflowId', [None])[0], limit=limit,
+                    cursor=query.get('cursor', [None])[0]))
+            match = re.fullmatch(r'/api/archive/([^/]+)', path)
+            if match:
+                return self._send(self.controller.archive_item(match[1]))
+            match = re.fullmatch(r'/api/report-exports/([^/]+)(/file)?', path)
+            if match:
+                service = self._report_exports()
+                if match[2]:
+                    file, mime = service.file(match[1])
+                    return self._send(file.read_bytes(), content_type=mime,
+                                      headers={'Content-Disposition': 'attachment; filename="quantum-report.pptx"'})
+                return self._send(service.get(match[1]))
+            match = re.fullmatch(r'/api/workflows/([^/]+)/report-exports', path)
+            if match:
+                return self._send(self._report_exports().list(match[1]))
             if path == '/api/events':
                 return self._events(query)
             match = re.fullmatch(r'/api/workflows/([^/]+)', path)
@@ -253,6 +241,9 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)', path)
             if match:
                 return self._send(self.controller.detail(match[1], match[2]))
+            match = re.fullmatch(r'/api/workflows/([^/]+)/rb-diagnostic', path)
+            if match:
+                return self._send(self.controller.inspect_rb_diagnostic(match[1]))
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/live-series', path)
             if match:
                 workflow = self.controller.get(match[1])
@@ -366,10 +357,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(self.controller.create(body), 201)
             if path == '/api/chat' and method == 'POST':
                 return self._send(self.controller.chat(body))
+            match = re.fullmatch(r'/api/workflows/([^/]+)/report-exports', path)
+            if match and method == 'POST':
+                return self._send(self._report_exports().create(match[1], body), 202)
             match = re.fullmatch(r'/api/knowledge/candidates/([^/]+)/publish', path)
             if match and method == 'POST':
                 return self._send(self.controller.publish_experience(match[1], body.get('operationId')))
             if path == '/api/system/shutdown' and method == 'POST':
+                if self.server.report_exports is not None and self.server.report_exports.has_active():
+                    raise APIError('REPORT_EXPORT_ACTIVE', 'PPT仍在生成，请完成后关闭服务', 409)
                 with self.controller.store.transaction() as rt:
                     active = any(w['status'] in ('queued', 'running') or w.get('engineState') in ('deciding', 'decision_queued')
                                  for w in self.controller.store.workflows(rt))
@@ -425,6 +421,8 @@ def main():
         pass
     finally:
         controller.close()
+        if server.report_exports is not None:
+            server.report_exports.shutdown()
         server.server_close()
 
 if __name__ == '__main__':
