@@ -23,7 +23,7 @@ async function waitTask(id, predicate, timeout = 18000) { const end = Date.now()
   await page.goto(output.base, { waitUntil: "domcontentloaded" });
   await check("default entry connects to backend session and SSE without demo login", async () => { await page.locator(".rp-live.live").waitFor(); await page.getByRole("heading", { name: "让每一步实验都有据可循" }).waitFor(); assert.equal(await page.getByText("Leader123!", { exact: false }).count(), 0); await screenshot("01-dashboard"); });
   for (const resourceId of ["Q11", "Q18"]) {
-    await page.getByRole("button", { name: "工作看台", exact: false }).first().click();
+    await page.getByRole("button", { name: "实验任务", exact: false }).first().click();
     await page.getByRole("button", { name: "新建工作流", exact: true }).last().click();
     const dialog = page.getByRole("dialog", { name: "新建工作流" });
     await dialog.getByLabel("运行方式", { exact: true }).selectOption("replay");

@@ -66,10 +66,23 @@ def _read_report(connection, workflow_id, artifact_root, generated_at):
                     raise ValueError('Artifact is outside explicit root: ' + artifact['id'])
                 artifacts[artifact['id']] = {**json.loads(record[2]), 'id': artifact['id'],
                     'path': str(path), 'sha256': record[1]}
+    # Freeze receipt evidence in this same read transaction. Keep the original
+    # workflow/results verbatim; reader rendering derives its own display copy.
+    stopped_receipts = []
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='platform_effects'").fetchone():
+        for r in connection.execute(
+                "SELECT attempt_id,operation_id,result FROM platform_effects WHERE workflow_id=? AND state IN ('cancelled','failed_after_shutdown') ORDER BY operation_id", (workflow_id,)):
+            try:
+                receipt = json.loads(r[2])
+            except (TypeError, ValueError):
+                continue
+            if isinstance(receipt, dict):
+                stopped_receipts.append({'workflowId': workflow_id, 'attemptId': r[0], 'operationId': r[1], 'receipt': receipt})
     return {'schema': 'qcal-report/1', 'generatedAt': generated_at,
         'source': 'recorded_data_only', 'workflow': workflow, 'nodes': nodes,
         'workflowComplete': workflow.get('workflowComplete') is True,
         'artifactRoot': str(artifact_root), 'artifactIndex': artifacts,
+        'stoppedReceipts': stopped_receipts,
         'snapshotSemantics': 'Consistent read-only SQLite snapshot. Ongoing attempts remain incomplete. Image bytes verified against registered SHA256.'}
 
 

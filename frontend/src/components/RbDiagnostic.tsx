@@ -26,6 +26,7 @@ export default function RbDiagnostic({ workflow, gateway }: { workflow: Workflow
   }, [gateway, workflow.id]);
   useEffect(() => { flow.current?.observe(); }, [workflow]);
   if (!rbDiagnosticWorkflow(workflow)) return null;
+  if (workflow.policy === 'strict') return <RbDiagnosticStatus workflow={workflow} />;
   const marker = rbDiagnosticMarker(workflow);
   const failedCpmg = workflow.nodes.some(node => node.procedureId === 'sq_cpmg' && node.resourceId === 'Q11'
     && node.result?.quality.status === 'failed');

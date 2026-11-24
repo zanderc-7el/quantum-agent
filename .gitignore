@@ -40,3 +40,11 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Private regression fixtures supplied separately
+/tests/fixtures/actual-model-design-resource-claims.json
+/tests/fixtures/failed-attempt-report-snapshot.json
+/tests/fixtures/genuine-delivery-document.xml
+/tests/fixtures/handover-slide28.xml
+/tests/fixtures/reader-unmeasured-nodes.json
+/.document_deps*/

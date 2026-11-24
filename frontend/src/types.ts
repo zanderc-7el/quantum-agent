@@ -62,9 +62,10 @@ export interface ExperimentNode {
   attempt: number;
   qubits: string;
   detail: string;
+  technicalDetails?: Record<string, unknown>;
   ownerId?: string;
   procedureId?: string;
-  capability?: "available" | "unavailable" | "historical_only";
+  capability?: "available" | "unavailable" | "historical_only" | "unsupported";
   engineState?: string;
   parameters?: Record<string, unknown>;
   parameterVersions?: Record<string, number>;
@@ -123,6 +124,7 @@ export interface Workflow {
   iterations: number;
   nodes: ExperimentNode[];
   events: {
+    technicalDetails?: Record<string, unknown>;
     time: string;
     message: string;
     kind: "info" | "success" | "warning";
@@ -153,6 +155,8 @@ export interface SupplementalQuality {
   receipts: Partial<Record<'selection' | 'verification' | 'cross', { status: 'passed' | 'failed' | 'unverified'; accepted: boolean; reasons: string[]; checks: unknown[]; evidenceHash: string; registeredEvidence?: unknown }>>;
 }
 export interface MeasurementResult {
+  technicalDetails?: Record<string, unknown>;
+  executionSummary?: { version: number; reason: string; measurementData: "none" | "partial" | "unconfirmed"; rawDataAvailable: boolean; pointsCompleted: number | null; selectionRetained: boolean; message: string; receiptOperationIds?: string[] };
   selectionResult?: MeasurementResult;
   supplementalQuality?: SupplementalQuality;
   stale?: boolean;
@@ -203,7 +207,7 @@ export interface AdapterIdentity { id?: string; name?: string }
 export interface ParameterBound { min: number; max: number; unit?: string; label?: string; integer?: boolean; enum?: number[] }
 export type ParameterBounds = Record<string, ParameterBound>;
 export interface Catalog { blueprint: { version: string; nodes: ExperimentNode[]; edges: NonNullable<Workflow["edges"]> }; resources: Resource[]; rules: Rule[]; capabilities: unknown; adapter?: AdapterIdentity; parameterBounds?: ParameterBounds; coverage?: { realDefault?: WorkflowCoverage; main?: string; full?: string; working_point?: string }; workingPointCoverage?: WorkingPointCoverage; stages?: { id: string; label: string; capability?: string; reason?: string; requiresHardwareConfirmation?: boolean; blueprintVersion?: string; adapter?: AdapterIdentity }[]; }
-export type RemoteAction = WorkflowAction | "backtrack" | "confirm_hardware" | "reconcile" | "decide";
+export type RemoteAction = WorkflowAction | "run_step" | "backtrack" | "confirm_hardware" | "reconcile" | "decide";
 export type WorkflowAction =
   | "start"
   | "pause"

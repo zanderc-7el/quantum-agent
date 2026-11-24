@@ -1,14 +1,17 @@
+import { isManualWorkflow, manualStepControls } from "../lib/workflowControls";
 import { abortedNodePresentation } from "../lib/abortedNodePresentation";
 import { useId, useState } from "react";
 import { GitBranch, Minus, Plus } from "lucide-react";
 import type { ExperimentNode, Workflow } from "../types";
 import { buildFlowGeometry } from "../lib/flowGeometry";
+import { classifyFlowEdges, type FlowEdgeKind } from "../lib/flowEdgeKinds";
 import { staleNodeLabel } from "../lib/workflowResources";
 import "./flow-canvas.css";
 
 const states: Record<string, string> = { success: "已执行", pending: "待执行", running: "运行中", attention: "待决策", abandoned: "已终止" };
+const edgeLabels: Record<FlowEdgeKind, string> = { main: "主流程", dependency: "跨步依赖", rollback: "回退" };
 function stateLabel(node: ExperimentNode, workflow: Workflow) {
-  return abortedNodePresentation(workflow, node)?.label ?? (node.engineState === "historical" ? "历史已载入"
+  return abortedNodePresentation(workflow, node)?.label ?? (isManualWorkflow(workflow) ? manualStepControls(workflow, node).label : node.engineState === "historical" ? "历史已载入"
     : workflow.engineState === "replay_completed" && node.attempt === 0 ? "无历史记录"
       : node.engineState === "stale" ? staleNodeLabel(node) : states[node.status]);
 }
@@ -22,7 +25,9 @@ export default function RealFlowCanvas({ workflow, selectedNodeId, onSelectNode 
   const marker = useId().replace(/:/g, "");
   const dependencies = workflow.nodes.flatMap(node => (node.dependsOn ?? []).map(from => ({ from, to: node.id })));
   const explicitBacktracks = (workflow.edges ?? []).filter(edge => edge.kind === "rollback" || edge.kind === "backtrack");
-  const geometry = buildFlowGeometry(workflow.nodes, [...dependencies, ...explicitBacktracks]);
+  const edges = [...dependencies, ...explicitBacktracks];
+  const edgeKinds = classifyFlowEdges(workflow.nodes, edges);
+  const geometry = buildFlowGeometry(workflow.nodes, edges);
   const nodesById = new Map(workflow.nodes.map(node => [node.id, node]));
   const showActive = ["running", "attention", "paused"].includes(workflow.status);
   return <section className="fc-root rp-dynamic-flow" aria-label="实际实验工作流蓝图">
@@ -43,12 +48,14 @@ export default function RealFlowCanvas({ workflow, selectedNodeId, onSelectNode 
           <svg className="fc-connections" width={geometry.width} height={geometry.height} aria-hidden="true">
             <defs><marker id={marker} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="context-stroke" /></marker></defs>
             {geometry.routes.map((route, index) => {
+              const kind = edgeKinds.get(route.edge) ?? "dependency";
               const active = showActive && route.edge.to === workflow.currentNodeId;
-              const label = (route.label ?? "").length > 25 ? route.label!.slice(0, 24) + "…" : route.label;
+              const fullLabel = route.label ? `${edgeLabels[kind]} → ${nodesById.get(route.edge.to)?.label ?? route.edge.to}` : undefined;
+              const label = (fullLabel ?? "").length > 25 ? fullLabel!.slice(0, 24) + "…" : fullLabel;
               const labelWidth = [...label ?? ""].reduce((sum, char) => sum + (char.charCodeAt(0) > 127 ? 9 : 5.4), 12);
-              return <g key={`${route.edge.from}-${route.edge.to}-${index}`}>
-                <path d={route.path} className={`fc-edge${route.rollback ? " fc-edge--loop" : ""}${active ? " fc-edge--active" : ""}`} markerEnd={`url(#${marker})`}>
-                  <title>{route.edge.from} → {route.edge.to} · {route.rollback ? "回退" : "依赖"}</title>
+              return <g key={`${route.edge.from}-${route.edge.to}-${index}`} className={`fc-link fc-link--${kind}`}>
+                <path d={route.path} className={`fc-edge fc-edge--${kind}${active ? " fc-edge--active" : ""}`} markerEnd={`url(#${marker})`}>
+                  <title>{`${route.edge.from} → ${route.edge.to} · ${edgeLabels[kind]}`}</title>
                 </path>
                 {route.labelPoint && label && <g className={`rp-edge-label${route.rollback ? " rollback" : ""}`} transform={`translate(${route.labelPoint.x},${route.labelPoint.y})`}>
                   <rect x={-labelWidth / 2} y={-10} width={labelWidth} height={15} rx={3} />
@@ -75,8 +82,8 @@ export default function RealFlowCanvas({ workflow, selectedNodeId, onSelectNode 
     </div>
     <div className="rp-flow-legend">
       <span><i className="dot dot-running" />运行中</span><span><i className="dot dot-success" />已验证</span>
-      <span><i className="dot dot-historical" />历史已载入</span><span><i className="dot dot-attention" />待决策</span>
-      <span>实线箭头：依赖 · 虚线箭头：回退</span>
+      <span><i className="dot dot-historical" />历史已载入</span><span><i className="dot dot-attention" />{isManualWorkflow(workflow) ? "待人工处理" : "待决策"}</span>
+      {(["main", "dependency", "rollback"] as const).map(kind => <span key={kind} className={`fc-link fc-link--${kind}`}><svg className="fc-edge-swatch" viewBox="0 0 23 12" aria-hidden="true"><path d="M0 6 H23" className={`fc-edge fc-edge--${kind}`} /></svg>{edgeLabels[kind]}</span>)}
     </div>
   </section>;
 }

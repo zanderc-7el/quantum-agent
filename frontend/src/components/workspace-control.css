@@ -1,0 +1,53 @@
+.wc-page{padding:30px 36px;overflow:auto;flex:1;min-height:0;color:var(--text,#dbe5ef)}.wc-page h1{font-size:27px;margin:0 0 10px}.wc-page h2{font-size:18px;margin:0 0 16px}.wc-page h3{font-size:15px}.wc-page p{line-height:1.7}.wc-page .page-heading{margin-bottom:24px}.wc-page .page-heading p,.wc-muted{color:var(--muted,#91a2b4)}.wc-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:14px 0}.wc-toolbar h2{margin:0}.wc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.wc-page label{display:flex;flex-direction:column;gap:7px;font-size:13px}.wc-page input,.wc-page select,.wc-page textarea{border:1px solid var(--line,#364455);background:var(--bg,#141e2a);color:inherit;border-radius:8px;padding:10px;font:inherit;min-width:0}.wc-page textarea{width:100%;min-height:100px;resize:vertical}.wc-page input[type=checkbox]{width:16px;height:16px}.wc-check{display:flex!important;flex-direction:row!important;align-items:center}.wc-upload{position:relative;border:1px solid var(--line,#364455);padding:9px 14px;border-radius:8px;cursor:pointer}.wc-upload input{max-width:220px;padding:2px}.wc-card{padding:22px;border:1px solid var(--line,#2d3b4b);border-radius:13px;background:var(--panel,#172330);margin-bottom:20px}.wc-config-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px}.wc-list-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:none;color:inherit;width:100%;border:0;border-bottom:1px solid var(--line,#344050);padding:13px 5px;gap:5px;cursor:pointer}.wc-list-item small{color:var(--muted,#91a2b4)}.wc-fields{border:0;margin:0;padding:0;min-width:0}.wc-qubit{border:1px solid var(--line,#344050);border-radius:10px;padding:18px;margin:18px 0;min-width:0}.wc-qubit legend{padding:0 8px;font-weight:600}.wc-page details,.wc-attention-modal details{margin:18px 0;font-size:13px}.wc-page summary,.wc-attention-modal summary{cursor:pointer;color:var(--muted,#91a2b4)}.wc-page pre,.wc-attention-modal pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:12px}.wc-issues{border-left:3px solid #d5a34d;padding-left:14px}.wc-error{color:#ee8a85;white-space:pre-wrap;overflow-wrap:anywhere}.wc-table-scroll{overflow-x:auto}.wc-text-button{display:block;background:transparent;color:#60cfc7;border:0;cursor:pointer;padding:5px 0}.wc-agent{display:flex;flex-direction:column}.wc-messages{flex:1;min-height:200px;overflow:auto;margin:10px 0 22px}.wc-message{padding:17px 20px;max-width:900px;border-radius:12px;background:var(--panel,#172330);margin:14px 0;border:1px solid var(--line,#2b3b49)}.wc-message.user{margin-left:auto;border-color:#3b7774}.wc-message div{white-space:pre-wrap;line-height:1.75;margin:10px 0}.wc-message small{color:var(--muted,#91a2b4)}.wc-composer{border:1px solid var(--line,#344050);border-radius:12px;padding:15px}.wc-composer small{color:var(--muted,#91a2b4)}.wc-attention-badge{position:fixed;right:244px;top:17px;z-index:40}.wc-attention-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:#03091299;backdrop-filter:blur(3px);padding:30px}.wc-attention-modal{color:var(--text,#dbe5ef);background:var(--panel,#172330);border:1px solid var(--line,#3c4b5a);border-radius:16px;padding:30px;width:min(620px,94vw);max-height:85vh;overflow:auto;box-shadow:0 22px 90px #0007}.wc-attention-modal h2{font-size:21px}.wc-attention-modal p{line-height:1.8;white-space:pre-wrap}.wc-attention-modal:focus{outline:none}.wc-page[hidden]{display:none}.wc-persistent-view{display:flex;flex:1;min-height:0;overflow:hidden}.wc-persistent-view[hidden]{display:none}@media(max-width:1000px){.wc-config-layout{grid-template-columns:1fr}.wc-page{padding:22px}.wc-attention-badge{right:150px}.wc-grid{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}}
+
+.rp-readable-parameters{margin:12px 0}.rp-readable-parameters>div{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}.rp-readable-parameters dt{font-size:12px;overflow-wrap:anywhere;color:var(--muted)}.rp-readable-parameters dd{margin:0;font-size:13px;overflow-wrap:anywhere;text-align:right}
+
+.wc-provenance{font-size:12px}.wc-provenance>div{padding:8px 0;border-bottom:1px solid var(--line)}.wc-provenance dt{font-weight:600}.wc-provenance dd{margin:5px 0 0;color:var(--muted);overflow-wrap:anywhere}
+
+.wc-task-tabs{display:flex;gap:10px;padding:18px 28px 0}.wc-conversation-scope{padding:0 0 12px}.wc-conversation-scope .wc-toolbar{padding-top:12px}.wc-card>summary{cursor:pointer;font-weight:600}.wc-card>summary+h2{margin-top:18px}
+
+.wc-evidence{margin-top:10px;font-size:12px}.wc-evidence>summary,.wc-evidence-item summary{cursor:pointer}.wc-evidence-item{padding:10px 0;border-bottom:1px solid var(--border)}.wc-evidence-item>div{display:flex;align-items:center;gap:12px}.wc-evidence-item p{margin:5px 0;overflow-wrap:anywhere}.wc-evidence-item time{display:block;opacity:.65;margin-bottom:6px}.wc-evidence-item pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto}
+
+/* The Agent owns one viewport; only its message list consumes remaining height. */
+.remote-app.view-agent{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+.remote-app.view-agent>.main-shell{height:100%;min-height:0;overflow:hidden}
+.remote-app.view-agent .wc-persistent-view{min-width:0;min-height:0}
+.wc-page.wc-agent{min-width:0;min-height:0;overflow:hidden;padding-bottom:20px}
+.wc-agent>.page-heading{flex-shrink:0;align-items:center;margin-bottom:8px}
+.wc-agent>.page-heading h1{margin:0}
+.wc-agent>.wc-conversation-scope{flex-shrink:0;margin:4px 0 8px;padding:0}
+.wc-agent>.wc-conversation-scope .wc-toolbar{margin:10px 0;padding:0}
+.wc-agent .wc-message-region{position:relative;display:flex;flex:1;min-height:0;min-width:0;margin:0 0 12px}
+.wc-agent .wc-messages{flex:1;min-height:0;min-width:0;margin:0;overflow:auto;overscroll-behavior:contain;overflow-anchor:none;scrollbar-gutter:stable;padding:0 8px 0 0}
+.wc-agent .wc-message-content{display:flex;flex-direction:column;min-height:100%;padding-bottom:12px}
+.wc-agent .wc-message-content>:first-child{margin-top:auto}
+.wc-agent .wc-message-content>*{flex-shrink:0}
+.wc-agent .wc-message{overflow-wrap:anywhere}
+.wc-agent .wc-latest-message{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:12px;padding:7px 12px;border-radius:20px;background:var(--panel,#172330);box-shadow:0 3px 14px #0002;white-space:nowrap}
+.wc-agent .wc-composer{flex:0 0 auto;min-width:0;background:var(--panel,#172330);padding:12px}
+.wc-agent .wc-composer textarea{display:block;min-height:76px;height:76px;max-height:min(180px,25dvh);resize:vertical}
+.wc-agent .wc-composer .wc-toolbar{margin:10px 0 0;gap:8px;max-height:100px;overflow:auto}
+.wc-agent .wc-composer .wc-toolbar>.primary{margin-left:auto}
+.wc-agent .wc-agent-status{max-height:16dvh;overflow:auto}
+.wc-agent .wc-agent-status p{margin:0 0 8px}
+.wc-agent .wc-agent-status button{margin-left:10px}
+.wc-agent .wc-upload{display:block;font-size:12px;padding:8px 12px}
+.wc-agent .wc-upload input{position:absolute;width:1px;height:1px;opacity:0;padding:0;overflow:hidden}
+.wc-agent .wc-upload:focus-within{outline:2px solid var(--accent,#60cfc7);outline-offset:2px}
+.wc-agent .wc-agent-attachment{display:flex;align-items:center;gap:6px;max-width:100%;overflow-wrap:anywhere;font-size:12px}
+@media(max-width:700px){
+  .remote-app.view-agent{display:flex;flex-direction:column}
+  .remote-app.view-agent>.sidebar{flex:0 0 auto}
+  .remote-app.view-agent>.main-shell{flex:1;height:auto;min-height:0}
+  .wc-page.wc-agent{padding:14px 12px 12px}
+  .wc-agent>.page-heading h1{font-size:22px}
+  .wc-agent .wc-message{padding:12px 14px}
+  .wc-agent .wc-composer{padding:10px}
+}
+@media(max-height:650px){
+  .wc-page.wc-agent{padding-top:10px;padding-bottom:10px}
+  .wc-agent .wc-composer textarea{min-height:54px;height:54px}
+  .wc-agent .wc-composer .wc-toolbar{max-height:66px}
+}
+
+.wc-report-receipt{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0;font-size:13px}.wc-report-receipt p{flex-basis:100%;margin:0}.wc-report-receipt p button{margin-left:10px}

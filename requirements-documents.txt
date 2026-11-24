@@ -1,0 +1,8 @@
+# Python 3.12: python -m pip install --target .document_deps -r requirements-documents.txt
+# Python 3.13: D:/Python313/python.exe -m pip install --target .document_deps_py313 -r requirements-documents.txt
+pypdf==7.1.1
+openpyxl==3.1.5
+PyMuPDF==1.26.6
+rapidocr-onnxruntime==1.4.4; python_version < "3.13"
+rapidocr==3.10.0; python_version >= "3.13"
+onnxruntime==1.20.1

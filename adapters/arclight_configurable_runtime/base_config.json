@@ -1,0 +1,105 @@
+{
+  "_agent": {
+    "source_qubit": "explicit_dynamic_resource_required",
+    "arclight_qubit": "Q1",
+    "hardware_model": "CeyearStationF8",
+    "hardware_name": "CeyearStationF8",
+    "hardware_group": "agent_f8",
+    "logical_channels": {
+      "RO": [
+        14,
+        0
+      ],
+      "AD": [
+        15,
+        0
+      ]
+    },
+    "physical_channels": {
+      "RO": "RF8/channel0",
+      "AD": "OSC0/channel0"
+    },
+    "readout_wave_sample_rate_hz": 2000000000,
+    "readout_digital_carrier_hz": 7000000000,
+    "hardware_rf_filter_hz": 6000000000,
+    "note": "para.sRate=6e9 selects the native 2GHz complex-wave / frequency-minus-7GHz path; ADC_sRate is independent. Acquisition triggerDelay must be checked against the live timing before measurement."
+  },
+  "Chip": {
+    "name": "dynamic_resource_as_internal_Q1",
+    "All_Qubits": [
+      "Q1"
+    ],
+    "current_Qubit": "Q1"
+  },
+  "ADC_Meas": {
+    "All_PROBs": [
+      "B1"
+    ],
+    "current_PROB": "B1",
+    "global": {
+      "readout_only": false,
+      "master_ch": "CeyearStationF8.MASTER",
+      "timeSeq": {
+        "period": 0.0002,
+        "wdLen": 8.6e-05,
+        "probT0": 8e-05,
+        "gapTime": 3e-07,
+        "fill": true
+      },
+      "preserve_existing_dc": true
+    },
+    "B1": {
+      "inst": {
+        "probChI": "CeyearStationF8.RO",
+        "ADCCh": "CeyearStationF8.AD"
+      },
+      "para": {
+        "ADC_sRate": 2800000000,
+        "pointNum": 4800,
+        "shots": 128,
+        "triggerDelay": 8e-05,
+        "sRate": 6000000000,
+        "width": 2.2e-06,
+        "shape_kw": {
+          "pre_width": 2e-07,
+          "factor": 0.5
+        }
+      }
+    }
+  },
+  "Q1": {
+    "inst": {
+      "ADC_PROB": "B1",
+      "xyGateChI": "CeyearStationF8.XY"
+    },
+    "para": {
+      "probFreq": 7009510000,
+      "probLoFreq": 0,
+      "probCarryFreq": 7009510000,
+      "probCarryScale": 0.8,
+      "demodPhase": 0,
+      "demodPointStart": 1000,
+      "demodPointLen": 3000,
+      "drivFreq": 4862690000,
+      "drivLoFreq": 0,
+      "drivCarryFreq": 4862690000,
+      "fluxValue": 0
+    },
+    "gate": {
+      "sRate": {
+        "XY": 4000000000.0,
+        "Z": 2000000000.0
+      },
+      "U_gates": {
+        "pi_len": 3.2e-07,
+        "pi_amp": 0.98,
+        "shape": "DC",
+        "buff": 2e-09,
+        "use_drag": false,
+        "lambda1": 0,
+        "Delta2": -200000000.0,
+        "z_amp": 0
+      }
+    }
+  }
+}

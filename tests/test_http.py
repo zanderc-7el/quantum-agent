@@ -153,8 +153,22 @@ class HTTPContracts(unittest.TestCase):
         second = self.request('POST', path, command, {'X-Qcal-Token': token})
         self.assertEqual(first[0], 200)
         self.assertEqual(first[2], second[2])
-        status, _, error = self.request('POST', path, {**command, 'operationId': 'stale', 'action': 'pause'}, {'X-Qcal-Token': token})
+        status, _, error = self.request('POST', path, {**command, 'operationId': 'stale', 'action': 'resume'}, {'X-Qcal-Token': token})
         self.assertEqual((status, error['error']['code']), (409, 'STALE_REVISION'))
+
+    def test_stale_stop_intents_succeed_and_replay_same_http_receipt(self):
+        token = self.session()
+        wf = self.controller.create({'name': 'stop HTTP', 'resourceIds': ['Q11'], 'mode': 'real'})
+        path = '/api/workflows/' + wf['id'] + '/actions'
+        self.controller.action(wf['id'], {'action':'start','operationId':'http-queued','expectedRevision':wf['revision']})
+        for action, expected in (('pause','paused'),('abort','aborted')):
+            command = {'action':action,'operationId':'http-'+action,'expectedRevision':wf['revision']}
+            first = self.request('POST', path, command, {'X-Qcal-Token': token})
+            second = self.request('POST', path, command, {'X-Qcal-Token': token})
+            self.assertEqual(first[0],200,first[2])
+            self.assertEqual(first[2]['status'],expected)
+            self.assertEqual(first[2],second[2])
+        self.assertEqual(self.adapter.calls,[])
 
     def test_parameter_patch_auth_and_decoded_node_routing(self):
         calls = []

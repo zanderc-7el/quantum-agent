@@ -7,6 +7,7 @@ import json
 import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from .receipt_presentation import report_view
 
 POLICY_VERSION = 'defensive-language-audit/report-reader-v1'
 METHOD_LABELS = {'sq_cpmg': 'CPMG 相干测试', 'sq_t1': 'T1 能量弛豫', 'sq_ramsey': 'Ramsey 相干测试',
@@ -41,9 +42,11 @@ def accepted(node, workflow):
             and not result.get('partial') and not result.get('stale') and not result.get('verificationPending'))
 
 
-def status_label(node, workflow):
+def status_label(node, workflow, has_attempts=False):
     result = node.get('result') or {}
     if node.get('engineState') == 'stale' or result.get('stale'):
+        if not (result or has_attempts or node.get('latestAttemptId') or node.get('attempt')):
+            return '待测（前置参数已更新）'
         return '前置参数已变化，需复测'
     if accepted(node, workflow):
         return '独立复测通过'
@@ -54,8 +57,13 @@ def status_label(node, workflow):
     if result.get('verificationPending'):
         return '独立复测尚未完成'
     if result.get('partial'):
-        return '部分采集'
+        return partial_status(result)
     return {'acquiring': '正在采集', 'verifying': '正在独立复测', 'waiting_hardware': '等待接线'}.get(node.get('engineState'), '待测' if not result else '待验收')
+
+
+def partial_status(result):
+    return {'none': '未获得测量数据', 'unconfirmed': '原始数据留存待核查'}.get(
+        result.get('executionSummary', {}).get('measurementData'), '部分采集')
 
 
 def metric_rows(result, is_accepted=False):
@@ -79,7 +87,7 @@ def reader_reasons(result):
     translated = list(dict.fromkeys(text for fragment, text in rules if fragment.lower() in original.lower()))
     if not translated and original:
         translated = [original] if all(not ('a' <= char.lower() <= 'z' or char in '{}_') for char in original) else ['采集结果未满足本次验收规则']
-    return '。'.join(translated) + ('。' if translated else '')
+    return '。'.join(text.rstrip('。') for text in translated) + ('。' if translated else '')
 
 
 def _stages(attempt):
@@ -91,20 +99,47 @@ def _stages(attempt):
     return [('本次采集', result)]
 
 
+def no_data_attempt_summary(node, attempt, result):
+    """Present frozen, attempt-bound evidence; never infer totals from old data."""
+    summary = result.get('executionSummary', {})
+    if summary.get('measurementData') != 'none':
+        return None
+    number = attempt.get('number') if attempt else None
+    prefix = f'第{number}次尝试' if type(number) is int and number > 0 else '本次尝试'
+    completed = summary.get('pointsCompleted')
+    total = None
+    telemetry = node.get('telemetry') or {}
+    if (attempt and telemetry.get('jobCount') == 1
+            and telemetry.get('controllerAttemptId') == attempt.get('id')
+            and telemetry.get('controllerOperationId') in summary.get('receiptOperationIds', [])):
+        candidate = telemetry.get('totalRows')
+        if type(candidate) is int and candidate > 0 and type(completed) is int and 0 <= completed <= candidate:
+            total = candidate
+    progress = (f'，已采集{completed}/{total}点' if total is not None else
+                f'，已采集{completed}点' if type(completed) is int and completed >= 0 else '')
+    reason = '设备连接失败' if summary.get('reason') == 'connection_failed' else '采集已停止'
+    text = f'{prefix}：{reason}{progress}，本次未获得测量数据。'
+    if summary.get('selectionRetained'):
+        text += '此前候选采集单独保留，独立复测尚未验收。'
+    retained = '日志与诊断记录已保留；' if '已保留执行日志和诊断文件' in summary.get('message', '') else '退出回执已保留；'
+    return text + retained + '仪器输出状态未核验。'
+
+
 def reader_model(report):
+    report = report_view(report)
     wf = report['workflow']
     nodes, ledger = [], []
     for item in report.get('nodes', []):
         node = item['node']
         ok = accepted(node, wf)
-        status = status_label(node, wf)
         attempts = item.get('attempts', [])
+        status = status_label(node, wf, has_attempts=bool(attempts))
         latest = next((a for a in attempts if a.get('id') == node.get('latestAttemptId')), None)
         result = node.get('result') or {}
         label = METHOD_LABELS.get(node.get('procedureId'), node.get('label', '测量'))
         summary = f'{label}：{status}。'
         if not ok:
-            summary += reader_reasons(result)
+            summary = no_data_attempt_summary(node, latest, result) or summary + reader_reasons(result)
         if node.get('procedureId') in ('ro_iq01', 'ro_optimize'):
             summary += '此处衡量读出状态的区分能力。'
         elif node.get('procedureId') == 'sq_allxy':
@@ -117,10 +152,10 @@ def reader_model(report):
             current = attempt.get('id') == node.get('latestAttemptId')
             for role, stage in _stages(attempt):
                 stage_ok = current and ok and role == '独立复测'
-                stage_label = '历史回放' if wf.get('mode') == 'replay' or not fresh(stage) else role
+                stage_label = '历史回放' if wf.get('mode') == 'replay' or (not fresh(stage) and not stage.get('executionSummary')) else role
                 if not current:
                     stage_label += '，历次尝试'
-                stage_status = ('部分采集' if stage.get('partial') else
+                stage_status = (partial_status(stage) if stage.get('partial') else
                                 '独立复测通过' if stage_ok else
                                 '未通过' if stage.get('quality', {}).get('status') == 'failed' else '候选结果')
                 figures = [{'artifactId': a['id'], 'caption': f'{label} · 第{attempt.get("number", "?")}次 · {stage_label} · {stage_status}',
@@ -198,6 +233,12 @@ def html_report(controller, report):
              '<p class="meta">数据快照：' + esc(model['snapshotTime']) + '</p>',
              '<p class="lead">' + esc(model['summary']) + '</p><p>' + esc(model['scope']) + '</p>',
              '<table><tr><th>测量项目</th><th>当前状态</th><th>主要结果</th></tr>']
+    workflow = report['workflow']
+    provenance = {key: workflow[key] for key in ('seedReference', 'completionScope', 'chipVersionId',
+                  'deploymentVersionId', 'initializationSource') if key in workflow}
+    if provenance:
+        parts.append('<details><summary>参数来源与测量范围（技术记录）</summary><pre>' +
+                     esc(json.dumps(provenance, ensure_ascii=False, indent=2)) + '</pre></details>')
     for node in model['nodes']:
         parts.append('<tr><td>' + esc(node['label']) + '</td><td>' + esc(node['status']) + '</td><td>' + esc('，'.join(m['label'] + ' ' + m['value'] for m in node['metrics'][:2]) or '等待结果') + '</td></tr>')
     parts.append('</table>')
@@ -214,7 +255,13 @@ def html_report(controller, report):
             except Exception:
                 content.append('<p class="failed">该图暂时无法读取，请检查本地数据文件。</p>')
         return ''.join(content) + '</div>'
-    for index, node in enumerate(model['nodes']):
+    unmeasured = [i for i, n in enumerate(model['nodes']) if not (
+        n['figures'] or n['metrics'] or n['history'] or report['nodes'][i]['node'].get('attempt'))]
+    ordered = [i for i in range(len(model['nodes'])) if i not in unmeasured] + unmeasured
+    for index in ordered:
+        node = model['nodes'][index]
+        if unmeasured and index == unmeasured[0]:
+            parts.append('<details><summary>未采集项目（' + str(len(unmeasured)) + '项）</summary>')
         parts.extend(['<section><h2>' + esc(node['qubits']) + ' · ' + esc(node['label']) + '</h2><p>' + esc(node['summary']) + '</p>'])
         if node['metrics']:
             parts.append('<table><tr><th>指标</th><th>测量值</th></tr>' + ''.join('<tr><td>' + esc(m['label']) + '</td><td>' + esc(m['value']) + '</td></tr>' for m in node['metrics']) + '</table>')
@@ -228,5 +275,7 @@ def html_report(controller, report):
         if node['decisions']:
             parts.append('<details><summary>调整过程</summary>' + ''.join('<p><strong>' + esc(d['action']) + '</strong>　' + esc(d['reason']) + '</p>' for d in node['decisions']) + '</details>')
         parts.append('<details><summary>技术记录与数据来源（JSON）</summary><pre>' + esc(json.dumps(report['nodes'][index], ensure_ascii=False, indent=2)) + '</pre></details></section>')
+    if unmeasured:
+        parts.append('</details>')
     parts.append('</main></html>')
     return ''.join(parts).encode('utf-8')

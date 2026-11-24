@@ -2,6 +2,7 @@
 from copy import deepcopy
 import hashlib
 import json
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -28,6 +29,8 @@ class WorkingPointTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='qcal-working-point-offline-')
         self.root = Path(self.directory.name)
+        shutil.copytree(ROOT / 'knowledge/report-writing/defensive-language-audit',
+                        self.root / 'knowledge/report-writing/defensive-language-audit')
         imports = self.root / 'data/imports'
         imports.mkdir(parents=True)
         (imports / 'history.json').write_text(json.dumps({'version': 1,

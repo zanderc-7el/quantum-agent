@@ -24,7 +24,7 @@ export function createServer(brain,account=null){return http.createServer(async(
     if(req.method==='GET'&&url.pathname==='/account/models'){send(200,account?await account.models():{models:[],error:{code:'account_unavailable',message:'账户服务未加载'}});return;}
     if(req.method==='GET'&&url.pathname==='/events'){const id=url.searchParams.get('sessionId');const after=Number(url.searchParams.get('after')||0);if(!id||!Number.isInteger(after)||after<0)throw new Error('invalid_cursor');send(200,{events:brain.store.events(id,after)});return;}
     const accountAction=/^\/account\/(send-code|login|connect|logout|test)$/.exec(url.pathname)?.[1];
-    if(req.method!=='POST'||(!['/chat','/decide'].includes(url.pathname)&&!accountAction)){send(404,{error:{code:'not_found'}});return;}
+    if(req.method!=='POST'||(!['/chat','/decide','/workspace','/structure'].includes(url.pathname)&&!accountAction)){send(404,{error:{code:'not_found'}});return;}
     if(!String(req.headers['content-type']||'').startsWith('application/json')){send(415,{error:{code:'json_required'}});return;}
     let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>250000){send(413,{error:{code:'body_too_large'}});return;}}
     const input=JSON.parse(raw);

@@ -95,6 +95,15 @@ test("global settings have no task claim, and unknown check failures and actions
   assert.match(html, /fixture preflight reason/); assert.match(html, /确认交接并继续/);
   assert.doesNotMatch(html, /本任务已确认交接/);
   const empty = render({ hardware: { enabled: false, ownership: { verified: true, owners: [] } } });
-  assert.match(empty, /设备连接占用检查已通过/);
+  assert.match(empty, /设备占用检查通过/);
   assert.doesNotMatch(empty, /当前快照显示正在|进程与本任务的归属尚未核验/);
+});
+
+test("device card keeps actual state target and action visible while technical explanations are collapsed", () => {
+  const html=render({hardware,workflow:workflow(),adapter:{id:'technical-executor-id'},action:createElement('button',null,'确认接线')});
+  const visible=html.replace(/<details[\s\S]*?<\/details>/g,'');
+  assert.match(visible,/已确认接线/);assert.match(visible,/fixture-device:7110/);assert.match(visible,/确认接线/);
+  assert.doesNotMatch(visible,/technical-executor-id|检查方式|默认直接连接|PID 66432|进程归属/);
+  assert.match(html,/<details><summary>连接检查详情<\/summary>/);
+  assert.match(html,/technical-executor-id/);assert.match(html,/检查方式/);
 });

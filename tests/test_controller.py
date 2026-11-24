@@ -859,12 +859,12 @@ class ControllerContracts(unittest.TestCase):
             wf['id'], {**payload, 'action': 'abort'}))
         self.assertEqual(self.adapter.calls, [])
 
-    def test_stale_revision_and_stale_attempt_cannot_mutate_workflow(self):
+    def test_non_stop_commands_still_require_current_revision_and_attempt(self):
         wf = self.create()
         started = self.command(wf, 'start')
-        self.assert_code('STALE_REVISION', lambda: self.command(wf, 'pause', 'stale'))
+        self.assert_code('STALE_REVISION', lambda: self.command(wf, 'resume', 'stale'))
         self.assertEqual(self.controller.get(wf['id'])['revision'], started['revision'])
-        self.assert_code('STALE_ATTEMPT', lambda: self.command(started, 'pause', 'old-attempt',
+        self.assert_code('STALE_ATTEMPT', lambda: self.command(started, 'approve', 'old-attempt',
                          nodeId=started['nodes'][0]['id'], attemptId='not-current'))
 
     def test_upstream_backtrack_invalidates_downstream_and_keeps_attempt_evidence(self):
@@ -1224,7 +1224,9 @@ class ControllerContracts(unittest.TestCase):
         other = self.command(self.create(), 'start', 'start-new-task')
         self.controller.run_workflow(other['id'])
         self.assertFalse(self.controller.get(other['id'])['hardwareConfirmed'])
-        self.assertEqual(self.controller.get(other['id'])['engineState'], 'waiting_hardware')
+        self.assertEqual(self.controller.get(other['id'])['engineState'], 'device_queue_paused')
+        self.assertEqual(self.controller.get(other['id'])['deviceBlockerId'], wf['id'])
+        self.assertEqual(self.adapter.calls, [])
 
     def test_confirmed_run_enables_only_scoped_execution_adapter(self):
         self.adapter.profile['enabled'] = False
@@ -1344,7 +1346,7 @@ class ControllerContracts(unittest.TestCase):
             current = self.controller.get(wf['id'], rt)
             for node in current['nodes']:
                 node.update(engineState='verified', status='success', progress=100, mainProcedureComplete=True,
-                            result={'quality': {'status': 'passed'}, 'artifacts': []})
+                            result={'dataKind': 'real', 'quality': {'status': 'passed'}, 'artifacts': []})
                 if node['procedureId'] == 'sq_rabi_amplitude':
                     old = {'id': 'old-rabi-' + wf['id'], 'nodeId': node['id'], 'number': 1,
                            'mode': 'real', 'state': 'verified', 'result': deepcopy(node['result'])}
@@ -1354,7 +1356,19 @@ class ControllerContracts(unittest.TestCase):
             self.controller.store.save(rt, current, 'fixture_pre_readout_change')
         optimizer = next(n for n in current['nodes'] if n['procedureId'] == 'ro_optimize')
         self.adapter.candidate = {'readout_amp': selected}
-        self.assertEqual(self.controller._execute_node(wf['id'], optimizer['id']), policy != 'strict')
+        if policy == 'strict':
+            with self.controller.store.transaction() as rt:
+                current = self.controller.get(wf['id'], rt)
+                self.controller._node(current, optimizer['id']).update(engineState='pending', status='pending')
+                self.controller.store.save(rt, current, 'fixture_manual_readout_pending')
+            current = self.command(current, 'run_step', 'manual-readout', nodeId=optimizer['id'])
+            self.controller.run_workflow(wf['id'])
+            current = self.controller.get(wf['id'])
+            self.assertEqual(current['engineState'], 'awaiting_acceptance')
+            self.assertNotIn('readoutRevalidations', current)
+            self.command(current, 'approve', 'accept-manual-readout', nodeId=optimizer['id'])
+        else:
+            self.assertTrue(self.controller._execute_node(wf['id'], optimizer['id']))
         return self.controller.get(wf['id']), optimizer['id'], old
 
     def test_readout_change_rebuilds_rabi_chain_then_independently_verifies_fixed_candidate(self):
@@ -1403,7 +1417,7 @@ class ControllerContracts(unittest.TestCase):
 
     def test_readout_rebuild_strict_policy_pauses_at_real_rabi_target(self):
         wf, _, _ = self._readout_rebuild_fixture(policy='strict')
-        self.assertEqual((wf['status'], wf['engineState']), ('paused', 'readout_revalidation_pending'))
+        self.assertEqual((wf['status'], wf['engineState']), ('paused', 'manual_ready'))
         self.assertEqual(wf['currentNodeId'], wf['readoutRevalidations']['Q11']['rabiNodeId'])
         self.assertEqual(len(self.adapter.calls), 2)
 
@@ -1446,7 +1460,8 @@ class ControllerContracts(unittest.TestCase):
             current = self.controller.get(wf['id'], rt)
             self.controller._node(current, marker['rabiNodeId']).setdefault('parameterOverrides', {})['readout_amp'] = .6
             self.controller.store.save(rt, current, 'fixture_legacy_conflicting_override')
-        self.assert_code('READOUT_FIXED_WORKING_POINT', lambda: self.controller._execute_node(wf['id'], marker['rabiNodeId']))
+        current = self.controller.get(wf['id'])
+        self.assert_code('READOUT_FIXED_WORKING_POINT', lambda: self.command(current, 'run_step', 'reject-conflicting-pin', nodeId=marker['rabiNodeId']))
         self.assertEqual(self.controller.get(wf['id'])['readoutRevalidations']['Q11']['state'], 'active')
         self.assertEqual(len(self.adapter.calls), 2)
         with self.controller.store.connect() as rt:

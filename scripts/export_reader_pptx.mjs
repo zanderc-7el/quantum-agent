@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { readerResultNodes } from './report_pptx_model.mjs';
 const args=Object.fromEntries(process.argv.slice(2).reduce((a,v,i,all)=>i%2?a:[...a,[v.replace(/^--/,''),all[i+1]]],[]));
 for(const key of ['snapshot','reader','template','build-dir'])if(!args[key])throw Error(`Missing ${key}`);
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -47,7 +48,7 @@ for(let start=0;start<model.nodes.length;start+=8){
  s=page('测量结果汇总','summary');table(s,[['测量项目','主要结果','当前状态'],...model.nodes.slice(start,start+8).map(n=>[n.label,n.metrics.slice(0,2).map(m=>m.label+' '+m.value).join('\n')||'等待结果',n.status])],[290,566,300]);
  text(s,'读出指派、脉冲响应和单门保真度分别验收。',62,650,1156,34,18,'#555555');
 }
-for(const n of model.nodes){
+for(const n of readerResultNodes(model,report)){
  const groups=n.figures.length?Array.from({length:Math.ceil(n.figures.length/6)},(_,i)=>n.figures.slice(i*6,i*6+6)):[[]];
  for(const figures of groups){s=page(`${n.qubits} ${n.label}`,'result');text(s,n.status,62,92,1156,35,22,n.accepted?'#333333':'#9D2222');
   const cols=figures.length<=1?1:figures.length===2?2:3,rows=figures.length<=3?1:2,w=1156/cols,h=442/rows;

@@ -5,6 +5,13 @@ const pendingVerification = result => result?.verificationPending === true
   && result.selectionResult !== null && typeof result.selectionResult === 'object'
   && !Array.isArray(result.selectionResult);
 
+/** Unmeasured nodes remain in the summary; result pages need evidence or an attempted acquisition. */
+export function readerResultNodes(model, report) {
+  const attempts = new Map((report.nodes || []).map(item => [item.node.id, item.node.attempt || 0]));
+  return model.nodes.filter(node => node.figures?.length || node.metrics?.length
+    || node.history?.length || attempts.get(node.id) > 0);
+}
+
 function selectionComplete(result) {
   return pendingVerification(result) && result.selectionResult.partial !== true
     && result.selectionResult.stale !== true && result.selectionResult.analysisQuality?.accepted === true;

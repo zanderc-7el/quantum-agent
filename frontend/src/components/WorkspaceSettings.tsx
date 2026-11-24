@@ -144,7 +144,7 @@ export default function WorkspaceSettings({
     <>
       <span className="eyebrow">WORKSPACE SETTINGS</span>
       <h2 id="modal-title">{isLeader ? "工作空间管理" : "个人设置与数据"}</h2>
-      <p className="modal-description">让工作空间适合你的实验习惯。</p>
+
       <div className="ws-layout">
         <nav className="ws-tabs" aria-label="设置分类">
           {(
@@ -174,7 +174,7 @@ export default function WorkspaceSettings({
           {tab === "personal" && (
             <>
               <h3>界面外观</h3>
-              <p className="ws-note">两套配色，同一套实验工作空间。</p>
+
               <div className="ws-theme-options">
                 {(["dark", "light"] as const).map((theme) => (
                   <button
@@ -284,7 +284,7 @@ export default function WorkspaceSettings({
             <>
               <DataStorageCard workflowCount={state.workflows.length} />
               <h3>全部实验明细 CSV</h3>
-              <p className="ws-note">一次导出本工作区所有跑过的实验，不受列表筛选影响。包含任务、每个节点、配置参数、模拟结果和事件记录，可用 Excel / WPS 打开。</p>
+              <p className="ws-note">导出所有已运行实验的参数、模拟结果与事件记录。</p>
               <div className="ws-card csv-export-card"><FileSpreadsheet size={24}/><div><strong>{countExecutedWorkflows(state.workflows)} 个已运行实验</strong><p>运行中、已完成、暂停、异常及已终止任务</p></div><button className="primary" onClick={onExportCsv} disabled={!countExecutedWorkflows(state.workflows)}><Download size={15}/> 导出全部实验 CSV</button></div>
               <p className="ws-note">{EXPERIMENT_CSV_HISTORY_NOTE}</p>
               <h3>{isLeader ? "工作区备份与导入" : "工作区备份"}</h3>
@@ -412,10 +412,10 @@ export default function WorkspaceSettings({
           )}
           {tab === "team" && <>
             <h3>账号与权限</h3>
-            <p className="ws-note">当前登录：{user.username} · {ROLE_LABELS[user.role]}。演示账号用于体验分工，正式账号和授权由后续服务端接管。</p>
+            <p className="ws-note">{user.username} · {ROLE_LABELS[user.role]} · 演示账号</p>
             <div className="team-member-list">{DEMO_ACCOUNTS.map((account) => <div className="team-member" key={account.id}><UserRound size={19}/><div><strong>{account.displayName}{account.id === user.id ? " · 当前账号" : ""}</strong><small>{ROLE_LABELS[account.role]}</small></div><code>{account.username}</code></div>)}</div>
             <table className="permissions-table"><thead><tr><th>操作</th><th>团队负责人</th><th>工作人员</th></tr></thead><tbody><tr><td>查看参数、结果与导出</td><td>团队全部</td><td>团队全部</td></tr><tr><td>创建、运行、暂停与终止</td><td>全部任务</td><td>本人任务</td></tr><tr><td>异常审批与策略修改</td><td>允许</td><td>由负责人处理</td></tr><tr><td>导入、重置、空间配置</td><td>允许</td><td>只读</td></tr></tbody></table>
-            <p className="ws-note">历史示例任务未绑定工作人员，负责人可以操作。工作人员可新建或复制为自己的实验。登录页提供两套演示账号，退出后可切换身份。</p>
+            <p className="ws-note">历史示例任务由负责人管理。</p>
           </>}
           {tab === "connection" && (
             <>

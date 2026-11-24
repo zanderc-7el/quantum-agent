@@ -61,6 +61,12 @@ async function requestText(config,url,headers,body,signal){
   }
   return result;
 }
+// DeepSeek Anthropic compatibility supports thinking.type = "disabled":
+// https://api-docs.deepseek.com/guides/anthropic_api/ (Simple Fields).
+// This only identifies support; Brain opts in separately for document structure requests.
+export function supportsStructureNonThinking(config){
+  return config.protocol==='anthropic_messages'&&typeof config.model==='string'&&/^deepseek(?:[-_.]|$)/i.test(config.model);
+}
 export async function complete(config,messages){
   if(!config.configured)throw new Error('waiting_model');
   if(config.accountSignal?.aborted)throw new Error('model_configuration_changed');
@@ -68,7 +74,8 @@ export async function complete(config,messages){
   const budget=resolveOutputBudget(config);
   const system=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n');
   let body,url;const headers={'Content-Type':'application/json'};
-  if(config.protocol==='anthropic_messages'){url=endpoint(config.baseUrl,'/messages');headers['x-api-key']=config.apiKey;headers['anthropic-version']='2023-06-01';body={model:config.model,max_tokens:budget.initialMaxTokens,system,messages:messages.filter(m=>m.role!=='system')};}
+  if(config.protocol==='anthropic_messages'){url=endpoint(config.baseUrl,'/messages');headers['x-api-key']=config.apiKey;headers['anthropic-version']='2023-06-01';body={model:config.model,max_tokens:budget.initialMaxTokens,system,messages:messages.filter(m=>m.role!=='system'),
+    ...(config.structureNonThinking===true&&supportsStructureNonThinking(config)?{thinking:{type:'disabled'}}:{})};}
   else {if(config.apiKey)headers.Authorization=`Bearer ${config.apiKey}`;if(config.protocol==='openai_responses'){url=endpoint(config.baseUrl,'/responses');body={model:config.model,instructions:system,input:messages.filter(m=>m.role!=='system'),max_output_tokens:budget.initialMaxTokens};}else{url=endpoint(config.baseUrl,'/chat/completions');body={model:config.model,messages,temperature:0};}}
   // Both HTTP attempts and every Brain round share the original absolute
   // request deadline. The timer is created once, never reset for a retry.

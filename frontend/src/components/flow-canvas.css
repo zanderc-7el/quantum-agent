@@ -258,6 +258,49 @@
   stroke-dasharray: 5 5;
   stroke-width: 1.4;
 }
+/* Keep the live workflow's relationship colors independent of node/run status. */
+.fc-root.rp-dynamic-flow {
+  --fc-main-edge: #6b9dff;
+  --fc-dependency-edge: #b29ae7;
+  --fc-rollback-edge: #efa65d;
+}
+:root[data-theme="light"] .fc-root.rp-dynamic-flow {
+  --fc-main-edge: #356dc5;
+  --fc-dependency-edge: #8455b5;
+  --fc-rollback-edge: #b96523;
+}
+.rp-dynamic-flow .fc-link--main { --fc-edge-color: var(--fc-main-edge); }
+.rp-dynamic-flow .fc-link--dependency { --fc-edge-color: var(--fc-dependency-edge); }
+.rp-dynamic-flow .fc-link--rollback { --fc-edge-color: var(--fc-rollback-edge); }
+.fc-root.rp-dynamic-flow .fc-link .fc-edge {
+  stroke: var(--fc-edge-color);
+}
+.fc-root.rp-dynamic-flow .fc-edge--main {
+  stroke-width: 2.2;
+  stroke-dasharray: none;
+}
+.fc-root.rp-dynamic-flow .fc-edge--dependency {
+  stroke-width: 1.4;
+  stroke-dasharray: 4 5;
+}
+.fc-root.rp-dynamic-flow .fc-edge--rollback {
+  stroke-width: 1.8;
+  stroke-dasharray: 8 4 2 4;
+}
+.fc-root.rp-dynamic-flow .fc-edge.fc-edge--active {
+  filter: drop-shadow(0 0 3px var(--fc-edge-color));
+}
+.fc-root.rp-dynamic-flow .fc-link .rp-edge-label text {
+  fill: var(--fc-edge-color);
+}
+.fc-root.rp-dynamic-flow .rp-flow-legend {
+  gap: 10px 18px;
+}
+.fc-edge-swatch {
+  width: 23px;
+  height: 12px;
+  flex-shrink: 0;
+}
 .fc-loop-note {
   position: absolute;
   top: 191px;

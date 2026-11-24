@@ -38,7 +38,7 @@ export function rbDiagnosticPassed(workflow: Workflow): boolean {
 
 /** Server eligibility is required. Local checks only reject stale or malformed inspection snapshots. */
 export function rbDiagnosticEligible(workflow: Workflow, inspection?: RbDiagnosticInspection): boolean {
-  if (!rbDiagnosticWorkflow(workflow) || !['paused', 'attention'].includes(workflow.status)
+  if (workflow.policy === 'strict' || !rbDiagnosticWorkflow(workflow) || !['paused', 'attention'].includes(workflow.status)
       || !inspection || inspection.schema !== 'qcal-rb-diagnostic-inspection/1'
       || inspection.policyVersion !== RB_DIAGNOSTIC_POLICY || inspection.eligible !== true
       || inspection.workflowId !== workflow.id || !Number.isSafeInteger(inspection.revision)

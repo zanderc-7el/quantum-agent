@@ -51,7 +51,7 @@ export interface RemoteGateway extends WorkflowGateway {
 }
 
 /** SSE is the authoritative state stream. No simulator or measurement selector is used here. */
-export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource?: (url: string) => EventSource; base?: string } = {}): RemoteGateway {
+export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource?: (url: string) => EventSource; base?: string; commandTimeoutMs?: number; readTimeoutMs?: number } = {}): RemoteGateway {
   const request = options.fetch ?? globalThis.fetch.bind(globalThis);
   const base = options.base ?? "";
   let sessionPromise: Promise<LocalSession> | undefined;
@@ -62,19 +62,33 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
   const listeners = new Set<(snapshot: AppState) => void>();
   const connections = new Set<(state: ConnectionState) => void>();
   const setConnection = (state: ConnectionState) => { connectionState = state; connections.forEach(listener => listener(state)); };
-  const read = async <T>(path: string, init?: RequestInit): Promise<T> => {
-    const response = await request(`${base}/api${path}`, { credentials: "same-origin", ...init });
-    const value = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError(value?.error?.message || `请求失败（${response.status}）`, response.status, value?.error?.code);
-    return value as T;
+  const read = async <T>(path: string, init?: RequestInit, timeoutMs?: number): Promise<T> => {
+    const controller = timeoutMs === undefined ? undefined : new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const perform = async () => {
+      const response = await request(`${base}/api${path}`, { credentials: "same-origin", ...init, ...(controller ? {signal: controller.signal} : {}) });
+      const value = await response.json().catch(() => ({}));
+      if (!response.ok) throw new ApiError(value?.error?.message || `请求失败（${response.status}）`, response.status, value?.error?.code);
+      return value as T;
+    };
+    try {
+      if (timeoutMs === undefined) return await perform();
+      return await Promise.race([perform(), new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const mutation = !!init?.method && init.method !== "GET";
+          reject(new ApiError(mutation ? "回执待确认，请刷新任务" : "任务状态读取超时，请刷新任务", 408, mutation ? "RECEIPT_UNCONFIRMED" : "REQUEST_TIMEOUT"));
+          controller?.abort();
+        }, timeoutMs);
+      })]);
+    } finally { if (timer !== undefined) clearTimeout(timer); }
   };
-  const session = () => sessionPromise ??= read<LocalSession>("/session").catch(error => { sessionPromise = undefined; throw error; });
-  const write = async <T>(path: string, method: string, body: unknown) => {
+  const session = () => sessionPromise ??= read<LocalSession>("/session", undefined, options.readTimeoutMs ?? 10000).catch(error => { sessionPromise = undefined; throw error; });
+  const write = async <T>(path: string, method: string, body: unknown, timeoutMs?: number) => {
     const authPromise = session();
     const auth = await authPromise;
     // Serialize once: a refreshed token retries the same operation, never a new command.
     const payload = JSON.stringify(body);
-    const send = (token: string) => read<T>(path, { method, headers: { "Content-Type": "application/json", "X-Qcal-Token": token }, body: payload });
+    const send = (token: string) => read<T>(path, { method, headers: { "Content-Type": "application/json", "X-Qcal-Token": token }, body: payload }, timeoutMs);
     try { return await send(auth.token); }
     catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
@@ -90,17 +104,20 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
     listeners.forEach(listener => listener(snapshot));
   };
   const get = async (id: string) => {
-    const value = await read<Workflow>(`/workflows/${encodeURIComponent(id)}`);
+    const value = await read<Workflow>(`/workflows/${encodeURIComponent(id)}`, undefined, options.readTimeoutMs ?? 10000);
     acceptWorkflow(value);
     return snapshot.workflows.find(item => item.id === id) ?? value;
   };
   const command = async (id: string, action: RemoteAction, targetNodeId?: string) => {
     const workflow = snapshot.workflows.find(item => item.id === id) ?? await get(id);
-    const node = workflow.nodes.find(item => item.id === workflow.currentNodeId) ?? workflow.nodes.find(item => ["running", "attention"].includes(item.status));
+    const explicitNode = action === "run_step" || (action === "approve" && !!targetNodeId);
+    const node = explicitNode ? workflow.nodes.find(item => item.id === targetNodeId) : workflow.nodes.find(item => item.id === workflow.currentNodeId) ?? workflow.nodes.find(item => ["running", "attention"].includes(item.status));
+    if (explicitNode && !node) throw new Error("请选择本任务中的步骤");
+    const stop = action === "pause" || action === "abort";
     const result = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/actions`, "POST", {
       action, operationId: crypto.randomUUID(), expectedRevision: workflow.revision ?? 0,
-      nodeId: node?.id, attemptId: node?.latestAttemptId, ...(targetNodeId ? { targetNodeId } : {}),
-    });
+      ...(!stop ? {nodeId: node?.id, attemptId: node?.latestAttemptId, ...(action === "backtrack" && targetNodeId ? { targetNodeId } : {})} : {}),
+    }, options.commandTimeoutMs ?? 30000);
     acceptWorkflow(result);
     return result;
   };
@@ -128,7 +145,7 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
     mode: "remote", session, get, command,
     async list() {
       const seq = lastSeq;
-      const workflows = await read<Workflow[]>("/workflows");
+      const workflows = await read<Workflow[]>("/workflows", undefined, options.readTimeoutMs ?? 10000);
       if (seq === lastSeq) snapshot = { ...snapshot, workflows: workflows.map(item => {
         const existing = snapshot.workflows.find(old => old.id === item.id);
         return existing && (existing.revision ?? 0) > (item.revision ?? 0) ? existing : item;

@@ -136,7 +136,7 @@ test("actual active inspector and progress retain original deciding and acquisit
     workflow, node, gateway: {}, onAction: async () => {}, onPolicy: async () => {}, busy: false, onBusy: () => {},
   }));
   assert.match(inspector, /智能体正在根据实测证据选择下一步/);
-  assert.match(inspector, />deciding</);
+  assert.match(inspector, /class="rp-node-state"><span>智能体正在决策<\/span>/);
   assert.doesNotMatch(inspector, /本轮决策结果不再执行|最后采集记录/);
   const progress = renderToStaticMarkup(createElement(MeasurementProgress, { workflow, node }));
   assert.match(progress, /当前实际采集进度/);

@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import secrets
 import signal
+import socket
 import sys
 import threading
 import time
@@ -36,7 +37,15 @@ def html_report(controller, report):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    # Windows SO_REUSEADDR permits a second live controller on the same port.
+    # Keep Unix restart behavior, but require exclusive ownership on Windows.
+    allow_reuse_address = not hasattr(socket, 'SO_EXCLUSIVEADDRUSE')
+
+    def server_bind(self):
+        if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
     def __init__(self, address, controller):
         self.controller = controller
         self.session_token = secrets.token_urlsafe(32)
@@ -60,8 +69,7 @@ class Handler(BaseHTTPRequestHandler):
     def _report_exports(self):
         with self.server.report_exports_lock:
             if self.server.report_exports is None:
-                from .report_exports import ReportExportService
-                self.server.report_exports = ReportExportService(self.controller)
+                self.server.report_exports = self.controller.report_exports
             return self.server.report_exports
 
     def log_message(self, fmt, *args):
@@ -99,7 +107,9 @@ class Handler(BaseHTTPRequestHandler):
         if not re.fullmatch(r'[0-9]+', raw):
             reject('INVALID_BODY', '请求长度无效')
         canonical = raw.lstrip('0') or '0'
-        if len(canonical) > 7 or int(canonical) > self.maximum_body_bytes:
+        import_request = self.command == 'POST' and urlsplit(self.path).path == '/api/chip-imports'
+        maximum = 96 * 1024 * 1024 if import_request else self.maximum_body_bytes
+        if len(canonical) > len(str(maximum)) or int(canonical) > maximum:
             reject('INVALID_BODY', '请求正文最多为 1048576 字节', 413)
         length = int(canonical)
         if not allow_empty and length == 0:
@@ -109,7 +119,7 @@ class Handler(BaseHTTPRequestHandler):
     def _read_body_bytes(self, *, retain=True, allow_empty=False):
         length = self._body_length(allow_empty=allow_empty)
         remaining, chunks = length, []
-        deadline = time.monotonic() + self.body_read_timeout
+        deadline = time.monotonic() + (15.0 if self.command == 'POST' and urlsplit(self.path).path == '/api/chip-imports' else self.body_read_timeout)
         previous_timeout = self.connection.gettimeout()
         try:
             while remaining:
@@ -204,11 +214,29 @@ class Handler(BaseHTTPRequestHandler):
             if match:
                 return self._send(self.controller.account(match[1]))
             if path == '/api/catalog':
-                return self._send(self.controller.catalog.describe(self.controller.adapter.capabilities(), self.controller._bounds()))
+                result = self.controller.catalog.describe(self.controller.adapter.capabilities(), self.controller._bounds())
+                result['configuredResources'] = self.controller.workspace.chips.resources()
+                return self._send(result)
+            if path == '/api/resources':
+                return self._send(self.controller.workspace.chips.resources())
+            match = re.fullmatch(r'/api/(chips|deployments|chip-imports|campaigns|conversations|attention-items)(?:/([^/]+))?', path)
+            if match:
+                group, id = match.groups()
+                workspace = self.controller.workspace
+                methods = {'chips': (workspace.chips.list_chips, workspace.chips.get_chip),
+                    'deployments': (workspace.chips.list_deployments, workspace.chips.get_deployment),
+                    'chip-imports': (workspace.imports.list, workspace.imports.get),
+                    'campaigns': (workspace.list_campaigns, workspace.get_campaign),
+                    'conversations': (workspace.list_conversations, workspace.get_conversation),
+                    'attention-items': (workspace.attention_items, None)}
+                listing, getter = methods[group]
+                if id and getter is None:
+                    raise APIError('NOT_FOUND', '接口不存在', 404)
+                return self._send(getter(id) if id else listing())
             if path == '/api/knowledge':
                 return self._send(self.controller.knowledge())
             if path == '/api/workflows':
-                return self._send(self.controller.list())
+                return self._send(self.controller.present_workflows(self.controller.list()))
             if path == '/api/archive/status':
                 return self._send(self.controller.archive_status())
             if path == '/api/archive':
@@ -237,10 +265,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._events(query)
             match = re.fullmatch(r'/api/workflows/([^/]+)', path)
             if match:
-                return self._send(self.controller.get(match[1]))
+                return self._send(self.controller.present_workflows([self.controller.get(match[1])])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)', path)
             if match:
-                return self._send(self.controller.detail(match[1], match[2]))
+                return self._send(self.controller.present_detail(match[1], self.controller.detail(match[1], match[2])))
             match = re.fullmatch(r'/api/workflows/([^/]+)/rb-diagnostic', path)
             if match:
                 return self._send(self.controller.inspect_rb_diagnostic(match[1]))
@@ -316,6 +344,7 @@ class Handler(BaseHTTPRequestHandler):
         while not self.controller.stop_event.is_set():
             snapshot = self.controller.snapshot()
             if first or snapshot['seq'] > after:
+                snapshot['workflows'] = self.controller.present_workflows(snapshot['workflows'])
                 self.wfile.write(f"id: {snapshot['seq']}\nevent: snapshot\ndata: {dumps(snapshot)}\n\n".encode('utf-8'))
                 after, first = snapshot['seq'], False
             else:
@@ -350,11 +379,34 @@ class Handler(BaseHTTPRequestHandler):
                 return self._error(exc)
             path = unquote(urlsplit(self.path).path)
             body = self._body()
+            match = re.fullmatch(r'/api/(chips|deployments|chip-imports|campaigns|conversations|attention-items)(?:/([^/]+))?(?:/(publish|analyze|actions|messages))?', path)
+            if match:
+                group, id, operation = match.groups()
+                ws = self.controller.workspace
+                if not id and method == 'POST':
+                    create = {'chips':ws.chips.save_chip, 'deployments':ws.chips.save_deployment,
+                        'chip-imports':ws.imports.create, 'campaigns':ws.create_campaign,
+                        'conversations':ws.create_conversation}.get(group)
+                    if create:
+                        return self._send(create(body), 201)
+                if id and method == 'POST':
+                    fn = {('chips','publish'):ws.chips.publish_chip, ('deployments','publish'):ws.chips.publish_deployment,
+                        ('chip-imports','analyze'):ws.imports.analyze, ('campaigns','actions'):ws.campaign_action,
+                        ('conversations','messages'):ws.message, ('attention-items','actions'):ws.attention_action}.get((group,operation))
+                    if fn:
+                        return self._send(fn(id,body))
+                if id and not operation and method == 'PATCH':
+                    if group == 'chip-imports':
+                        return self._send(ws.imports.update(id,body))
+                    if group in ('chips','deployments'):
+                        fn = ws.chips.save_chip if group == 'chips' else ws.chips.save_deployment
+                        return self._send(fn({**body,'id':id}))
+                raise APIError('NOT_FOUND', '接口不存在', 404)
             match = re.fullmatch(r'/api/account/(send-code|login|connect|logout|test)', path)
             if match and method == 'POST':
                 return self._send(self.controller.account(match[1], body))
             if path == '/api/workflows' and method == 'POST':
-                return self._send(self.controller.create(body), 201)
+                return self._send(self.controller.present_workflows([self.controller.create(body)])[0], 201)
             if path == '/api/chat' and method == 'POST':
                 return self._send(self.controller.chat(body))
             match = re.fullmatch(r'/api/workflows/([^/]+)/report-exports', path)
@@ -364,7 +416,8 @@ class Handler(BaseHTTPRequestHandler):
             if match and method == 'POST':
                 return self._send(self.controller.publish_experience(match[1], body.get('operationId')))
             if path == '/api/system/shutdown' and method == 'POST':
-                if self.server.report_exports is not None and self.server.report_exports.has_active():
+                exports = self.controller._report_exports_service or self.server.report_exports
+                if exports is not None and exports.has_active():
                     raise APIError('REPORT_EXPORT_ACTIVE', 'PPT仍在生成，请完成后关闭服务', 409)
                 with self.controller.store.transaction() as rt:
                     active = any(w['status'] in ('queued', 'running') or w.get('engineState') in ('deciding', 'decision_queued')
@@ -380,22 +433,22 @@ class Handler(BaseHTTPRequestHandler):
                 return
             match = re.fullmatch(r'/api/workflows/([^/]+)/actions', path)
             if match and method == 'POST':
-                return self._send(self.controller.action(match[1], body))
+                return self._send(self.controller.present_workflows([self.controller.action(match[1], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/policy', path)
             if match and method == 'PATCH':
-                return self._send(self.controller.set_policy(match[1], body))
+                return self._send(self.controller.present_workflows([self.controller.set_policy(match[1], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/budget', path)
             if match and method == 'PATCH':
-                return self._send(self.controller.set_budget(match[1], body))
+                return self._send(self.controller.present_workflows([self.controller.set_budget(match[1], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/readout-withdrawal', path)
             if match and method == 'POST':
-                return self._send(self.controller.withdraw_readout_candidate(match[1], body))
+                return self._send(self.controller.present_workflows([self.controller.withdraw_readout_candidate(match[1], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/supplemental-acceptance', path)
             if match and method == 'POST':
-                return self._send(self.controller.install_supplemental_acceptance(match[1], body))
+                return self._send(self.controller.present_workflows([self.controller.install_supplemental_acceptance(match[1], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/parameters', path)
             if match and method == 'PATCH':
-                return self._send(self.controller.set_parameters(match[1], match[2], body))
+                return self._send(self.controller.present_workflows([self.controller.set_parameters(match[1], match[2], body)])[0])
             raise APIError('NOT_FOUND', '接口不存在', 404)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             self.close_connection = True
@@ -412,15 +465,20 @@ def main():
         agent_port = configured_agent_port(args.root, args.agent_port)
     except (ValueError, APIError) as exc:
         parser.error(str(exc))
-    controller = Controller(args.root, brain_url=f'http://127.0.0.1:{agent_port}')
-    server = Server(('127.0.0.1', args.port), controller)
-    print(f'Quantum control platform: http://127.0.0.1:{args.port}', flush=True)
+    # Claim the endpoint before opening/recovering the shared database or
+    # starting an experiment worker. A duplicate launcher must have no effects.
+    server = Server(('127.0.0.1', args.port), None)
+    controller = None
     try:
+        controller = Controller(args.root, brain_url=f'http://127.0.0.1:{agent_port}')
+        server.controller = controller
+        print(f'Quantum control platform: http://127.0.0.1:{args.port}', flush=True)
         server.serve_forever(poll_interval=.5)
     except KeyboardInterrupt:
         pass
     finally:
-        controller.close()
+        if controller is not None:
+            controller.close()
         if server.report_exports is not None:
             server.report_exports.shutdown()
         server.server_close()

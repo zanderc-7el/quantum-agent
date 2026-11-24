@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { artifactUrl, createRemoteGateway, reportUrl } from "../src/lib/remoteGateway.ts";
+import { ApiError, artifactUrl, createRemoteGateway, reportUrl } from "../src/lib/remoteGateway.ts";
 import type { AppState, Workflow } from "../src/types.ts";
 
 const fixture = (revision = 1): Workflow => ({ id: "run-1", name: "实际任务", mode: "replay", revision, engineState: "attention", experiment: "single", machine: "八号机", qubits: 1, target: "Q01", resourceIds: ["chip-8:Q01"], type: "adaptive", status: "attention", progress: 10, owner: "操作员", createdAt: "2026-11-17T00:00:00Z", policy: "threshold", scenario: "normal", elapsed: 12, iterations: 0, nodes: [{ id: "n1", name: "S21", label: "找腔", status: "attention", progress: 100, attempt: 1, qubits: "Q01", detail: "", latestAttemptId: "attempt-1" }], currentNodeId: "n1", events: [], approved: false });
@@ -97,4 +97,66 @@ test("a second 401 is surfaced instead of looping or executing a new operation",
   }) as typeof fetch });
   await assert.rejects(gateway.command("run-1", "retry"), /会话无效/);
   assert.equal(sessions, 2); assert.equal(attempts, 2);
+});
+
+test("pause and abort remain workflow-scoped when cached node and attempt have advanced", async () => {
+  const writes: Record<string, unknown>[] = [];
+  const gateway = createRemoteGateway({ fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith('/session')) return response({token: 'fixture'});
+    if (String(url).endsWith('/actions')) { writes.push(JSON.parse(String(init?.body))); return response(fixture(5)); }
+    return response(fixture(2));
+  }) as typeof fetch });
+  await gateway.command('run-1', 'pause', 'stale-target');
+  await gateway.command('run-1', 'abort', 'stale-target');
+  assert.deepEqual(writes.map(({operationId, ...rest}) => rest), [
+    {action: 'pause', expectedRevision: 2}, {action: 'abort', expectedRevision: 5},
+  ]);
+  assert.notEqual(writes[0].operationId, writes[1].operationId);
+});
+
+test("command timeout leaves the receipt unknown; GET reconciles without replaying or accepting late response", async () => {
+  let resolveWrite!: (value: Response) => void;
+  let writes = 0;
+  const stream = new FakeStream();
+  const observed: number[] = [];
+  const gateway = createRemoteGateway({commandTimeoutMs: 10, fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith('/session')) return response({token: 'fixture'});
+    if (String(url).endsWith('/actions')) { writes++; return new Promise<Response>(resolve => { resolveWrite = resolve; }); }
+    assert.equal(init?.method, undefined);
+    return response({...fixture(writes ? 6 : 2), status: writes ? 'aborted' : 'running'});
+  }) as typeof fetch, eventSource: () => stream as unknown as EventSource});
+  const off = gateway.subscribe(value => observed.push(value.workflows[0]?.revision ?? 0));
+  await assert.rejects(gateway.command('run-1', 'abort'), error => error instanceof ApiError && error.code === 'RECEIPT_UNCONFIRMED');
+  assert.equal(writes, 1);
+  const verified = await gateway.get('run-1');
+  assert.equal(verified.status, 'aborted');
+  resolveWrite(response({...fixture(3),status:'running'}));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(writes, 1);
+  assert.equal(observed.at(-1), 6);
+  off();
+});
+
+test("a late pause receipt cannot replace a newer abort snapshot", async () => {
+  let finishPause!: (value: Response) => void;
+  const stream = new FakeStream();
+  const snapshots: AppState[] = [];
+  const gateway = createRemoteGateway({fetch: (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).endsWith('/session')) return response({token: 'fixture'});
+    if (String(url).endsWith('/actions')) {
+      if (JSON.parse(String(init?.body)).action === 'pause') return new Promise<Response>(resolve => {finishPause = resolve;});
+      return response({...fixture(4),status:'aborted'});
+    }
+    return response({...fixture(2),status:'running'});
+  }) as typeof fetch,eventSource:()=>stream as unknown as EventSource});
+  const off=gateway.subscribe(value=>snapshots.push(value));
+  await gateway.get('run-1');
+  const pause=gateway.command('run-1','pause');
+  await new Promise(resolve=>setTimeout(resolve,0));
+  await gateway.command('run-1','abort');
+  finishPause(response({...fixture(3),status:'paused'}));
+  await pause;
+  assert.equal(snapshots.at(-1)?.workflows[0].status,'aborted');
+  assert.equal(snapshots.at(-1)?.workflows[0].revision,4);
+  off();
 });

@@ -130,12 +130,12 @@ export default function MembershipAccount({ gateway, initialStatus, onStatus, on
     <section ref={dialog} className="rp-modal rp-account-modal" role="dialog" aria-modal="true" aria-labelledby="membership-title" tabIndex={-1}>
       <button className="icon-button rp-modal-close" aria-label="关闭会员账户" onClick={onClose} disabled={!!pending}><X size={19} /></button>
       <header className="rp-account-heading"><span className="rp-account-emblem"><Crown size={26} /></span><div><div className="rp-eyebrow">ZIYOR MEMBERSHIP</div><h2 id="membership-title">Ziyor 会员账户</h2></div></header>
-      <p className="rp-account-subtitle">登录会员，让智能体使用你的 Ziyor 额度运行。</p>
+
       {loading && <p className="rp-account-hint" role="status">正在读取账户状态…</p>}
       {(error || membershipError(status?.error)) && <div className="rp-error" role="alert">{error || membershipError(status?.error)}</div>}
       {notice && <div className="rp-account-notice" role="status"><CheckCheck size={16} />{notice}</div>}
-      {status?.authenticated ? <div className="rp-member-identity"><div><span className="rp-member-avatar"><Crown size={22} /></span><div><strong>{status.user?.name || "Ziyor 会员"}</strong><small>{status.user?.phoneMasked || "会员已登录"}</small></div><span className="rp-member-connected">已登录</span></div><section><span>账户积分</span><strong data-testid="membership-points">{points ?? "暂未获取"}</strong><small>以会员服务返回的余额为准</small></section></div> : <form onSubmit={event => { event.preventDefault(); login(); }}>
-        <div className="rp-account-hint"><ShieldCheck size={15} /><span>尚未登录会员。当前独立模型连接与会员账户分别管理。</span></div>
+      {status?.authenticated ? <div className="rp-member-identity"><div><span className="rp-member-avatar"><Crown size={22} /></span><div><strong>{status.user?.name || "Ziyor 会员"}</strong><small>{status.user?.phoneMasked || "会员已登录"}</small></div><span className="rp-member-connected">已登录</span></div><section><span>账户积分</span><strong data-testid="membership-points">{points ?? "暂未获取"}</strong></section></div> : <form onSubmit={event => { event.preventDefault(); login(); }}>
+
         {status && (!status.capabilities.sendCode || !status.capabilities.login) && <p className="rp-account-hint">{!status.capabilities.login ? "会员登录暂不可用，请刷新状态后重试。" : "验证码发送暂不可用；已有验证码可继续登录。"}</p>}
         <label>手机号<input type="tel" autoComplete="tel" inputMode="numeric" aria-label="会员手机号" placeholder="请输入手机号" value={phone} maxLength={11} onChange={event => setPhone(event.target.value.replace(/\D/g, ""))} disabled={!!pending} /></label>
         <label>短信验证码<div className="rp-code-row"><input type="text" autoComplete="one-time-code" inputMode="numeric" aria-label="短信验证码" placeholder="请输入验证码" value={code} maxLength={12} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={!!pending} /><button type="button" className="secondary" onClick={sendCode} disabled={!!pending || loading || !validPhone || remaining > 0 || !status?.capabilities.sendCode}>{pending === "send" ? "发送中…" : remaining ? `${remaining}s 后重发` : "获取验证码"}</button></div></label>
@@ -149,10 +149,10 @@ export default function MembershipAccount({ gateway, initialStatus, onStatus, on
           <label className="rp-account-model-label">模型目录<select aria-label="会员模型目录" value={selectedModel} onChange={event => setSelectedModel(event.target.value)} disabled={!!pending || !models.length}>{!models.length && <option value="">暂无可用模型</option>}{models.map(model => <option key={model.id} value={model.id}>{model.label}{model.default || model.id === modelCatalog.defaultModelId ? " · 默认" : ""}</option>)}</select></label>
           {modelCatalog.source && <p className="rp-account-hint">目录来源：{modelCatalog.source}</p>}
           <button className="secondary rp-account-connect" onClick={connect} disabled={!!pending || !selectedModel || !status?.capabilities.connect || (!selectedExisting && !status.authenticated)}>{pending === "connect" ? "正在切换…" : selectedExisting ? "切换到原有独立连接" : "使用此 Ziyor 模型"}<ArrowRight size={14} /></button>
-          <p className="rp-account-hint">退出会员后，会员模式会等待连接。需要使用独立模型时，请在这里明确切换。</p>
+
         </details>
-        <button className="secondary rp-account-test" onClick={testConnection} disabled={!!pending || !connection?.active || !status?.capabilities.test}>{pending === "test" ? "正在验证…" : "验证连接（发送一次短请求）"}<ShieldCheck size={14} /></button>
-        <p className="rp-account-hint">点击验证会发送一次模型请求，可能消耗会员额度；打开此页面不会自动验证。</p>
+        <button className="secondary rp-account-test" onClick={testConnection} disabled={!!pending || !connection?.active || !status?.capabilities.test}>{pending === "test" ? "正在验证…" : "验证连接"}<ShieldCheck size={14} /></button>
+        <p className="rp-account-hint">验证会发送一次请求，可能消耗额度。</p>
       </section>
       <footer className="rp-account-footer"><button className="secondary" onClick={() => void run("refresh", async () => { await readStatus(); await readModels(); })} disabled={!!pending}><RefreshCw size={14} />刷新状态</button>{status?.authenticated && <button className="rp-account-logout" onClick={logout} disabled={!!pending}><LogOut size={14} />{pending === "logout" ? "正在退出…" : "退出会员"}</button>}</footer>
     </section>

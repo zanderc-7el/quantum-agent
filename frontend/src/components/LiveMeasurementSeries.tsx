@@ -89,6 +89,6 @@ export default function LiveMeasurementSeries({ gateway, workflowId, node, adapt
       <LiveScatter groups={visibleGroups} axis={axis} measure={measure} archived={archived} />
       {groups.length > PAGE_SIZE && <div className="rp-live-pagination"><span>显示分组 {visiblePage * PAGE_SIZE + 1}–{Math.min((visiblePage + 1) * PAGE_SIZE, groups.length)} / {groups.length}</span><button disabled={visiblePage === 0} onClick={() => setGroupPage(visiblePage - 1)} aria-label="上一页采集分组"><ChevronLeft size={14} /></button><button disabled={visiblePage === lastPage} onClick={() => setGroupPage(visiblePage + 1)} aria-label="下一页采集分组"><ChevronRight size={14} /></button></div>}
     </>}
-    <footer><span>{page?.hasMore ? "正在补齐已落盘点…" : page?.complete ? "本次执行采集点已同步；质量结论见正式结果" : terminal ? "本次执行已结束，正在同步剩余采集点" : "每 2.5 秒同步已落盘采集点"}</span>{buffer.operationId && <details><summary>本次执行与数据游标</summary><code>{buffer.operationId} · cursor {buffer.cursor}</code></details>}</footer>
+    <footer><span>{page?.hasMore ? "正在补齐已落盘点…" : page?.complete ? "本次执行采集点已同步；质量结论见正式结果" : terminal ? `本次执行已结束；当前已读取 ${buffer.points.length} 个采集点` : "每 2.5 秒同步已落盘采集点"}</span>{buffer.operationId && <details><summary>本次执行与数据游标</summary><code>{buffer.operationId} · cursor {buffer.cursor}</code></details>}</footer>
   </section>;
 }

@@ -1,0 +1,20 @@
+.rp-execution-mode { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.rp-mode-options { display: flex; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
+.rp-mode-options button { padding: 8px 16px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.rp-mode-options button[aria-pressed="true"] { color: var(--text); background: var(--panel-raised); box-shadow: 0 0 0 1px var(--line); }
+.rp-mode-options button[aria-pressed="true"]::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); margin-right: 7px; }
+.rp-execution-mode select { max-width: 190px; }
+.rp-mode-options button:disabled { cursor: default; opacity: .55; }
+.rp-manual-steps { margin: 14px 0 18px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.rp-manual-steps header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.rp-manual-steps h2 { margin: 5px 0 0; font-size: 17px; }
+.rp-manual-steps ol { padding: 0; margin: 15px 0 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px; max-height: 215px; overflow-y: auto; }
+.rp-manual-steps li { min-width: 0; }
+.rp-manual-steps li button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font: inherit; }
+.rp-manual-steps li button.selected { border-color: var(--blue); color: var(--text); background: color-mix(in srgb, var(--blue) 9%, transparent); }
+.rp-step-number { font-size: 11px; opacity: .7; min-width: 17px; }
+.rp-step-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.rp-manual-steps small { font-size: 10px; white-space: nowrap; }
+.rp-step-reason { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+.rp-mode-options button:focus-visible, .rp-manual-steps button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (max-width: 650px) { .rp-manual-steps { padding: 12px; } .rp-manual-steps header { align-items: flex-start; } .rp-manual-steps h2 { font-size: 14px; } .rp-manual-steps ol { grid-template-columns: 1fr; max-height: 190px; } .rp-mode-options button { padding: 8px 12px; } }

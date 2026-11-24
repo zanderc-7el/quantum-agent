@@ -251,16 +251,15 @@ function AttachmentItem({
         </summary>
         {attachment.preview === null ? (
           <p>
-            已保留本地 PDF
-            文件。尚未解析正文、识别图表或上传服务器；文档理解将在接入模型后提供。
+            本地 PDF · 未解析正文
           </p>
         ) : (
           <>
             <pre>{attachment.preview}</pre>
             <p>
               {attachment.previewTruncated
-                ? "仅展示前 4,000 字符内的预览，完整原文件仍保留。"
-                : "按纯文本显示，不执行 HTML、Markdown、JSON 或 CSV 内容。"}
+                ? "预览前 4,000 字符"
+                : "纯文本预览"}
             </p>
           </>
         )}
@@ -900,8 +899,7 @@ export default function ChatReport({
             <div className="cr-help-box">
               <strong>演示助手支持范围</strong>
               <p>
-                使用下方快捷指令体验完整流程。回复按固定规则生成，不需要 API
-                Key；图表和报告均为模拟数据。
+                快捷指令与模拟数据
               </p>
             </div>
           )}
@@ -954,7 +952,7 @@ export default function ChatReport({
                         />
                       ))}
                       <p className="cr-local-notice">
-                        已关联本条消息 · 本浏览器保存 · 无服务器上传
+                        本地附件
                       </p>
                     </div>
                   )}
@@ -1078,7 +1076,7 @@ export default function ChatReport({
             <div ref={messageEnd} />
           </div>
           <div className="cr-chat-composer">
-            <div className={`cr-storage-status cr-storage-${storageStatus}`} role={storageStatus === 'error' ? 'alert' : 'status'}><div><Database size={13} /><strong>{storageStatus === 'loading' ? '正在恢复本浏览器对话…' : storageStatus === 'saving' ? '正在保存到本浏览器…' : storageStatus === 'saved' ? '本浏览器存储已就绪 · 更改已保存' : '本地存储未成功'}</strong></div>{storageError && <p>{storageError} 未保存的新内容在刷新后可能丢失。</p>}{storageStatus === 'error' && (!storageLoaded || canEditConversation) && <button type="button" onClick={() => { if (!runtimeFor(workflow.id).loaded) void hydrateConversation(workflow.id); else if (mayEdit(workflow.id)) void persistConversation(workflow.id); }}>{storageLoaded ? '重试保存' : '重试读取'}</button>}</div>
+            <div className={`cr-storage-status cr-storage-${storageStatus}`} role={storageStatus === 'error' ? 'alert' : 'status'}><div><Database size={13} /><strong>{storageStatus === 'loading' ? '正在恢复本浏览器对话…' : storageStatus === 'saving' ? '正在保存到本浏览器…' : storageStatus === 'saved' ? '已保存到本浏览器' : '本地存储未成功'}</strong></div>{storageError && <p>{storageError} 未保存的新内容在刷新后可能丢失。</p>}{storageStatus === 'error' && (!storageLoaded || canEditConversation) && <button type="button" onClick={() => { if (!runtimeFor(workflow.id).loaded) void hydrateConversation(workflow.id); else if (mayEdit(workflow.id)) void persistConversation(workflow.id); }}>{storageLoaded ? '重试保存' : '重试读取'}</button>}</div>
             <div className="cr-quick-label">
               <WandSparkles size={12} />
               试着问我
@@ -1236,7 +1234,7 @@ export default function ChatReport({
               <span aria-live="polite">{input.length} / 4000</span>
             </div>
             <p className="cr-composer-disclaimer">
-              对话与附件保存在本浏览器，保存成功后刷新可恢复；总附件上限 100 MB。清除浏览器站点数据会删除记录。未上传、未接模型。
+              本地保存 · 附件上限 100 MB。清除站点数据会删除记录。
             </p>
           </div>
         </section>
@@ -1247,7 +1245,7 @@ export default function ChatReport({
             </div>
             <div className="cr-panel-title">
               <h2>实验分析报告</h2>
-              <span>与当前工作流同步</span>
+
             </div>
             <span className="cr-report-version">v1.1</span>
             <button
@@ -1297,10 +1295,10 @@ export default function ChatReport({
               </span>
               <p>
                 {report.preview
-                  ? "此流程尚未启动，下方曲线与指标为示例预览。"
+                  ? "尚未运行 · 示例预览"
                   : report.completed
-                    ? "全部节点已结束。指标按实际节点轮次及最新复测状态展示。"
-                    : "此流程尚未结束。未完成节点的全曲线与参数为示例预览。"}
+                    ? "全部节点已结束"
+                    : "未完成节点为示例预览"}
               </p>
             </div>
             <div className="cr-calibration-summary">
@@ -1580,7 +1578,7 @@ export default function ChatReport({
               </div>
             </div>
             <p className="cr-report-disclaimer">
-              此报告仅用于产品流程演示。未连接真机，所有参数均为模拟数据。
+              模拟数据 · 未连接真机
             </p>
           </div>
         </section>

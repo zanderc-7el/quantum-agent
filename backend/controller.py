@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from copy import deepcopy
+from copy import deepcopy, copy
 from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
@@ -35,6 +35,9 @@ from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, MAX_CASES
 from .store import Store, StepSpec, Budget
 from .result_archive import ResultArchive, record_effect
 from .experience import ExperienceLedger
+from .workspace import device_key, device_fault_blocks, DEVICE_STATES
+from .manual_steps import ManualSteps, is_manual, awaiting_acceptance
+from .stopped_receipts import stopped_summary
 
 TERMINAL = {'completed', 'failed', 'aborted'}
 PARAMETER_ALIASES = {'readout_frequency_hz': 'readout_hz', 'drive_frequency_hz': 'drive_hz',
@@ -67,7 +70,7 @@ def configured_adapter(root):
     from adapters.f8 import F8Adapter
     return F8Adapter(root, profile)
 
-class Controller:
+class Controller(ManualSteps):
     def __init__(self, root=ROOT, *, adapter=None, db_path=None, start_worker=True, brain_url='http://127.0.0.1:8766'):
         self.root = Path(root)
         self.store = Store(db_path or self.root / 'data' / 'platform.sqlite', root=self.root)
@@ -99,6 +102,10 @@ class Controller:
             self.experience.ensure_schema(rt)
         self.history = self.catalog.history()
         self.records = self.history['records']
+        self._bound_workflow_id = None
+        self._workspace_service = None
+        self._report_exports_service = None
+        self._report_exports_lock = threading.RLock()
         self._register_imports()
         self._recover_interrupted()
         if start_worker:
@@ -110,6 +117,50 @@ class Controller:
         self.wake.set()
         if self.worker:
             self.worker.join(timeout=25)
+        if self._report_exports_service is not None:
+            self._report_exports_service.shutdown()
+
+    @property
+    def report_exports(self):
+        with self._report_exports_lock:
+            if self._report_exports_service is None:
+                from .report_exports import ReportExportService
+                self._report_exports_service = ReportExportService(self)
+            return self._report_exports_service
+
+    @property
+    def workspace(self):
+        with self.store.lock:
+            if self._workspace_service is None:
+                from .workspace import Workspace
+                self._workspace_service = Workspace(self)
+            return self._workspace_service
+
+    def for_workflow(self, workflow_id, rt=None):
+        if self._bound_workflow_id == workflow_id:
+            return self
+        wf = self.get(workflow_id, rt)
+        binding = wf.get('configurationBinding')
+        if not binding:
+            return self
+        bound = self.with_binding(binding)
+        bound._bound_workflow_id = workflow_id
+        return bound
+
+    def with_binding(self, binding):
+        from adapters.arclight_dynamic import DynamicArcLightAdapter
+        bound = copy(self)
+        bound.adapter = DynamicArcLightAdapter(self.root, deepcopy(binding['profile']))
+        bound.profile = bound.adapter.profile
+        bound.adapter_id = bound.profile['id']
+        bound._physical_adapter = True
+        bound.adapter_profile_hash = bound._adapter_fingerprint()
+        bound._ownership_cache = None
+        bound.history = {**self.history, 'resources': deepcopy(binding['resources']), 'records': []}
+        bound.records = []
+        bound.catalog = copy(self.catalog)
+        bound.catalog.history = lambda: deepcopy(bound.history)
+        return bound
 
     def _register_imports(self):
         with self.store.transaction() as rt:
@@ -145,6 +196,22 @@ class Controller:
     def _recover_interrupted(self):
         with self.store.transaction() as rt:
             for wf in self.store.workflows(rt):
+                # Older manual handovers cleared the workflow wait but left its
+                # selected node waiting forever. Repair only an already-confirmed,
+                # idle handover; never reopen a permit or clear unknown effects.
+                if (is_manual(wf) and wf.get('hardwareConfirmed') and wf['status']=='paused'
+                        and wf['engineState']=='manual_ready' and not wf.get('cancelRequested')
+                        and not self._has_lease(rt,wf['id'])
+                        and not rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')",(wf['id'],)).fetchone()
+                        and not any(n['engineState'] in ('needs_reconciliation','unknown','acquiring','verifying') for n in wf['nodes'])
+                        and self._clear_confirmed_hardware_wait(wf)):
+                    self.store.save(rt,wf,'manual_handover_repaired',{'message':'已同步接线确认状态；仍需明确提交本步测量'})
+                manual = wf.get('manualStep') or {}
+                if manual.get('state') in ('queued', 'running'):
+                    manual.update(state='interrupted', finishedAt=now())
+                    if wf['status'] == 'queued':
+                        wf.update(status='paused', engineState='manual_ready')
+                    self.store.save(rt, wf, 'manual_step_interrupted', {'message': '服务重启：逐步许可已关闭，未自动重发'})
                 diagnostic = wf.get('rbDiagnostic') or {}
                 if diagnostic.get('state') in ('queued', 'running'):
                     diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
@@ -169,6 +236,14 @@ class Controller:
                     rt.db.execute("UPDATE platform_effects SET state='unknown' WHERE workflow_id=? AND state='pending'", (wf['id'],))
                 self.store.save(rt, wf, 'reconciliation_required', {'message': '服务重启：保留执行记录，未自动重发仪器命令'})
 
+    @staticmethod
+    def _clear_confirmed_hardware_wait(wf):
+        node=next((n for n in wf['nodes'] if n['id']==wf.get('currentNodeId')),None)
+        if node and node['engineState']=='waiting_hardware':
+            node.update(status='pending',engineState='pending',detail='接线已确认，等待明确提交本步测量')
+            return True
+        return False
+
     def get(self, workflow_id, rt=None):
         if rt is None:
             with self.store.connect() as conn:
@@ -188,6 +263,19 @@ class Controller:
             seq = rt.db.execute('SELECT coalesce(max(seq),0) FROM events').fetchone()[0]
             return {'version': 1, 'seq': seq,
                     'workflows': [self._with_timing(rt, wf) for wf in self.store.workflows(rt)]}
+
+    def present_workflows(self, workflows):
+        from .receipt_presentation import read_receipts, workflow_view
+        with self.store.connect() as rt:
+            return [workflow_view(wf, [json.loads(row[0]) for row in rt.db.execute(
+                'SELECT payload FROM platform_attempts WHERE workflow_id=?', (wf['id'],))],
+                read_receipts(rt.db, wf['id'])) if isinstance(wf, dict) and isinstance(wf.get('id'), str)
+                and isinstance(wf.get('nodes'), list) else deepcopy(wf) for wf in workflows]
+
+    def present_detail(self, workflow_id, detail):
+        from .receipt_presentation import read_receipts, detail_view
+        with self.store.connect() as rt:
+            return detail_view(workflow_id, detail, read_receipts(rt.db, workflow_id))
 
     @staticmethod
     def _timestamp(value):
@@ -240,7 +328,10 @@ class Controller:
             raise APIError('NODE_NOT_FOUND', '任务中不存在该节点', 404)
         return node
 
-    def create(self, data):
+    def create(self, data, *, _rt=None, _binding=None, _campaign_id=None):
+        if _binding is None and (data.get('chipVersionId') or data.get('deploymentVersionId')):
+            _binding = self.workspace.chips.resolve_binding(data.get('chipVersionId'), data.get('deploymentVersionId'), data.get('resourceIds'))
+            return self.with_binding(_binding).create(data, _rt=_rt, _binding=_binding, _campaign_id=_campaign_id)
         mode = data.get('mode', 'replay')
         if mode not in ('replay', 'real'):
             raise APIError('INVALID_MODE', '请选择历史回放或真机测量')
@@ -253,7 +344,7 @@ class Controller:
             target = str(data.get('target', '')).strip()
             selected = [target] if target in resources else []
         if not isinstance(selected, list) or not selected or len(set(selected)) != len(selected) or any(r not in resources for r in selected):
-            raise APIError('UNKNOWN_RESOURCE', '请选择已核实映射的 Q11 或 Q18；资源编号不自动去除前导零')
+            raise APIError('UNKNOWN_RESOURCE', '请选择当前芯片版本中的比特')
         supported_resources = self.adapter.capabilities().get('resources')
         if mode == 'real' and self._physical_adapter and isinstance(supported_resources, list) and any(r not in supported_resources for r in selected):
             raise APIError('UNSUPPORTED_RESOURCE', '当前执行器尚未绑定所选对象的真机映射；请选择已支持资源')
@@ -277,6 +368,13 @@ class Controller:
                 node['parameters'] = deepcopy(seed['parameters'])
                 node['parameterVersions'] = {key: 0 for key in seed['parameters']}
         shot_budget = (30000000 if mode == 'real' and coverage in ('full', 'working_point') else 8000000) * len(selected)
+        initial_budget = data.get('budget', {})
+        ceilings = {'maxTotalShots':100000000,'maxAttemptsPerNode':10,'maxWorkflowAttempts':200}
+        if not isinstance(initial_budget,dict) or set(initial_budget)-set(ceilings) or any(type(v) is not int or not 1 <= v <= ceilings[k] for k,v in initial_budget.items()):
+            raise APIError('INVALID_BUDGET','初始预算必须为范围内的正整数')
+        shot_budget = initial_budget.get('maxTotalShots',shot_budget)
+        node_attempts = initial_budget.get('maxAttemptsPerNode',3)
+        workflow_attempts = initial_budget.get('maxWorkflowAttempts',40)
         wf = {'id': ident('wf'), 'revision': 0, 'mode': mode, 'name': name, 'machine': '八号机',
               'target': '、'.join(selected), 'resourceIds': selected, 'qubits': len(selected),
               'experiment': experiment, 'coverage': coverage, 'type': data.get('type', 'adaptive'), 'policy': policy,
@@ -286,18 +384,25 @@ class Controller:
               'iterations': 0, 'approved': False, 'events': [], 'nodes': nodes, 'edges': edges,
               'blueprintVersion': WORKING_POINT_VERSION if seed else VERSION, 'gates': deepcopy(GATES), 'gatesVersion': 'diagnostic-gates/1',
               'adapterId': self.adapter_id, 'adapterProfileHash': self.adapter_profile_hash,
-              'maxAttemptsPerNode': 3, 'maxWorkflowAttempts': 40, 'hardwareConfirmed': False,
+              'maxAttemptsPerNode': node_attempts, 'maxWorkflowAttempts': workflow_attempts, 'hardwareConfirmed': False,
               'maxTotalShots': shot_budget, 'reservedShots': 0,
-              'budget': {'maxTotalShots': shot_budget, 'maxAttemptsPerNode': 3, 'maxWorkflowAttempts': 40,
+              'budget': {'maxTotalShots': shot_budget, 'maxAttemptsPerNode': node_attempts, 'maxWorkflowAttempts': workflow_attempts,
                          'resourceCount': len(selected), 'basis': 'working-point-pulse-30M-per-resource' if seed else 'full-single-qubit-30M-per-resource' if coverage == 'full' else 'main-8M-per-resource'},
               'cancelRequested': None, 'processedRecordIds': [], 'workflowComplete': False}
         if seed:
             wf['seedReference'] = seed
             wf['completionScope'] = {'selectedNodeCount': len(nodes), 'omittedProcedures': list(WORKING_POINT_OMITTED),
                 'full13Fresh': False, 'meaning': '仅指所选10项脉冲测量完成本轮独立验收；不代表原13项全流程均已新测。'}
-        with self.store.transaction() as rt:
+        if _binding:
+            wf.update(configurationBinding=deepcopy(_binding), chipVersionId=_binding['chipVersionId'],
+                      deploymentVersionId=_binding['deploymentVersionId'], campaignId=_campaign_id,
+                      initializationSource=deepcopy(_binding.get('source', {})))
+            wf['machine'] = self.profile.get('machine', '八号机')
+        with (nullcontext(_rt) if _rt is not None else self.store.transaction()) as rt:
             for rule in self.experience.published_rules(rt):
                 scope = rule['scope']
+                if _binding and scope.get('chipVersionId') != _binding['chipVersionId']:
+                    continue
                 for node in nodes:
                     if scope.get('resourceId') == node['resourceId'] and scope.get('ownerId') == node['ownerId'] and scope.get('procedureId', node['procedureId']) == node['procedureId']:
                         node['rules'].append(deepcopy(rule))
@@ -308,12 +413,12 @@ class Controller:
                 rt.register(StepSpec(wf['id'] + '/' + node['id'],
                                      depends_on=tuple(wf['id'] + '/' + n for n in node['dependsOn']),
                                      reads=tuple(norm(k) for k in reads), writes=tuple(norm(k) for k in writes),
-                                     resources=(self.profile.get('instrument', {}).get('resourceGroup', 'CY8_SHARED_BUS1'),), budget=Budget(shots=500, max_attempts=3, timeout_s=3600, max_total_shots=shot_budget),
+                                     resources=(device_key(self.profile),), budget=Budget(shots=500, max_attempts=node_attempts, timeout_s=3600, max_total_shots=shot_budget),
                                      criteria=deepcopy(GATES.get(node['procedureId'], {}))))
             self.store.save(rt, wf, 'created', {'message': ('历史回放' if mode == 'replay' else '真机测量') + '任务已创建'})
         return wf
 
-    def _command(self, rt, wf, payload, kind):
+    def _command(self, rt, wf, payload, kind, *, stop_intent=False):
         op = payload.get('operationId')
         if not isinstance(op, str) or not 1 <= len(op) <= 256:
             raise APIError('OPERATION_ID_REQUIRED', '写操作必须包含唯一 operationId')
@@ -323,9 +428,17 @@ class Controller:
             if previous['request_hash'] != request_hash:
                 raise APIError('IDEMPOTENCY_CONFLICT', '同一操作编号不能提交不同请求', 409)
             return json.loads(previous['response']), request_hash
-        if payload.get('expectedRevision') != wf['revision']:
+        expected = payload.get('expectedRevision')
+        # Progress and a stop click can cross in flight. A workflow-scoped stop
+        # still applies to that workflow; parameter edits and execution remain CAS.
+        older_stop = (stop_intent and isinstance(expected, int) and not isinstance(expected, bool)
+                      and 1 <= expected < wf['revision'])
+        invalid_stop = stop_intent and (not isinstance(expected, int) or isinstance(expected, bool) or expected < 1)
+        if invalid_stop or (expected != wf['revision'] and not older_stop):
             raise APIError('STALE_REVISION', '任务已更新，请刷新后按当前状态操作', 409)
-        if payload.get('nodeId'):
+        # Stops apply to this workflow, even if the displayed attempt or current
+        # node has advanced since the click. All other actions retain that CAS.
+        if payload.get('nodeId') and not stop_intent:
             node = self._node(wf, payload['nodeId'])
             if payload.get('attemptId') and payload['attemptId'] != node.get('latestAttemptId'):
                 raise APIError('STALE_ATTEMPT', '该操作对应的尝试已不是当前尝试', 409)
@@ -345,7 +458,7 @@ class Controller:
     def _rb_diagnostic_admission(self, rt, wf):
         rb_require(wf['status'] in ('paused', 'attention') and wf.get('engineState') not in ('deciding', 'decision_queued')
                    and not wf.get('cancelRequested'), 'RB_DIAGNOSTIC_CHECKPOINT', '请在无活动采集和决策的检查点准备RB诊断')
-        group = self.profile.get('instrument', {}).get('resourceGroup', 'CY8_SHARED_BUS1')
+        group = device_key(self.profile)
         rb_require(not rt.db.execute('SELECT 1 FROM platform_leases WHERE workflow_id=? OR resource=?', (wf['id'], group)).fetchone()
                    and not rt.db.execute("SELECT 1 FROM platform_effects WHERE state IN ('pending','unknown')").fetchone(),
                    'RECONCILIATION_REQUIRED', '采集占用或未知回执尚未清空')
@@ -465,15 +578,22 @@ class Controller:
             result['diagnosticContract'] = {'accepted': False, 'code': 'RB_DIAGNOSTIC_CANDIDATE_NOT_EMPTY',
                 'stage': stage, 'rawCandidateParameters': deepcopy(result.get('candidateParameters'))}
 
-    def action(self, workflow_id, payload):
-        with self.store.transaction() as rt:
+    def action(self, workflow_id, payload, *, _rt=None):
+        scoped = self.for_workflow(workflow_id, _rt)
+        if scoped is not self:
+            return scoped.action(workflow_id, payload, _rt=_rt)
+        with (nullcontext(_rt) if _rt is not None else self.store.transaction()) as rt:
             wf = self.get(workflow_id, rt)
-            existing, hash_value = self._command(rt, wf, payload, 'action')
+            action = payload.get('action')
+            existing, hash_value = self._command(rt, wf, payload, 'action', stop_intent=action in ('pause', 'abort'))
             if existing:
                 return existing
-            action = payload.get('action')
-            if wf['status'] in TERMINAL:
+            if wf.get('configurationIssue') and action not in ('pause', 'abort'):
+                raise APIError('CONFIGURATION_REQUIRED', '请补齐并发布配置后，为此比特建立新任务', 409)
+            if wf['status'] in TERMINAL and action not in ('pause', 'abort'):
                 raise APIError('TERMINAL_RUN', '已结束任务不能再次下发；请创建新任务', 409)
+            if is_manual(wf) and action in ('start', 'resume', 'retry', 'queue_rb_diagnostic'):
+                raise APIError('MANUAL_STEP_REQUIRED', '人工逐步任务须明确选择步骤并运行本步', 409)
             diagnostic = wf.get('rbDiagnostic') or {}
             if diagnostic.get('state') in ('queued', 'running') and action not in ('pause', 'abort', 'reconcile'):
                 raise APIError('RB_DIAGNOSTIC_ACTIVE', '单次RB诊断期间仅允许暂停、终止或回执核查', 409)
@@ -485,26 +605,36 @@ class Controller:
                 target = self._node(wf, target_id)
                 if target['procedureId'] == 'sq_rb' and any(self._node(wf, d)['engineState'] != 'verified' for d in target['dependsOn']):
                     raise APIError('PREREQUISITES_MISSING', '普通RB操作必须满足原图全部依赖；诊断须使用独立版本化命令', 409)
-            if action == 'start':
+            if action == 'run_step':
+                self._queue_manual_step(rt, wf, payload)
+            elif action == 'start':
                 if wf['status'] != 'draft':
                     raise APIError('INVALID_STATE', '仅草稿可开始', 409)
                 wf['status'], wf['engineState'] = 'queued', 'queued'
+                if wf.get('configurationBinding'):
+                    wf.update(hardwareConfirmed=True, hardwareConfirmedAt=now())
             elif action == 'queue_rb_diagnostic':
                 self._queue_rb_diagnostic(rt, wf, payload)
-            elif action == 'pause':
-                if wf['status'] == 'running':
-                    wf['cancelRequested'], wf['engineState'] = 'pause', 'pausing_at_checkpoint'
-                elif wf['status'] == 'queued' or (diagnostic.get('state') == 'queued' and wf['status'] == 'attention'):
-                    wf['status'], wf['engineState'] = 'paused', 'paused'
-                else:
-                    raise APIError('INVALID_STATE', '当前状态不能暂停', 409)
-            elif action == 'abort':
-                if wf['status'] == 'running':
-                    wf['cancelRequested'], wf['engineState'] = 'abort', 'stopping_at_checkpoint'
-                elif self._has_lease(rt, wf['id']):
-                    raise APIError('RECONCILIATION_REQUIRED', '设备结果尚待核查，不能宣称已终止', 409)
-                else:
-                    wf['status'], wf['engineState'] = 'aborted', 'aborted'
+            elif action in ('pause', 'abort'):
+                before_stop = (wf['status'], wf['engineState'], wf.get('cancelRequested'))
+                pending_effect = rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (wf['id'],)).fetchone()
+                unknown_effect = rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state='unknown'", (wf['id'],)).fetchone()
+                quarantined = rt.db.execute("SELECT 1 FROM platform_leases WHERE workflow_id=? AND state='quarantined'", (wf['id'],)).fetchone()
+                # An abort is stronger than pause and must survive a second click.
+                stop = 'abort' if action == 'abort' or wf.get('cancelRequested') == 'abort' else 'pause'
+                if (wf['engineState'] == 'needs_reconciliation' or unknown_effect or quarantined
+                        or (wf['status'] != 'running' and (self._has_lease(rt, wf['id']) or pending_effect))):
+                    wf.update(status='attention', engineState='needs_reconciliation', cancelRequested=stop)
+                elif wf['status'] == 'running':
+                    wf.update(cancelRequested=stop, engineState='stopping_at_checkpoint' if stop == 'abort' else 'pausing_at_checkpoint')
+                elif wf['status'] not in TERMINAL and not (action == 'pause' and wf['status'] in ('draft', 'paused')):
+                    wf.update(status='aborted' if stop == 'abort' else 'paused',
+                              engineState='aborted' if stop == 'abort' else 'paused', cancelRequested=None)
+                if before_stop == (wf['status'], wf['engineState'], wf.get('cancelRequested')):
+                    # A fresh stop operation against a stopped task is also a
+                    # receipt, not a new experiment or an artificial revision.
+                    rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], hash_value, dumps(wf)))
+                    return wf
             elif action in ('resume', 'retry'):
                 if wf['status'] not in ('paused', 'attention', 'failed'):
                     raise APIError('INVALID_STATE', '当前状态不能继续或重试', 409)
@@ -536,16 +666,24 @@ class Controller:
                         'message': '旧版本模型证据引用错误已进入重新决策；原始采集与尝试历史保持不变',
                         'nodeId': node['id'], 'attemptId': node.get('latestAttemptId'), 'errorCode': 'BAD_EVIDENCE'})
             elif action == 'approve':
-                node = self._node(wf, payload.get('nodeId'))
-                if node.get('result', {}).get('quality', {}).get('status') != 'passed' or node.get('result', {}).get('stale'):
-                    raise APIError('GATE_NOT_PASSED', '确认操作不能将未通过或未验证的指标变为合格', 409)
-                node['status'], node['engineState'] = 'success', 'verified'
-                wf['status'], wf['engineState'], wf['approved'] = 'queued', 'queued', True
+                if is_manual(wf):
+                    self._approve_manual_step(rt, wf, payload)
+                else:
+                    node = self._node(wf, payload.get('nodeId'))
+                    if node.get('result', {}).get('quality', {}).get('status') != 'passed' or node.get('result', {}).get('stale'):
+                        raise APIError('GATE_NOT_PASSED', '确认操作不能将未通过或未验证的指标变为合格', 409)
+                    node['status'], node['engineState'] = 'success', 'verified'
+                    wf['status'], wf['engineState'], wf['approved'] = 'queued', 'queued', True
             elif action == 'backtrack':
+                if is_manual(wf):
+                    self._manual_idle(rt, wf)
                 if wf['status'] == 'running' or self._has_lease(rt, wf['id']):
                     raise APIError('RESOURCE_BUSY', '等待当前采集结束后再回退', 409)
                 target = payload.get('targetNodeId')
                 target_node = self._node(wf, target)
+                if (is_manual(wf) and awaiting_acceptance(wf) and target != wf.get('currentNodeId')
+                        and target not in self._ancestors(wf, self._node(wf))):
+                    raise APIError('ACCEPTANCE_REQUIRED', '请确认当前结果，或明确回退当前步骤及其上游', 409)
                 admit_backtrack(wf, target_node)
                 if self._physical_adapter:
                     self._assert_adapter_binding(wf)
@@ -556,6 +694,8 @@ class Controller:
                 origin = payload.get('nodeId') or wf.get('currentNodeId') or target
                 affected = self._invalidate(wf, target, include_target=True)
                 wf['currentNodeId'], wf['status'], wf['engineState'] = target, 'queued', 'backtrack_queued'
+                if is_manual(wf):
+                    wf.update(status='paused', engineState='manual_ready', approved=False, workflowComplete=False)
                 self._record_decision(rt, wf, origin, {'action': 'backtrack', 'reason': '操作员请求回到前置步骤', 'evidenceIds': [],
                                                      'targetNodeId': target, 'invalidatedNodes': affected}, 'operator')
             elif action == 'confirm_hardware':
@@ -565,7 +705,13 @@ class Controller:
                 if not ownership['verified'] or ownership['owners']:
                     raise APIError('DEVICE_IN_USE', '设备仍有外部连接或尚不能核实，请先在现用程序中释放连接', 409)
                 wf['hardwareConfirmed'], wf['hardwareConfirmedAt'] = True, now()
+                wf.pop('sharedDeviceFault', None)
                 wf['status'], wf['engineState'] = 'queued', 'queued'
+                if is_manual(wf):
+                    wf.update(status='paused', engineState='manual_ready')
+                    self._clear_confirmed_hardware_wait(wf)
+                    if wf.get('manualStep'):
+                        wf['manualStep'].update(state='interrupted', finishedAt=now())
             elif action == 'reconcile':
                 if wf['engineState'] != 'needs_reconciliation':
                     raise APIError('INVALID_STATE', '当前任务不需要执行回执核查', 409)
@@ -600,13 +746,13 @@ class Controller:
                         row = rt.db.execute('SELECT payload FROM platform_attempts WHERE id=?', (effect['attempt_id'],)).fetchone()
                         if row:
                             attempt = json.loads(row[0])
-                            partial_result = self._partial_result(receipt['partialArtifacts'])
                             selection = self._completed_selection_for_reconciliation(rt, workflow_id, attempt, effect)
+                            partial_result = self._partial_result(receipt['partialArtifacts'], [receipt], selection_retained=selection is not None)
                             if selection is not None:
                                 partial_result['selectionResult'] = selection
                             attempt.update(state=receipt['status'], endedAt=now(), result=partial_result)
                             self.store.attempt(rt, workflow_id, attempt)
-                            self._node(wf, attempt['nodeId']).update(result=attempt['result'], status='attention', engineState=receipt['status'], detail='已核查采集停止，保留未验收的部分数据')
+                            self._node(wf, attempt['nodeId']).update(result=attempt['result'], status='attention', engineState=receipt['status'], detail=partial_result['executionSummary']['message'])
                     else:
                         remaining.append(effect['operation_id'])
                 if remaining:
@@ -621,8 +767,26 @@ class Controller:
                 raise APIError('INVALID_ACTION', '未知操作')
             if diagnostic.get('state') in ('queued', 'running') and wf['status'] in ('paused', 'aborted'):
                 diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
+            if action in ('pause', 'abort') and wf['status'] in ('paused', 'aborted') and wf.get('manualStep', {}).get('state') == 'queued':
+                wf['manualStep'].update(state='interrupted', finishedAt=now())
+            if action == 'pause' and is_manual(wf) and awaiting_acceptance(wf):
+                wf['engineState'] = 'awaiting_acceptance'
             self._finish_timing(wf)
-            self.store.save(rt, wf, action, {'message': '操作：' + action})
+            stop_message = None
+            if action in ('pause', 'abort'):
+                if wf.get('cancelRequested'):
+                    stop_message = '已收到' + ('终止' if wf['cancelRequested'] == 'abort' else '暂停') + '请求'
+                    stop_message += '，设备停止回执尚待核查' if wf['engineState'] == 'needs_reconciliation' else '，等待采集停止检查点'
+                else:
+                    stop_message = '任务已终止' if wf['status'] == 'aborted' else '任务已暂停'
+            action_event = {'message': stop_message or '操作：' + action}
+            if wf.get('sharedDeviceFault') and wf['status'] == 'queued' and action in ('resume', 'retry', 'run_step'):
+                # This is a new explicit retry permit, not a claim that the
+                # hardware is healthy. Original fault events/receipts remain.
+                wf.pop('sharedDeviceFault', None)
+                action_event.update(sharedDeviceFaultRetryAuthorized=True, operationId=payload['operationId'],
+                    message='已授权重试共享设备故障任务；执行前仍须通过设备预检和独占检查')
+            self.store.save(rt, wf, action, action_event)
             rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], hash_value, dumps(wf)))
         self.wake.set()
         return wf
@@ -722,8 +886,12 @@ class Controller:
                 return existing
             if payload.get('policy') not in ('strict', 'threshold', 'autopilot'):
                 raise APIError('INVALID_POLICY', '未知策略')
-            if wf['status'] == 'running':
+            if wf['status'] not in ('draft', 'paused', 'attention'):
                 raise APIError('INVALID_STATE', '请在采集检查点暂停后更改运行策略', 409)
+            if self._has_lease(rt, wf['id']) or rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (wf['id'],)).fetchone():
+                raise APIError('RECONCILIATION_REQUIRED', '存在活动或未知采集，先核查设备回执', 409)
+            if awaiting_acceptance(wf) and payload['policy'] != wf['policy']:
+                raise APIError('ACCEPTANCE_REQUIRED', '当前结果仍待确认，不能通过切换策略绕过验收', 409)
             wf['policy'] = payload['policy']
             self.store.save(rt, wf, 'policy_changed', {'message': '运行策略更新为 ' + wf['policy']})
             rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], hash_value, dumps(wf)))
@@ -1035,6 +1203,9 @@ class Controller:
         return rt.db.execute('SELECT 1 FROM platform_leases WHERE workflow_id=?', (workflow_id,)).fetchone() is not None
 
     def detail(self, workflow_id, node_id):
+        scoped = self.for_workflow(workflow_id)
+        if scoped is not self:
+            return scoped.detail(workflow_id, node_id)
         wf = self.get(workflow_id)
         node = self._node(wf, node_id)
         attempts, decisions = self.store.detail(workflow_id, node_id)
@@ -1044,6 +1215,9 @@ class Controller:
                 'parameters': parameters, 'parameterBounds': self._parameter_schema(node['procedureId'])}
 
     def set_parameters(self, workflow_id, node_id, payload):
+        scoped = self.for_workflow(workflow_id)
+        if scoped is not self:
+            return scoped.set_parameters(workflow_id, node_id, payload)
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
             existing, request_hash = self._command(rt, wf, {**payload, 'nodeId': node_id}, 'parameters')
@@ -1051,6 +1225,8 @@ class Controller:
                 return existing
             if wf['mode'] != 'real' or wf['status'] not in ('draft', 'paused', 'attention'):
                 raise APIError('INVALID_STATE', '参数只能在真机任务草稿、暂停或待处理状态修改', 409)
+            if is_manual(wf) and awaiting_acceptance(wf):
+                raise APIError('ACCEPTANCE_REQUIRED', '请先确认当前结果或明确回退后修改参数', 409)
             if self._has_lease(rt, workflow_id) or rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (workflow_id,)).fetchone():
                 raise APIError('RECONCILIATION_REQUIRED', '存在活动或未知采集，先完成回执核查', 409)
             self._assert_adapter_binding(wf)
@@ -1128,7 +1304,10 @@ class Controller:
 
     def _loop(self):
         while not self.stop_event.is_set():
+            self._pause_shared_queue()
             queued = [w for w in reversed(self.list()) if w['status'] == 'queued']
+            if self._workspace_service is not None:
+                queued = [w for w in queued if not self.workspace.queue_blocker(w)]
             if queued:
                 try:
                     self.run_workflow(queued[0]['id'])
@@ -1138,7 +1317,33 @@ class Controller:
                 self.wake.wait(.5)
                 self.wake.clear()
 
-    def _attention(self, workflow_id, state, message, *, node_id=None, preserve_diagnostic_stop=False):
+    def _shared_blocker(self, workflow, workflows):
+        group = device_key(workflow.get('configurationBinding', {}).get('profile', self.profile))
+        return next((w for w in workflows if w['id'] != workflow['id'] and w.get('mode') == 'real'
+                     and device_fault_blocks(w)
+                     and device_key(w.get('configurationBinding', {}).get('profile', self.profile)) == group), None)
+
+    def _pause_shared_queue(self, *, _rt=None):
+        with (nullcontext(_rt) if _rt is not None else self.store.transaction()) as rt:
+            workflows = self.store.workflows(rt)
+            for wf in workflows:
+                if wf['mode'] != 'real' or wf['status'] != 'queued':
+                    continue
+                blocker = self._shared_blocker(wf, workflows)
+                if blocker:
+                    wf.update(status='paused', engineState='device_queue_paused', deviceBlockerId=blocker['id'])
+                    self.store.save(rt, wf, 'device_queue_paused', {'message': '共用设备有待核查事项，队列已暂停', 'blockingWorkflowId':blocker['id']})
+
+    def _device_lease(self, rt):
+        group = device_key(self.profile)
+        for row in rt.db.execute('SELECT * FROM platform_leases'):
+            owner = self.store.get(rt, row['workflow_id'])
+            profile = (owner or {}).get('configurationBinding', {}).get('profile', self.profile)
+            if row['resource'] == group or device_key(profile) == group:
+                return row
+        return None
+
+    def _attention(self, workflow_id, state, message, *, node_id=None, preserve_diagnostic_stop=False, shared_device_fault=False):
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
             if (preserve_diagnostic_stop and wf.get('rbDiagnostic')
@@ -1151,17 +1356,33 @@ class Controller:
                 self._node(wf, node_id)
                 wf['currentNodeId'] = node_id
             wf['status'], wf['engineState'] = 'attention', state
+            if shared_device_fault:
+                wf['sharedDeviceFault'] = True
             if wf.get('currentNodeId'):
                 node = self._node(wf)
                 node['status'], node['engineState'], node['detail'] = 'attention', state, message
             self.store.save(rt, wf, 'attention', {'message': message})
+            if device_fault_blocks(wf):
+                self._pause_shared_queue(_rt=rt)
 
     def run_workflow(self, workflow_id):
+        scoped = self.for_workflow(workflow_id)
+        if scoped is not self:
+            return scoped.run_workflow(workflow_id)
         wf = self.get(workflow_id)
         if wf['status'] != 'queued':
             return
+        if wf.get('configurationIssue'):
+            return self._attention(workflow_id, 'configuration_required', wf['configurationIssue']['message'])
+        if self._shared_blocker(wf, self.list()):
+            self._pause_shared_queue()
+            return
+        if self._workspace_service is not None and self.workspace.queue_blocker(wf):
+            return
         if wf['mode'] == 'replay':
             return self._replay(workflow_id)
+        if is_manual(wf) and wf.get('manualStep', {}).get('state') != 'queued':
+            return self._attention(workflow_id, 'manual_ready', '请选择步骤、核对参数并明确运行本步')
         try:
             self._assert_adapter_binding(wf)
         except APIError as exc:
@@ -1179,12 +1400,14 @@ class Controller:
             return self._attention(workflow_id, 'waiting_hardware', '请确认当前是主机读出/XY/采集卡接线', preserve_diagnostic_stop=True)
         ownership = self.hardware_ownership(refresh=True)
         if not ownership['verified'] or ownership['owners']:
-            return self._attention(workflow_id, 'waiting_hardware', '检测到其他程序仍连接机箱，等待释放；未下发测量', preserve_diagnostic_stop=True)
+            return self._attention(workflow_id, 'waiting_hardware', '检测到其他程序仍连接机箱，等待释放；未下发测量', preserve_diagnostic_stop=True, shared_device_fault=True)
         diagnostic = wf.get('rbDiagnostic') or {}
         if diagnostic.get('state') == 'queued':
             return self._run_rb_diagnostic(workflow_id, diagnostic['id'])
         if diagnostic and wf.get('currentNodeId') == diagnostic.get('targetNodeId'):
             return self._attention(workflow_id, 'diagnostic_closed', '单次RB诊断许可已关闭，未自动重发或推进原流程', preserve_diagnostic_stop=True)
+        if is_manual(wf):
+            return self._run_manual_step(workflow_id)
         while not self.stop_event.is_set():
             wf = self.get(workflow_id)
             if wf['status'] not in ('queued', 'running'):
@@ -1199,7 +1422,7 @@ class Controller:
                 return self._attention(workflow_id, 'prerequisites_missing', '前置校准未验证或已失效，等待复测')
             node = ready[0]
             if node['capability'] != 'available':
-                return self._attention(workflow_id, 'unsupported_method', '当前方法尚未接入：' + node['label'])
+                return self._attention(workflow_id, 'unsupported_method', '当前方法尚未接入：' + node['label'], node_id=node['id'])
             if wf['iterations'] >= wf['maxWorkflowAttempts'] or node['attempt'] >= wf['maxAttemptsPerNode']:
                 return self._attention(workflow_id, 'budget_exhausted', '达到本轮测量预算，保留全部候选与结果', node_id=node['id'])
             if not self._execute_node(workflow_id, node['id']):
@@ -1264,6 +1487,8 @@ class Controller:
         action = wf.get('cancelRequested') or 'pause'
         wf['status'] = 'aborted' if action == 'abort' else 'paused'
         wf['engineState'], wf['cancelRequested'] = wf['status'], None
+        if action != 'abort' and is_manual(wf) and awaiting_acceptance(wf):
+            wf['engineState'] = 'awaiting_acceptance'
         diagnostic = wf.get('rbDiagnostic') or {}
         if diagnostic.get('state') in ('queued', 'running'):
             diagnostic.update(state='interrupted', finishedAt=now(), resultStatus='unverified')
@@ -1406,6 +1631,8 @@ class Controller:
 
     def _execute_node(self, workflow_id, node_id, *, diagnostic_branch_id=None):
         wf_before = self.get(workflow_id)
+        if is_manual(wf_before):
+            self._assert_manual_dispatch(wf_before, node_id)
         self._assert_adapter_binding(wf_before)
         try:
             supplemental = self._assert_supplemental_snapshot(wf_before)
@@ -1419,10 +1646,13 @@ class Controller:
         with self.store.transaction() as rt:
             wf, attempt_id = self.get(workflow_id, rt), ident('attempt')
             node = self._node(wf, node_id)
+            manual = is_manual(wf)
+            if manual:
+                self._assert_manual_dispatch(wf, node_id)
             if diagnostic_branch_id is not None:
                 self._assert_rb_diagnostic_dispatch(rt, wf, node, diagnostic_branch_id)
-            group = self.profile.get('instrument', {}).get('resourceGroup', 'CY8_SHARED_BUS1')
-            if rt.db.execute('SELECT 1 FROM platform_leases WHERE resource=?', (group,)).fetchone():
+            group = device_key(self.profile)
+            if self._device_lease(rt):
                 wf['status'], wf['engineState'] = 'attention', 'resource_busy'
                 self.store.save(rt, wf, 'attention', {'message': '共享仪器仍占用或隔离中'})
                 return False
@@ -1443,6 +1673,8 @@ class Controller:
                                     {'nodeId': node_id, 'errorCode': exc.code, 'message': exc.message})
                     return False
             token = ident('lease')
+            if manual:
+                wf['manualStep'].update(state='running', attemptId=attempt_id)
             rt.db.execute('INSERT INTO platform_leases VALUES(?,?,?,?,?)', (group, workflow_id, attempt_id, 'active', token))
             node['attempt'] += 1
             attempt = {'id': attempt_id, 'nodeId': node_id, 'number': node['attempt'], 'state': 'running', 'startedAt': now(),
@@ -1513,6 +1745,8 @@ class Controller:
                     verify_request['parameters'] = verification_parameters(request['procedureId'], verify_request['parameters'], candidate)
                 with self.store.transaction() as rt:
                     current = self.get(workflow_id, rt)
+                    if manual:
+                        self._assert_manual_dispatch(current, node_id, attempt_id)
                     if diagnostic_branch_id is not None:
                         self._assert_rb_diagnostic_dispatch(rt, current, self._node(current, node_id), diagnostic_branch_id, attempt_id=attempt_id)
                     # The first acquisition is complete and registered. Publish it
@@ -1564,6 +1798,8 @@ class Controller:
             with self.store.transaction() as rt:
                 current = self.get(workflow_id, rt)
                 current_node = self._node(current, node_id)
+                if manual:
+                    self._assert_manual_dispatch(current, node_id, attempt_id)
                 if diagnostic_branch_id is not None:
                     self._assert_rb_diagnostic_dispatch(rt, current, current_node, diagnostic_branch_id, attempt_id=attempt_id, allow_cancel=True)
                     result['diagnosticScope'] = {**deepcopy(request['rbDiagnostic']),
@@ -1586,16 +1822,24 @@ class Controller:
                                verificationOperationId=attempt_id + '/verify' if verification else None)
                 self.store.attempt(rt, workflow_id, attempt)
                 passed = result['quality']['status'] == 'passed'
+                if passed and manual:
+                    attempt['state'] = 'awaiting_acceptance'
+                    self.store.attempt(rt, workflow_id, attempt)
                 current_node.update(result=result, progress=100, status='success' if passed else 'attention',
                                     engineState='verified' if passed else 'quality_attention', mainProcedureComplete=passed,
                                     detail='独立复测通过' if passed else '；'.join(result['quality']['reasons']))
+                if manual:
+                    current_node.update(status='attention', engineState='awaiting_acceptance' if passed else 'quality_attention',
+                                        mainProcedureComplete=False)
+                    current.update(status='attention', engineState=current_node['engineState'], approved=False)
+                    current['manualStep'].update(state='finished', finishedAt=now(), resultStatus=result['quality']['status'])
                 if diagnostic_branch_id is not None:
                     current_node['diagnosticScope'] = deepcopy(result['diagnosticScope'])
                     current_node['detail'] = ('RB诊断独立验收通过；CPMG仍未通过，不发布完整校准' if passed else
                                               'RB诊断未通过：' + '；'.join(result['quality']['reasons']))
                 # Finish receipts are not claims that the physical RF output is proven OFF.
                 rt.db.execute('DELETE FROM platform_leases WHERE workflow_id=? AND token=?', (workflow_id, token))
-                if passed:
+                if passed and not manual:
                     if diagnostic_branch_id is None:
                         rebuild_target = self._commit_candidate(rt, current, current_node, result.get('candidateParameters', {}), versions)
                     if diagnostic_branch_id is None and current_node['procedureId'] == 'sq_rb' and self._physical_adapter and callable(getattr(self.adapter, 'publish_calibration', None)):
@@ -1617,14 +1861,14 @@ class Controller:
                             current_node['experienceCandidateId'] = candidate_experience['id']
                 current_marker = self._readout_revalidation(rt, current, current_node)
                 if request.get('readoutRevalidation') and current_marker and node_id == current_marker['optimizerNodeId']:
-                    current_marker.update(state='completed' if passed else 'fixed_failed',
+                    current_marker.update(state=('active' if manual else 'completed') if passed else 'fixed_failed',
                                           lastFixedAttemptId=attempt_id)
-                    if current_marker.get('origin') == 'operator_withdrawal':
-                        current_marker['validationStatus'] = 'verified' if passed else 'failed'
-                    if passed:
+                    if manual or current_marker.get('origin') == 'operator_withdrawal':
+                        current_marker['validationStatus'] = ('awaiting_acceptance' if manual else 'verified') if passed else 'failed'
+                    if passed and not manual:
                         current_marker['endedAt'] = now()
                 current['progress'] = round(100 * sum(n['engineState'] == 'verified' for n in current['nodes']) / len(current['nodes']))
-                self.store.save(rt, current, 'readout_revalidation_started' if rebuild_target else 'node_verified' if passed else 'quality_attention',
+                self.store.save(rt, current, 'readout_revalidation_started' if rebuild_target else ('awaiting_acceptance' if manual else 'node_verified') if passed else 'quality_attention',
                                 {'message': self._node(current)['detail'] if rebuild_target else current_node['label'] + '：' + current_node['detail'], 'attemptId': attempt_id})
             if self._cancel_requested(workflow_id):
                 self._finish_cancel(workflow_id)
@@ -1632,6 +1876,8 @@ class Controller:
             if diagnostic_branch_id is not None:
                 # One explicit permission ends here, on either scientific outcome.
                 # It never enters normal approve/autopilot/publication scheduling.
+                return False
+            if manual:
                 return False
             if passed:
                 if rebuild_target:
@@ -1664,11 +1910,12 @@ class Controller:
                 else:
                     rt.db.execute('DELETE FROM platform_leases WHERE token=?', (token,))
                 stopped = list(rt.db.execute("SELECT state,result FROM platform_effects WHERE attempt_id=? AND state IN ('cancelled','failed_after_shutdown')", (attempt_id,)))
+                stopped_receipts = [json.loads(row['result']) for row in stopped]
                 if stopped:
                     if not pending:
                         state = 'cancelled' if all(row['state'] == 'cancelled' for row in stopped) else 'failed_after_shutdown'
                     artifacts = {a['id']: a for row in stopped for a in json.loads(row['result']).get('partialArtifacts', [])}
-                    attempt['result'] = self._partial_result(list(artifacts.values()))
+                    attempt['result'] = self._partial_result(list(artifacts.values()), stopped_receipts)
                 preserved_selection = bool(attempt.get('result', {}).pop('verificationPending', False))
                 if preserved_selection:
                     attempt['result']['quality']['reasons'] = ['独立复测未完成验收；已完成的候选采集单独保留']
@@ -1697,22 +1944,37 @@ class Controller:
                             attempt['result'] = recovered
                             attempt['verificationOperationId'] = verify_request['operationId']
                             preserved_selection = True
+                message = str(exc)
+                if stopped and not pending:
+                    summary = stopped_summary(stopped_receipts, selection_retained=bool(attempt.get('result', {}).get('selectionResult')))
+                    if summary:
+                        message = summary['message']
+                        attempt['result']['executionSummary'] = summary
+                        attempt['result']['quality']['reasons'] = [message]
+                        if summary.get('reason') == 'connection_failed':
+                            current['sharedDeviceFault'] = True
                 attempt.update(state=state, endedAt=now(), error=str(exc))
                 self.store.attempt(rt, workflow_id, attempt)
                 node = self._node(current, node_id)
-                node.update(status='attention', engineState=state, detail=str(exc))
+                node.update(status='attention', engineState=state, detail=message)
                 if stopped or preserved_selection:
                     node['result'] = deepcopy(attempt['result'])
                 current.update(status='attention', engineState=state)
-                self.store.save(rt, current, 'reconciliation_required' if pending else 'attention', {'message': str(exc)})
+                if manual and current.get('manualStep', {}).get('attemptId') == attempt_id:
+                    current['manualStep'].update(state='finished', finishedAt=now(), resultStatus='unverified')
+                self.store.save(rt, current, 'reconciliation_required' if pending else 'attention', {'message': message})
+                if device_fault_blocks(current):
+                    self._pause_shared_queue(_rt=rt)
                 if not pending and current.get('cancelRequested'):
                     self._finish_cancel_locked(rt, current)
             return False
 
     @staticmethod
-    def _partial_result(artifacts):
+    def _partial_result(artifacts, receipts=(), *, selection_retained=False):
+        summary = stopped_summary(receipts, selection_retained=selection_retained)
         return {'dataKind': 'real', 'partial': True, 'metrics': {}, 'artifacts': artifacts,
-                'quality': {'status': 'unverified', 'reasons': ['采集已停止；部分数据保留，未完成独立验证']}}
+                **({'executionSummary': summary} if summary else {}),
+                'quality': {'status': 'unverified', 'reasons': [summary['message'] if summary else '采集已停止，测量数据与独立验证结果尚待核查']}}
 
     @staticmethod
     def _completed_selection_for_reconciliation(rt, workflow_id, attempt, effect):
@@ -1865,6 +2127,12 @@ class Controller:
                     prior = self._node(wf, node['resourceId'] + ':' + fallback)
                     actual = prior.get('result', {}).get('parameters', {})
                     mismatch = [k for k in keys if k not in actual or k not in parameters or not self._same_parameter(actual[k], parameters[k])]
+                    if is_manual(wf):
+                        wf.update(status='attention', engineState='prerequisites_missing')
+                        node.update(status='attention', engineState='prerequisites_missing',
+                                    detail='RB 前置校准与当前工作点不一致；请明确回退并复测：' + prior['label'])
+                        self.store.save(rt, wf, 'attention', {'message': node['detail']})
+                        return False
                     affected = self._invalidate(wf, prior['id'], include_target=True)
                     wf['status'], wf['engineState'], wf['currentNodeId'] = 'queued', 'backtrack_queued', prior['id']
                     self._record_decision(rt, wf, node_id, {'action': 'backtrack', 'reason': 'RB 前置校准与当前工作点不同，需要在当前参数下重新验证：' + ','.join(mismatch),
@@ -1960,6 +2228,8 @@ class Controller:
             diagnostic.update(state='invalidated', finishedAt=now(), resultStatus='unverified')
         for node in wf['nodes']:
             if node['id'] in affected:
+                node.pop('humanAcceptedAttemptId', None)
+                node.pop('humanAcceptedAt', None)
                 node['status'], node['engineState'], node['progress'], node['mainProcedureComplete'] = 'pending', 'stale', 0, False
                 node['detail'] = '前置参数已变更，历史结果保留，等待重新测量'
                 if node.get('result'):
@@ -2569,10 +2839,21 @@ class Controller:
         selected_node_id = payload.get('nodeId')
         if selected_node_id is not None and (not isinstance(selected_node_id, str) or not selected_node_id or not payload.get('workflowId')):
             raise APIError('INVALID_CHAT_NODE', '所选节点必须属于指定实验任务')
+        session_id = payload.get('sessionId') or ident('chat')
+        if not isinstance(session_id, str) or not 1 <= len(session_id) <= 256:
+            raise APIError('INVALID_SESSION', '对话编号无效')
+        scope = {'kind':'workflow','id':payload['workflowId']} if payload.get('workflowId') else {'kind':'workspace'}
         # Pin workflow, operations and artifact registry to one read-only snapshot.
         # Close it before waiting on the model so acquisition writes remain free.
         with read_chat_snapshot(self.store.path) as db:
             wf = self.get(payload['workflowId'], types.SimpleNamespace(db=db)) if payload.get('workflowId') else None
+            model_session_id = 'legacy_' + digest({'scope':scope,'sessionId':session_id})[:40]
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='platform_conversations'").fetchone():
+                conversation = db.execute('SELECT payload FROM platform_conversations WHERE id=?',(session_id,)).fetchone()
+                if conversation:
+                    if json.loads(conversation[0])['scope'] != scope:
+                        raise APIError('INVALID_SCOPE','该对话属于其他范围',409)
+                    model_session_id = session_id
             selected_node = self._node(wf, selected_node_id) if selected_node_id is not None else None
             brief = None
             if wf:
@@ -2583,7 +2864,8 @@ class Controller:
                                      'evidenceIds': [a['id'] for a in n.get('result', {}).get('artifacts', [])]}
                                   for n in wf['nodes']]
                 brief = self._chat_summary_value(brief)
-            context = {'workflow': brief, 'catalog': self.catalog.describe(self.adapter.capabilities(), self._bounds()),
+            bound = self.with_binding(wf['configurationBinding']) if wf and wf.get('configurationBinding') else self
+            context = {'workflow': brief, 'catalog': bound.catalog.describe(bound.adapter.capabilities(), bound._bounds()),
                        'notice': '聊天建议不会直接下发设备；实验动作经过Python控制器校验。inspect_observation 仅核查本任务已登记的证据摘要，不读取原始文件；以 dataKind 和 acquiredAt 区分本轮采集与历史记录。采集状态截至 acquisitionState 的快照；扫描几何仅来自已登记且核对过哈希的 plan 元数据。'}
             if wf:
                 context['acquisitionState'] = acquisition_context(db, wf, self.root, now())
@@ -2598,9 +2880,9 @@ class Controller:
             context['observations'], omitted = self._chat_observations(wf, observation_budget, db)
             context['observationSummary'] = {'provided': len(context['observations']), 'omitted': omitted,
                                              'source': 'registered_workflow_evidence_metadata', 'rawFileRead': False}
-            request = bound_chat_observations({'message': message, 'sessionId': payload.get('sessionId'), 'context': context})
+            request = bound_chat_observations({'message': message, 'sessionId': model_session_id, 'context': context})
         result = self._brain('/chat', request)
-        return {'sessionId': result.get('sessionId', payload.get('sessionId', '')), 'message': result.get('message') or result.get('error') or '模型暂时不可用',
+        return {'sessionId': session_id, 'message': result.get('message') or result.get('error') or '模型暂时不可用',
                 'status': result.get('status', 'error'), 'model': result.get('model')}
 
     def health(self):
@@ -2641,8 +2923,10 @@ class Controller:
                 nodes.append({'node': node, 'attempts': attempts, 'decisions': decisions})
             events = [{**dict(row), 'payload': json.loads(row['payload'])} for row in db.execute(
                 'SELECT * FROM events WHERE run_id=? ORDER BY seq', (workflow_id,))]
-            return {'schema': 'qcal-report/1', 'generatedAt': now(), 'workflow': wf, 'nodes': nodes,
-                    'events': events, 'source': 'recorded_data_only', 'workflowComplete': wf['workflowComplete']}
+            from .receipt_presentation import read_receipts, report_view
+            return report_view({'schema': 'qcal-report/1', 'generatedAt': now(), 'workflow': wf, 'nodes': nodes,
+                    'events': events, 'source': 'recorded_data_only', 'workflowComplete': wf['workflowComplete'],
+                    'stoppedReceipts': read_receipts(db, workflow_id)})
 
     def archive_status(self):
         return self.archive.status()

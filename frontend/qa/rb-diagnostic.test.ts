@@ -180,6 +180,13 @@ test('initial component requires server inspection and does not make an executab
   assert.match(html, /不表示完整流程通过/);
 });
 
+test('manual workflows cannot queue the diagnostic bypass even with a previously eligible inspection', () => {
+  const workflow = wf(); workflow.policy = 'strict';
+  assert.equal(rbDiagnosticEligible(workflow, inspection()), false);
+  assert.equal(rbDiagnosticRequest(workflow, inspection(), 'op-manual'), undefined);
+  assert.doesNotMatch(render('default', workflow), /启动一次 RB 诊断|检查 RB 诊断条件/);
+});
+
 test('completed diagnostic receipt never labels the workflow completed or CPMG passed', () => {
   const workflow = receipt('completed'); workflow.rbDiagnostic!.resultStatus = 'passed';
   workflow.nodes[1].latestAttemptId='rb-attempt';workflow.nodes[1].engineState='verified';

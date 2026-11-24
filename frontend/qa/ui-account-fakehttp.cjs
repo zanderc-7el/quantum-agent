@@ -60,7 +60,7 @@ async function capture(name) { await page.screenshot({ path: path.join(directory
   const dialog = page.getByRole("dialog", { name: "Ziyor 会员账户" });
   await dialog.getByText("Codex CLI", { exact: true }).waitFor();
   assert.equal(writes.length, 0); assert.equal(await dialog.locator(".rp-member-identity").count(), 0);
-  assert.ok((await dialog.innerText()).includes("尚未登录会员"));
+  assert.ok(await dialog.getByLabel("会员手机号", { exact: true }).isVisible());
   assert.ok(!(await dialog.innerText()).includes("会员服务暂未配置"));
   await dialog.getByText("验收连接说明：会员登录后使用会员额度。", { exact: true }).waitFor();
   await dialog.locator("summary").filter({ hasText: "模型与高级连接设置" }).click();
@@ -89,7 +89,7 @@ async function capture(name) { await page.screenshot({ path: path.join(directory
   await dialog.getByRole("button", { name: "刷新状态", exact: true }).click();
   await dialog.getByTestId("membership-points").filter({ hasText: "暂未获取" }).waitFor();
   assert.equal(writes.length, 2); output.tests.push("Unavailable credit balance is not fabricated as zero");
-  await dialog.getByRole("button", { name: "验证连接（发送一次短请求）", exact: true }).click();
+  await dialog.getByRole("button", { name: "验证连接", exact: true }).click();
   await dialog.getByText("模型连接验证通过。", { exact: true }).waitFor();
   assert.equal(writes.filter(item => item.path.endsWith("/test")).length, 1);
   output.tests.push("Model test is explicit and sends exactly one short-request action");
