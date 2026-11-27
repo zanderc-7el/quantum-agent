@@ -52,7 +52,7 @@ class ExportsTest(unittest.TestCase):
 
     def test_conflict_and_bad_format(self):
         s=self.service(lambda *_:None)
-        for body in [dict(self.body(),expectedRevision=6),dict(self.body(),format='json'),dict(self.body(),appendixCount=True)]:
+        for body in [dict(self.body(),expectedRevision=8),dict(self.body(),format='json'),dict(self.body(),appendixCount=True)]:
             with self.assertRaises(APIError):s.create('wf-1',body)
 
     def test_failure_is_durable_and_retry_id_does_not_rerun(self):

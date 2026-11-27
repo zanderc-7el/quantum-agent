@@ -9,6 +9,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import sqlite3
 
@@ -78,11 +79,29 @@ def _read_report(connection, workflow_id, artifact_root, generated_at):
                 continue
             if isinstance(receipt, dict):
                 stopped_receipts.append({'workflowId': workflow_id, 'attemptId': r[0], 'operationId': r[1], 'receipt': receipt})
+    committed = {}
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='parameters'").fetchone():
+        resources = set(workflow.get('resourceIds') or [])
+        resources.update(n.get('resourceId') for n in workflow['nodes'] if n.get('resourceId'))
+        for resource in sorted(resources):
+            prefix = workflow_id + ':' + resource + ':'
+            values = {}
+            for name, encoded, revision in connection.execute(
+                    'SELECT name,value,revision FROM parameters WHERE substr(name,1,?)=? ORDER BY name', (len(prefix), prefix)):
+                try:
+                    value = json.loads(encoded)
+                except (ValueError, TypeError):
+                    continue
+                if type(value) in (int, float) and math.isfinite(value) and type(revision) is int and revision >= 0:
+                    values[name[len(prefix):]] = {'value': value, 'revision': revision}
+            if values:
+                committed[resource] = values
     return {'schema': 'qcal-report/1', 'generatedAt': generated_at,
         'source': 'recorded_data_only', 'workflow': workflow, 'nodes': nodes,
         'workflowComplete': workflow.get('workflowComplete') is True,
         'artifactRoot': str(artifact_root), 'artifactIndex': artifacts,
         'stoppedReceipts': stopped_receipts,
+        'committedParameters': {'schema': 'qcal-report-committed-parameters/1', 'resources': committed},
         'snapshotSemantics': 'Consistent read-only SQLite snapshot. Ongoing attempts remain incomplete. Image bytes verified against registered SHA256.'}
 
 
@@ -92,6 +111,46 @@ def _verify_images(artifacts):
             actual = hashlib.sha256(Path(artifact['path']).read_bytes()).hexdigest()
             if actual != artifact['sha256']:
                 raise ValueError('Image integrity mismatch: ' + artifact['id'])
+
+
+GATE_STEPS = ('sq_shape_rabi_amplitude_repeat5', 'sq_shape_half_verify', 'sq_drag_half_scan', 'sq_drag_irb')
+
+
+def attach_smart_children(connection, report, artifact_root, generated_at):
+    parent = report['workflow']
+    smart = parent.get('smartRun') or {}
+    if smart.get('schema') != 'q11-full-same-gate/1':
+        return
+    current = smart.get('children', {})
+    history = smart.get('childrenHistory', [])
+    if not isinstance(current, dict) or set(current) - set(GATE_STEPS) or not isinstance(history, list):
+        raise ValueError('Invalid linked Q11 gate workflow index')
+    refs = [(item['procedureId'], item['workflowId'], False) for item in history]
+    refs.extend((method, current[method], True) for method in GATE_STEPS if method in current)
+    seen = set()
+    report['smartGateReports'] = []
+    for method, child_id, is_current in refs:
+        if method not in GATE_STEPS or child_id in seen or child_id == parent['id']:
+            raise ValueError('Ambiguous linked Q11 gate workflow')
+        seen.add(child_id)
+        child = _read_report(connection, child_id, artifact_root, generated_at)
+        wf = child['workflow']
+        origin = wf.get('observedResourceBinding') or {}
+        budget_parent = (wf.get('budget') or {}).get('parent') or {}
+        link = wf.get('smartParent') or {}
+        if (link.get('workflowId') != parent['id'] or link.get('procedureId') != method
+                or budget_parent.get('parentWorkflowId') != parent['id']
+                or origin.get('sourceWorkflowId') != parent['id']
+                or origin.get('sourceAdapterProfileHash') != parent.get('adapterProfileHash')
+                or origin.get('resourceId') != 'Q11' or wf.get('resourceIds') != ['Q11'] or wf.get('mode') != 'real'
+                or [n['node']['procedureId'] for n in child['nodes']] != [method]):
+            raise ValueError('Linked gate workflow does not match its parent, method and physical configuration')
+        report['smartGateReports'].append({'procedureId': method, 'current': is_current, 'report': child})
+        for key, artifact in child['artifactIndex'].items():
+            previous = report['artifactIndex'].get(key)
+            if previous and (previous['sha256'], previous['kind']) != (artifact['sha256'], artifact['kind']):
+                raise ValueError('Artifact identity collision in linked gate workflows')
+            report['artifactIndex'][key] = artifact
 
 
 def snapshot_many(db, workflow_ids, artifact_root):
@@ -105,6 +164,8 @@ def snapshot_many(db, workflow_ids, artifact_root):
         connection.execute('PRAGMA query_only=ON')
         connection.execute('BEGIN')
         reports = [_read_report(connection, workflow_id, artifact_root, generated_at) for workflow_id in workflow_ids]
+        for report in reports:
+            attach_smart_children(connection, report, artifact_root, generated_at)
         connection.rollback()
     # Hash files only after releasing the consistent, read-only database view.
     for report in reports:

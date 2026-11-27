@@ -1,0 +1,32 @@
+.assistant-reply {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.assistant-reply > p, .assistant-reply > h4, .assistant-reply > ul,
+.assistant-reply > ol, .assistant-reply > pre { margin: .45em 0; }
+.assistant-reply > h4 { font-size: 1em; }
+.assistant-reply > ul, .assistant-reply > ol { padding-inline-start: 1.65em; }
+.assistant-reply > ul { list-style: disc; }
+.assistant-reply > ol { list-style: decimal; }
+.assistant-reply li + li { margin-top: .2em; }
+.assistant-reply p, .assistant-reply li { white-space: pre-line; }
+.assistant-reply code { font-size: .94em; }
+.assistant-reply > pre { overflow-x: auto; white-space: pre; }
+.rp-chat-message .assistant-reply {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 0 9px 9px;
+  background: var(--panel-raised);
+  font-size: 12px;
+}
+.rp-chat-message .assistant-reply > p {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  line-height: inherit;
+}
+.assistant-reply > :first-child, .rp-chat-message .assistant-reply > :first-child { margin-top: 0; }
+.assistant-reply > :last-child, .rp-chat-message .assistant-reply > :last-child { margin-bottom: 0; }

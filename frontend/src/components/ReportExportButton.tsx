@@ -3,8 +3,9 @@ import { Download, FileChartColumn } from "lucide-react";
 import type { Workflow } from "../types";
 import type { RemoteGateway } from "../lib/remoteGateway";
 import { ApiError } from "../lib/remoteGateway";
-import { exportSessionKey, parseExportSession, recoverExportSession, reportDownloadUrl } from "../lib/reportExportSession";
+import { exportSessionKey, parseExportSession, recoverExportSession, reportDownloadUrl, reportSnapshotTime } from "../lib/reportExportSession";
 import type { ExportSession } from "../lib/reportExportSession";
+import { stabilityReportPath } from "../lib/stabilityReport";
 
 export default function ReportExportButton({ gateway, workflow }: { gateway: RemoteGateway; workflow: Workflow }) {
   const key = exportSessionKey(workflow.id);
@@ -52,5 +53,6 @@ export default function ReportExportButton({ gateway, workflow }: { gateway: Rem
     } finally { inFlight.current = false; if (alive.current) setSending(false); }
   };
   const url = reportDownloadUrl(session?.job);
-  return <div className="report-export-control"><div>{url && <a className="secondary rp-link-button" href={url}><Download size={14} />下载 PPT</a>}<button className="secondary" disabled={sending || Boolean(active)} onClick={() => void create()}><FileChartColumn size={15} />{sending ? "正在提交…" : active ? "正在生成 PPT…" : session && !session.job ? "核查并继续导出" : url ? "重新生成 PPT" : "导出国基量子 PPT"}</button></div>{url && session?.job && <small>报告保存于 {new Date(session.job.createdAt).toLocaleString("zh-CN")}{session.job.revision !== workflow.revision ? "，实验记录已更新，可重新生成。" : ""}</small>}{error && <small role="alert">{error}</small>}{session?.job?.error && <small role="alert">{session.job.error.message}</small>}{session && !session.job && !sending && <small>导出回执待核查，再次点击沿用同一请求。</small>}</div>;
+  return <div className="report-export-control"><div><a className="secondary rp-link-button" href={"/api"+stabilityReportPath({sourceWorkflowId:workflow.id},"html")} target="_blank" rel="noreferrer">周期稳定性报告</a>{url && <a className="secondary rp-link-button" href={url}><Download size={14} />下载 PPT</a>}<button className="secondary" disabled={sending || Boolean(active)} onClick={() => void create()}><FileChartColumn size={15} />{sending ? "正在提交…" : active ? "正在生成 PPT…" : session && !session.job ? "核查并继续导出" : url ? "重新生成 PPT" : "导出国基量子 PPT"}</button></div>{session?.job && <small>快照截至 {new Date(reportSnapshotTime(session.job)).toLocaleString("zh-CN")} · 任务版本 {session.job.revision}{session.job.revision !== workflow.revision ? "，后续采集不影响本次报告。" : ""}</small>}{error && <small role="alert">{error}</small>}{session?.job?.error && <small role="alert">{session.job.error.message}</small>}{session && !session.job && !sending && <small>导出回执待核查，再次点击沿用同一请求。</small>}</div>;
 }
+

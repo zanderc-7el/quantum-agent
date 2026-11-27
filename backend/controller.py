@@ -18,26 +18,29 @@ from .chat_acquisition_context import read_chat_snapshot, acquisition_context, b
 from .curve_context import attach_curve_summary
 from .capture_diagnostics import (PROCEDURES as CAPTURE_DIAGNOSTIC_PROCEDURES,
                                   resolve_sources, calculate_diagnostics, attach_diagnostics)
+from . import workflow_budget as task_budget, shot_accounting
 from .acquisition_budget import verification_probe, selection_lookahead, verify_admission, sampling_context
 from .backtrack_admission import admit_backtrack, eligible_backtracks
 from .accepted_upstream_context import resolve_accepted_upstream, attach_accepted_upstream
 from .rb_diagnostic import build_proof as rb_diagnostic_proof, VERSION as RB_DIAGNOSTIC_VERSION, require as rb_require
 from .model_input_projection import project_model_input, MAX_INPUT_UNITS as MODEL_INPUT_MAX_UNITS
 from .readout_withdrawal import restoration_source, VERSION as READOUT_WITHDRAWAL_VERSION, READOUT_KEYS
-from .catalog import Catalog, VERSION, PARAMETERS, WORKING_POINT_VERSION, WORKING_POINT_OMITTED
+from .catalog import Catalog, VERSION, PARAMETERS, WORKING_POINT_VERSION, WORKING_POINT_OMITTED, SCIENCE_METHODS, SCIENCE_IRB_METHODS, SCIENCE_FLUX_METHODS
 from .working_point import build_working_point_seed
-from .quality import GATES, evaluate, validate_proposal
+from .quality import GATES, SCIENCE_GATES, SCIENCE_GATES_VERSION, science_rules, evaluate, validate_proposal
 from .decision_context import build_decision_context
 from .model_parameter_semantics import build_model_parameter_contract
-from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, MAX_CASES, MAX_CANDIDATES,
-                                    audited_bindings, eligible_header, project_failure_case, bounded_context, attach_prior_context,
+from .prior_failure_context import (CHECKED_JSON_NAMES, MAX_CASES, MAX_CANDIDATES,
+                                    load_audited_bindings, eligible_header, project_failure_case, bounded_context, attach_prior_context,
                                     javascript_json_units_upper_bound)
-from .store import Store, StepSpec, Budget
+from .store import Store, StepSpec, Budget, AccountingBudget
 from .result_archive import ResultArchive, record_effect
 from .experience import ExperienceLedger
 from .workspace import device_key, device_fault_blocks, DEVICE_STATES
 from .manual_steps import ManualSteps, is_manual, awaiting_acceptance
 from .stopped_receipts import stopped_summary
+from . import model_recovery
+from .ownership_diagnostics import OwnershipRefusal, record_rollback_refusal
 
 TERMINAL = {'completed', 'failed', 'aborted'}
 PARAMETER_ALIASES = {'readout_frequency_hz': 'readout_hz', 'drive_frequency_hz': 'drive_hz',
@@ -47,15 +50,37 @@ DEFAULT_ADAPTER = 'arclight-native-cy8'
 CALIBRATION_KEYS = ('readout_hz', 'readout_amp', 'drive_hz', 'drive_amp', 'drive_length_s', 'half_pi_amp', 'xy_delay_s')
 
 
+def detached_science_profile(root,base,name):
+    profile=deepcopy(base)
+    if profile.get('scienceFluxBaseLocks'):
+        profile['hardwareLocks']=profile.pop('scienceFluxBaseLocks')
+    for key in ('sciencePolicy','scienceIRBPolicy','scienceFluxPolicy','scienceRepeat5Policy'):profile.pop(key,None)
+    if name=='science-shape-repeat5':
+        from adapters.science_shape_repeat5.adapter import build_repeat5_profile
+        return build_repeat5_profile(root,profile)
+    if name=='science-flux':
+        from adapters.science_flux_adapter import build_flux_profile
+        return build_flux_profile(root,profile)
+    if name=='science-v3-irb':
+        from adapters.science_v3_irb.adapter import build_irb_profile
+        return build_irb_profile(root,profile)
+    if name=='science-v3':
+        from adapters.science_v3_adapter import build_science_profile
+        return build_science_profile(root,profile)
+    raise APIError('UNKNOWN_ADAPTER','未知科学执行配置')
+
+
 def configured_adapter(root):
     """Load one explicitly allowlisted adapter without importing instrument code."""
     root = checked_path(root)
     local = root / 'config' / 'runtime.local.json'
     settings = json.loads(local.read_text(encoding='utf-8-sig')) if local.is_file() else {}
     selected = settings.get('adapter', DEFAULT_ADAPTER)
-    profiles = {'arclight-native-cy8': 'adapters/arclight_profile.json', 'f8-native-cy8': 'adapters/f8_profile.json'}
+    profiles = {'arclight-native-cy8': 'adapters/arclight_profile.json', 'f8-native-cy8': 'adapters/f8_profile.json',
+                'science-v3': 'config/science-v3.local.json','science-v3-irb':'config/science-v3-irb.local.json',
+                'science-flux':'config/science-flux.local.json','science-shape-repeat5':'config/science-shape-repeat5.local.json'}
     if not isinstance(selected, str) or selected not in profiles:
-        raise APIError('UNKNOWN_ADAPTER', '运行配置必须选择 arclight-native-cy8 或 f8-native-cy8')
+        raise APIError('UNKNOWN_ADAPTER', '运行配置必须选择 arclight-native-cy8、f8-native-cy8 或 science-v3')
     profile_value = settings.get('profile', profiles[selected])
     if selected == 'f8-native-cy8' and 'profile' not in settings and (root / 'config' / 'f8.local.json').is_file():
         profile_value = 'config/f8.local.json'
@@ -67,6 +92,32 @@ def configured_adapter(root):
     if selected == 'arclight-native-cy8':
         from adapters.arclight import ArcLightAdapter
         return ArcLightAdapter(root, profile)
+    if selected=='science-flux':
+        from adapters.science_flux_adapter import ScienceFluxAdapter
+        from adapters.science_flux.contracts import POLICY
+        value=json.loads(profile.read_text(encoding='utf-8-sig'))
+        if value.get('scienceFluxPolicy')!=POLICY or value.get('enabled') is not False or value.get('sciencePolicy') or value.get('scienceIRBPolicy'):
+            raise APIError('INVALID_ADAPTER_PROFILE','偏置执行须显式选择独立且默认禁用的配置')
+        return ScienceFluxAdapter(root,value)
+    if selected in ('science-v3','science-v3-irb','science-shape-repeat5'):
+        from adapters.science_v3_adapter import ScienceV3Adapter
+        from adapters.science_v3.plans import POLICY
+        value = json.loads(profile.read_text(encoding='utf-8-sig'))
+        if value.get('sciencePolicy') != POLICY or value.get('enabled') is not False:
+            raise APIError('INVALID_ADAPTER_PROFILE', 'Science v3 必须显式选择独立且默认禁用的配置')
+        if selected=='science-shape-repeat5':
+            from adapters.science_shape_repeat5.adapter import ScienceRepeat5Adapter
+            from adapters.science_shape_repeat5.plans import PROFILE_POLICY
+            if value.get('scienceRepeat5Policy')!=PROFILE_POLICY:raise APIError('INVALID_ADAPTER_PROFILE','五门 Rabi 来源策略未声明')
+            return ScienceRepeat5Adapter(root,value)
+        if value.get('scienceRepeat5Policy'):raise APIError('INVALID_ADAPTER_PROFILE','五门来源策略须显式选择新执行配置')
+        if selected=='science-v3-irb':
+            from adapters.science_v3_irb.adapter import ScienceIRBAdapter
+            from adapters.science_v3_irb.plans import POLICY as IRB_POLICY
+            if value.get('scienceIRBPolicy')!=IRB_POLICY:raise APIError('INVALID_ADAPTER_PROFILE','IRB 独立策略未声明')
+            return ScienceIRBAdapter(root,value)
+        if value.get('scienceIRBPolicy'):raise APIError('INVALID_ADAPTER_PROFILE','IRB 配置必须显式选择对应执行器')
+        return ScienceV3Adapter(root, value)
     from adapters.f8 import F8Adapter
     return F8Adapter(root, profile)
 
@@ -104,10 +155,15 @@ class Controller(ManualSteps):
         self.records = self.history['records']
         self._bound_workflow_id = None
         self._workspace_service = None
+        self._stability_service = None
+        self._stability_error = None
         self._report_exports_service = None
         self._report_exports_lock = threading.RLock()
         self._register_imports()
         self._recover_interrupted()
+        # Initialize recovery before the one controller worker can dispatch.
+        from .stability import StabilityService
+        self._stability_service = StabilityService(self)
         if start_worker:
             self.worker = threading.Thread(target=self._loop, name='qcal-experiment-owner', daemon=True)
             self.worker.start()
@@ -136,21 +192,87 @@ class Controller(ManualSteps):
                 self._workspace_service = Workspace(self)
             return self._workspace_service
 
+    @property
+    def stability(self):
+        return self._stability_service
+
     def for_workflow(self, workflow_id, rt=None):
+        if getattr(self, '_execution_base', None) is not None:
+            return self._execution_base.for_workflow(workflow_id, rt)
         if self._bound_workflow_id == workflow_id:
             return self
         wf = self.get(workflow_id, rt)
         binding = wf.get('configurationBinding')
         if not binding:
+            from adapters.arclight import ArcLightAdapter
+            # Keep an already exact current profile (including a deliberately
+            # configured local snapshot); version routing must not replace it
+            # merely because another file uses the same human-readable ID.
+            if (type(self.adapter) is ArcLightAdapter and wf.get('mode') == 'real'
+                    and wf.get('adapterId') == self.adapter_id
+                    and wf.get('adapterProfileHash') == self.adapter_profile_hash
+                    and self._adapter_fingerprint() == self.adapter_profile_hash):
+                return self
+            from adapters.arclight_dynamic import DynamicArcLightAdapter
+            from adapters.science_v3_adapter import ScienceV3Adapter
+            from adapters.science_v3_irb.adapter import ScienceIRBAdapter
+            from adapters.science_flux_adapter import ScienceFluxAdapter
+            from adapters.science_shape_repeat5.adapter import ScienceRepeat5Adapter
+            if type(self.adapter) in (ArcLightAdapter, DynamicArcLightAdapter, ScienceV3Adapter, ScienceIRBAdapter, ScienceFluxAdapter, ScienceRepeat5Adapter):
+                from .arclight_versions import profile_for_workflow
+                profile = profile_for_workflow(self.adapter.root, wf)
+                if profile is not None:
+                    bound = copy(self)
+                    bound.adapter = ArcLightAdapter(self.adapter.root, profile)
+                    bound.profile = bound.adapter.profile
+                    bound.adapter_id = profile['id']
+                    bound.adapter_profile_hash = bound._adapter_fingerprint()
+                    bound._ownership_cache = None
+                    bound._bound_workflow_id = workflow_id
+                    return bound
             return self
         bound = self.with_binding(binding)
         bound._bound_workflow_id = workflow_id
         return bound
 
+    def for_node(self, workflow_id, node_id, rt=None, *, purpose='next', attempt=None):
+        from .attempt_execution import for_node
+        return for_node(self, workflow_id, node_id, rt, purpose=purpose, attempt=attempt)
+
+    def for_attempt(self, workflow_id, attempt, rt=None):
+        return self.for_node(workflow_id, attempt['nodeId'], rt, attempt=attempt) if attempt.get('executionBinding') else self.for_workflow(workflow_id, rt)
+
+    def select_execution_version(self, workflow_id, node_id, payload):
+        from .attempt_execution import select
+        return select(self, workflow_id, node_id, payload)
+
     def with_binding(self, binding):
         from adapters.arclight_dynamic import DynamicArcLightAdapter
         bound = copy(self)
-        bound.adapter = DynamicArcLightAdapter(self.root, deepcopy(binding['profile']))
+        adapter_class = DynamicArcLightAdapter
+        if binding['profile'].get('scienceFluxPolicy'):
+            from adapters.science_flux_adapter import ScienceFluxAdapter
+            from adapters.science_flux.contracts import POLICY as FLUX_POLICY
+            if binding['profile']['scienceFluxPolicy']!=FLUX_POLICY or binding['profile'].get('sciencePolicy') or binding['profile'].get('scienceIRBPolicy'):
+                raise APIError('INVALID_ADAPTER_PROFILE','未知或混用的偏置执行策略')
+            adapter_class=ScienceFluxAdapter
+        elif binding['profile'].get('sciencePolicy'):
+            from adapters.science_v3_adapter import ScienceV3Adapter
+            from adapters.science_v3.plans import POLICY
+            if binding['profile']['sciencePolicy'] != POLICY:
+                raise APIError('INVALID_ADAPTER_PROFILE', '未知科学执行策略')
+            adapter_class = ScienceV3Adapter
+            if binding['profile'].get('scienceIRBPolicy'):
+                from adapters.science_v3_irb.adapter import ScienceIRBAdapter
+                from adapters.science_v3_irb.plans import POLICY as IRB_POLICY
+                if binding['profile']['scienceIRBPolicy']!=IRB_POLICY:raise APIError('INVALID_ADAPTER_PROFILE','未知 IRB 执行策略')
+                adapter_class=ScienceIRBAdapter
+            if binding['profile'].get('scienceRepeat5Policy'):
+                from adapters.science_shape_repeat5.adapter import ScienceRepeat5Adapter
+                from adapters.science_shape_repeat5.plans import PROFILE_POLICY
+                if binding['profile']['scienceRepeat5Policy']!=PROFILE_POLICY:raise APIError('INVALID_ADAPTER_PROFILE','未知五门来源策略')
+                adapter_class=ScienceRepeat5Adapter
+        bound.adapter = adapter_class(self.root, deepcopy(binding['profile']))
         bound.profile = bound.adapter.profile
         bound.adapter_id = bound.profile['id']
         bound._physical_adapter = True
@@ -161,6 +283,174 @@ class Controller(ManualSteps):
         bound.catalog = copy(self.catalog)
         bound.catalog.history = lambda: deepcopy(bound.history)
         return bound
+
+    def _observed_science_binding(self, source_workflow_id, resource_id, *, rt=None):
+        """Freeze an actually measured resource without inventing a design identity."""
+        if any(not isinstance(value,str) or not 1 <= len(value) <= 256 for value in (source_workflow_id,resource_id)):
+            raise APIError('SCIENCE_SOURCE_SCOPE', '请选择唯一来源任务及实测资源编号', 409)
+        if rt is None:
+            with self.store.connect() as reader:
+                return self._observed_science_binding(source_workflow_id, resource_id, rt=reader)
+        source = self.get(source_workflow_id, rt)
+        if source.get('mode') != 'real' or resource_id not in source.get('resourceIds', []):
+            raise APIError('SCIENCE_SOURCE_SCOPE', '来源必须是同一实测资源的真机任务', 409)
+        bound = self.for_workflow(source_workflow_id, rt)
+        bound._assert_adapter_binding(source)
+        from adapters.arclight import ArcLightAdapter
+        from adapters.arclight_dynamic import DynamicArcLightAdapter
+        from adapters.science_v3_adapter import ScienceV3Adapter, build_science_profile
+        from adapters.arclight_configurable_runtime.routing import validate_route
+        from adapters.science_v3_irb.adapter import ScienceIRBAdapter
+        from adapters.science_flux_adapter import ScienceFluxAdapter
+        from adapters.science_shape_repeat5.adapter import ScienceRepeat5Adapter
+        if type(bound.adapter) not in (ArcLightAdapter, DynamicArcLightAdapter, ScienceV3Adapter, ScienceIRBAdapter,ScienceFluxAdapter,ScienceRepeat5Adapter):
+            raise APIError('SCIENCE_SOURCE_SCOPE', '实测资源绑定只接受已审计的原生执行器', 409)
+        if source.get('observedResourceBinding'):
+            self._validate_observed_resource_binding(source, rt)
+            binding = deepcopy(source['configurationBinding'])
+            binding['resources'] = [item for item in binding['resources'] if item['id'] == resource_id]
+            node = next(node for node in source['nodes'] if node['resourceId'] == resource_id)
+            current, _ = bound._parameters(rt,source,{**node,'parameterOverrides':{}})
+            binding['profile']['resources'][resource_id].update(current)
+            binding['profile']['id'] = 'science-v3-observed-' + digest(binding['profile'])[:20]
+            binding['digest'] = digest({key:value for key,value in binding.items() if key != 'digest'})
+            return binding
+        if source.get('chipVersionId') or source.get('deploymentVersionId'):
+            raise APIError('SCIENCE_SOURCE_SCOPE', '已有发布配置的来源应选择对应芯片和接线版本', 409)
+        preflight = bound.adapter.preflight()
+        if not preflight.get('staticReady', preflight.get('ready', False)):
+            raise APIError('SCIENCE_SOURCE_PREFLIGHT', '来源执行器静态校验失败', 409)
+        rank = {'ro_optimize':3, 'ro_iq01':2, 'ro_resonator_survey':1}
+        candidates = sorted((node for node in source['nodes'] if node['resourceId'] == resource_id
+            and node['procedureId'] in rank and node['engineState'] == 'verified'
+            and node.get('result',{}).get('quality',{}).get('status') == 'passed'
+            and not node.get('result',{}).get('stale')), key=lambda node:rank[node['procedureId']], reverse=True)
+        if not candidates:
+            raise APIError('SCIENCE_RESOURCE_UNOBSERVED', '来源尚无当前已验收的真机读出指纹', 409)
+        node = candidates[0]
+        row = rt.db.execute('SELECT payload FROM platform_attempts WHERE workflow_id=? AND id=?',
+            (source['id'],node.get('latestAttemptId'))).fetchone()
+        attempt = json.loads(row[0]) if row else {}
+        result = node['result']
+        if (attempt.get('state') != 'verified' or attempt.get('result') != result or not attempt.get('verificationOperationId')
+                or result.get('dataKind') != 'real' or result.get('partial')):
+            raise APIError('SCIENCE_RESOURCE_UNOBSERVED', '实测资源指纹缺少当前独立验收记录', 409)
+        raw = [item for item in result.get('artifacts',[]) if item.get('kind') == 'raw']
+        if not raw:
+            raise APIError('SCIENCE_RESOURCE_UNOBSERVED', '实测资源指纹没有原始采集文件', 409)
+        for item in raw:
+            path, metadata = self.artifact(item['id'])
+            if not path.is_relative_to(self.root.resolve()) or metadata.get('sha256') != item.get('sha256'):
+                raise APIError('SCIENCE_RESOURCE_UNOBSERVED', '实测资源指纹的原始文件不属于冻结来源', 409)
+        snapshot = {key:deepcopy(value) for key,value in bound.profile.items() if key not in ('enabled','connectionConfirmedAt')}
+        route = validate_route(snapshot.get('routingByResource',{}).get(resource_id,snapshot['instrument']))
+        anchor = {'nodeId':node['id'], 'attemptId':attempt['id'], 'selectionOperationId':attempt['operationId'],
+            'verificationOperationId':attempt['verificationOperationId'], 'resultSha256':digest(result),
+            'readoutHz':result.get('candidateParameters',{}).get('readout_hz',result.get('parameters',{}).get('readout_hz')),
+            'rawArtifacts':[{'id':item['id'],'sha256':item['sha256']} for item in raw]}
+        if not number(anchor['readoutHz']):
+            raise APIError('SCIENCE_RESOURCE_UNOBSERVED', '实测资源缺少已采集读出频率', 409)
+        observed = {'schema':'qcal-observed-resource/1','kind':'observed_resource','resourceId':resource_id,
+            'sourceWorkflowId':source['id'],'sourceAdapterId':source['adapterId'],
+            'sourceAdapterProfileHash':source['adapterProfileHash'],'sourceProfileSnapshotSha256':digest(snapshot),
+            'routeSha256':digest(route),'deviceKey':device_key(snapshot),'physicalDesignId':None,
+            'identityClaim':'measured_resource_not_design_identity','readoutAnchor':anchor}
+        observed['sha256'] = digest(observed)
+        profile = build_science_profile(self.root, snapshot)
+        profile['observedResourceBinding'] = deepcopy(observed)
+        # Parameters are initialization only. Each selected scientific source is
+        # independently authenticated at execution; this binding accepts none.
+        current, _ = bound._parameters(rt, source, {**node,'parameterOverrides':{}})
+        profile['resources'][resource_id].update(current)
+        profile['id'] = 'science-v3-observed-' + digest({'binding':observed,'profile':profile})[:20]
+        profile['enabled'] = False
+        binding = {'resources':[{'id':resource_id,'label':resource_id,'identityStatus':'observed_resource',
+            'physicalId':None,'identityLabel':'实测资源 '+resource_id+'／版图未确认'}],
+            'profile':profile,'sourceProfile':snapshot,'observedResourceBinding':observed,
+            'source':{'kind':'observed_resource','sourceWorkflowId':source['id'],'acceptedCalibration':False}}
+        binding['digest'] = digest(binding)
+        return binding
+
+    def _validate_observed_resource_binding(self, wf, rt):
+        observed = wf.get('observedResourceBinding')
+        if not observed:
+            return
+        if (not isinstance(observed,dict) or observed.get('schema') != 'qcal-observed-resource/1'
+                or observed.get('physicalDesignId') is not None
+                or digest({key:value for key,value in observed.items() if key != 'sha256'}) != observed.get('sha256')):
+            raise APIError('SCIENCE_RESOURCE_BINDING_CHANGED', '实测资源身份摘要不一致', 409)
+        origin_workflow = self.get(observed.get('sourceWorkflowId'), rt)
+        if origin_workflow.get('observedResourceBinding'):
+            raise APIError('SCIENCE_RESOURCE_BINDING_CHANGED', '实测资源根来源不能形成继承循环', 409)
+        from adapters.arclight import ArcLightAdapter
+        snapshot = wf.get('configurationBinding',{}).get('sourceProfile',{})
+        origin_controller = copy(self)
+        origin_controller.adapter = ArcLightAdapter(self.root, snapshot)
+        origin_controller.profile = origin_controller.adapter.profile
+        origin_controller.adapter_id = snapshot.get('id')
+        origin_controller.adapter_profile_hash = origin_controller._adapter_fingerprint()
+        origin_controller._bound_workflow_id = None
+        original = origin_controller._observed_science_binding(observed['sourceWorkflowId'], observed['resourceId'], rt=rt)
+        if (original['observedResourceBinding'] != observed
+                or wf.get('configurationBinding',{}).get('observedResourceBinding') != observed
+                or wf.get('configurationBinding',{}).get('profile',{}).get('observedResourceBinding') != observed
+                or digest(wf.get('configurationBinding',{}).get('sourceProfile',{})) != observed['sourceProfileSnapshotSha256']):
+            raise APIError('SCIENCE_RESOURCE_BINDING_CHANGED', '来源、读出指纹或冻结设备路由已改变', 409)
+
+    def science_catalog(self, *, chip_version_id=None, deployment_version_id=None, resource_id, source_workflow_id=None, execution_profile="science-v3", bias_deployment_version_id=None):
+        """Read-only capability view for an explicitly selected detached profile."""
+        if execution_profile not in ('science-v3','science-v3-irb','science-flux','science-shape-repeat5'):raise APIError('UNKNOWN_ADAPTER','未知科学执行配置')
+        if source_workflow_id and (chip_version_id or deployment_version_id):
+            raise APIError('SCIENCE_CONFIGURATION_AMBIGUOUS', '实测来源与已发布配置只能选择一种', 409)
+        if not source_workflow_id and any(not isinstance(value, str) or not value for value in
+               (chip_version_id, deployment_version_id, resource_id)):
+            raise APIError('SCIENCE_CONFIGURATION_REQUIRED', '请选择已发布芯片、接线版本及单个比特', 409)
+        if source_workflow_id:
+            binding = self._observed_science_binding(source_workflow_id, resource_id)
+        else:
+            binding = deepcopy(self.workspace.chips.resolve_binding(chip_version_id, deployment_version_id, [resource_id]))
+        if bias_deployment_version_id:
+            if execution_profile!='science-flux' or not source_workflow_id:raise APIError('BIAS_DEPLOYMENT_SCOPE','独立偏置接线仅用于实测资源的偏置任务',409)
+            from .flux_binding import published_bias_binding
+            binding=published_bias_binding(self.workspace.chips,binding,bias_deployment_version_id,resource_id)
+        if execution_profile=='science-flux':
+            from .flux_binding import scope_flux_binding
+            binding=scope_flux_binding(binding,resource_id)
+        binding['profile']=detached_science_profile(self.root,binding['profile'],execution_profile)
+        binding['digest'] = digest({key: value for key, value in binding.items() if key != 'digest'})
+        bound = self.with_binding(binding)
+        preflight = bound.adapter.preflight()
+        capabilities = deepcopy(bound.adapter.capabilities())
+        if not preflight.get('staticReady'):
+            for procedure in capabilities['procedures'].values():
+                procedure.update(available=False, status='static_preflight_failed', reason=preflight.get('reason'))
+        result = bound.catalog.describe(capabilities, bound._bounds())
+        from .science_dependencies import ROLES as SCIENCE_SOURCE_METHODS, execution_roles
+        for method in result['manualMethods']:
+            method['executionProfile'] = execution_profile
+            method['parameterBounds'] = bound._parameter_schema(method['procedureId'])
+            method['scienceSourceMethods'] = {role: sorted(SCIENCE_SOURCE_METHODS.get(role, ()))
+                                              for role in method.get('scienceSourceRoles', [])}
+            defaults = getattr(bound.adapter, 'parameter_defaults', None)
+            if callable(defaults):
+                method['parameterDefaults'] = defaults(method['procedureId'])
+            if method['procedureId'] in SCIENCE_IRB_METHODS:
+                method['scienceSourceRolesByMode'] = {mode: sorted(execution_roles(method['procedureId'], {'drag_mode':mode}))
+                    for mode in ('normalized_alpha','empirical_beta')}
+                mode_keys = getattr(bound.adapter, 'parameter_keys_by_mode', None)
+                if callable(mode_keys):method['parameterKeysByMode'] = mode_keys(method['procedureId'])
+        result.update(executionProfile=execution_profile, preflight=preflight,
+            configurationBinding={'chipVersionId': chip_version_id, 'deploymentVersionId': deployment_version_id,
+                                  'resourceId': resource_id, 'adapterProfileHash': bound.adapter_profile_hash},
+            requiresManualReferences=True, hardwareConnected=False)
+        if binding.get('observedResourceBinding'):
+            result['observedResourceBinding'] = deepcopy(binding['observedResourceBinding'])
+            result['configurationBinding'].update(sourceWorkflowId=source_workflow_id, identityStatus='observed_resource',
+                identityLabel='实测资源 '+resource_id+'／版图未确认', observedResourceBinding=deepcopy(binding['observedResourceBinding']))
+        if binding.get('biasDeploymentVersionId'):
+            result['configurationBinding']['biasDeploymentVersionId']=binding['biasDeploymentVersionId']
+            result['biasDeploymentBinding']=deepcopy(binding['biasDeploymentBinding'])
+        return result
 
     def _register_imports(self):
         with self.store.transaction() as rt:
@@ -226,8 +516,23 @@ class Controller(ManualSteps):
                         # Persist closure without clearing existing quarantine.
                         self.store.save(rt, wf, 'rb_diagnostic_interrupted', {'message': '服务重启：关闭未结束的单次诊断许可，保留原停机及隔离状态'})
                         continue
+                from .smart_main_checkpoint import recover as recover_smart_main
+                main_recovery = recover_smart_main(self, rt, wf)
+                if main_recovery in ('valid', 'restored'):
+                    if main_recovery == 'restored':
+                        self.store.save(rt, wf, 'smart_main_checkpoint_recovered',
+                            {'message': '完整采集回执已保存；恢复下一步规划，未重发已完成采集'})
+                    continue
+                if main_recovery == 'unsafe':
+                    # Reuse the normal quarantine below, including a queued
+                    # checkpoint whose receipts became unresolved or changed.
+                    wf['status'] = 'running'
                 if wf['status'] != 'running':
                     continue
+                if wf.get('smartRun', {}).get('schema') == 'q11-full-same-gate/1':
+                    from .smart_science import recover_parent
+                    if recover_parent(self, rt, wf):
+                        continue
                 if wf['mode'] == 'replay':
                     wf['status'], wf['engineState'] = 'paused', 'replay_interrupted'
                 else:
@@ -266,10 +571,11 @@ class Controller(ManualSteps):
 
     def present_workflows(self, workflows):
         from .receipt_presentation import read_receipts, workflow_view
+        from .flux_execution import present_start_requirements
         with self.store.connect() as rt:
-            return [workflow_view(wf, [json.loads(row[0]) for row in rt.db.execute(
+            return [present_start_requirements(workflow_view(shot_accounting.view(rt.db,wf), [json.loads(row[0]) for row in rt.db.execute(
                 'SELECT payload FROM platform_attempts WHERE workflow_id=?', (wf['id'],))],
-                read_receipts(rt.db, wf['id'])) if isinstance(wf, dict) and isinstance(wf.get('id'), str)
+                read_receipts(rt.db, wf['id'])),wf.get('configurationBinding',{}).get('profile',self.profile)) if isinstance(wf, dict) and isinstance(wf.get('id'), str)
                 and isinstance(wf.get('nodes'), list) else deepcopy(wf) for wf in workflows]
 
     def present_detail(self, workflow_id, detail):
@@ -328,10 +634,76 @@ class Controller(ManualSteps):
             raise APIError('NODE_NOT_FOUND', '任务中不存在该节点', 404)
         return node
 
-    def create(self, data, *, _rt=None, _binding=None, _campaign_id=None):
+    def create(self, data, *, _rt=None, _binding=None, _campaign_id=None, _stability=None, _budget_parent=None):
+        if '_budget_parent' in data or 'accountingParent' in data:
+            raise APIError('INVALID_BUDGET_SCOPE', '子任务计量授权由控制器从父任务绑定', 409)
+        if _budget_parent is not None and (_rt is None or not _rt.db.in_transaction):
+            raise APIError('INVALID_BUDGET_SCOPE', '子任务计量授权缺少原事务', 409)
+        # Replaying an already-created draft must not depend on later source
+        # freshness. No new execution is authorized by this idempotent response.
+        if _rt is None and 'operationId' in data:
+            operation = data['operationId']
+            if not isinstance(operation,str) or not 1 <= len(operation) <= 256:
+                raise APIError('OPERATION_ID_REQUIRED', '创建操作编号无效')
+            try:
+                request_hash = digest({'kind':'create_workflow','body':data})
+            except (ValueError,TypeError):
+                raise APIError('INVALID_PARAMETERS', '参数必须是有限数值或有效文本') from None
+            with self.store.connect() as reader:
+                previous = reader.db.execute('SELECT request_hash,response FROM platform_commands WHERE id=?',(operation,)).fetchone()
+            if previous:
+                if previous['request_hash'] != request_hash:
+                    raise APIError('IDEMPOTENCY_CONFLICT', '同一操作编号不能提交不同请求', 409)
+                return json.loads(previous['response'])
+        if data.get('executionProfile') not in (None, 'science-v3', 'science-v3-irb', 'science-flux','science-shape-repeat5'):
+            raise APIError('UNKNOWN_ADAPTER', '未知新任务执行配置')
+        if data.get('biasDeploymentVersionId') and (data.get('executionProfile')!='science-flux' or not data.get('sourceWorkflowId')):
+            raise APIError('BIAS_DEPLOYMENT_SCOPE','独立偏置接线仅用于实测资源的偏置任务',409)
+        if data.get('sourceWorkflowId'):
+            if data.get('executionProfile') not in ('science-v3','science-v3-irb','science-flux','science-shape-repeat5') or data.get('chipVersionId') or data.get('deploymentVersionId'):
+                raise APIError('SCIENCE_CONFIGURATION_AMBIGUOUS', '实测来源只用于独立科学配置，不能混选已发布版本', 409)
+            if _binding is None:
+                ids = data.get('resourceIds')
+                if not isinstance(ids,list) or len(ids) != 1:
+                    raise APIError('SCIENCE_SOURCE_SCOPE', '实测来源绑定只能选择一个资源', 409)
+                binding = self._observed_science_binding(data['sourceWorkflowId'],ids[0],rt=_rt)
+                if data.get('biasDeploymentVersionId'):
+                    from .flux_binding import published_bias_binding
+                    binding=published_bias_binding(self.workspace.chips,binding,data['biasDeploymentVersionId'],ids[0])
+                if data.get('executionProfile')=='science-flux':
+                    from .flux_binding import scope_flux_binding
+                    binding=scope_flux_binding(binding,ids[0])
+                return self.with_binding(binding).create(data,_rt=_rt,_binding=binding,
+                    _campaign_id=_campaign_id,_stability=_stability, _budget_parent=_budget_parent)
         if _binding is None and (data.get('chipVersionId') or data.get('deploymentVersionId')):
             _binding = self.workspace.chips.resolve_binding(data.get('chipVersionId'), data.get('deploymentVersionId'), data.get('resourceIds'))
-            return self.with_binding(_binding).create(data, _rt=_rt, _binding=_binding, _campaign_id=_campaign_id)
+            return self.with_binding(_binding).create(data, _rt=_rt, _binding=_binding, _campaign_id=_campaign_id, _stability=_stability, _budget_parent=_budget_parent)
+        current_profile='science-shape-repeat5' if self.profile.get('scienceRepeat5Policy') else 'science-flux' if self.profile.get('scienceFluxPolicy') else 'science-v3-irb' if self.profile.get('scienceIRBPolicy') else 'science-v3' if self.profile.get('sciencePolicy') else None
+        if data.get('executionProfile') in ('science-v3','science-v3-irb','science-flux','science-shape-repeat5') and data['executionProfile']!=current_profile:
+            if not _binding:
+                raise APIError('SCIENCE_CONFIGURATION_REQUIRED', '科学实验须选择已发布的芯片和接线版本', 409)
+            detached = deepcopy(_binding)
+            detached['profile']=detached_science_profile(self.root,detached['profile'],data['executionProfile'])
+            detached['digest'] = digest({key: value for key, value in detached.items() if key != 'digest'})
+            return self.with_binding(detached).create(data, _rt=_rt, _binding=detached,
+                _campaign_id=_campaign_id, _stability=_stability, _budget_parent=_budget_parent)
+        if _rt is None and 'operationId' in data:
+            operation = data['operationId']
+            if not isinstance(operation, str) or not 1 <= len(operation) <= 256:
+                raise APIError('OPERATION_ID_REQUIRED', '创建操作编号无效')
+            try:
+                request_hash = digest({'kind': 'create_workflow', 'body': data})
+            except (ValueError, TypeError):
+                raise APIError('INVALID_PARAMETERS', '参数必须是有限数值或有效文本') from None
+            with self.store.transaction() as rt:
+                prior = rt.db.execute('SELECT request_hash,response FROM platform_commands WHERE id=?', (operation,)).fetchone()
+                if prior:
+                    if prior['request_hash'] != request_hash:
+                        raise APIError('IDEMPOTENCY_CONFLICT', '同一操作编号不能提交不同请求', 409)
+                    return json.loads(prior['response'])
+                result = self.create(data, _rt=rt, _binding=_binding, _campaign_id=_campaign_id, _stability=_stability, _budget_parent=_budget_parent)
+                rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (operation, request_hash, dumps(result)))
+                return result
         mode = data.get('mode', 'replay')
         if mode not in ('replay', 'real'):
             raise APIError('INVALID_MODE', '请选择历史回放或真机测量')
@@ -354,23 +726,60 @@ class Controller(ManualSteps):
         policy = data.get('policy', 'threshold')
         if policy not in ('strict', 'threshold', 'autopilot'):
             raise APIError('INVALID_POLICY', '未知运行策略')
+        science = bool(self.profile.get('sciencePolicy') or self.profile.get('scienceFluxPolicy'))
+        if self.profile.get('scienceFluxPolicy') and data.get('executionProfile')!='science-flux':
+            raise APIError('SCIENCE_PROFILE_REQUIRED','偏置扫描与点位调用必须显式选择独立执行配置',409)
+        if self.profile.get('scienceRepeat5Policy') and data.get('executionProfile')!='science-shape-repeat5':
+            raise APIError('SCIENCE_PROFILE_REQUIRED','五门 Rabi 来源链必须显式选择独立执行配置',409)
+        if self.profile.get('scienceIRBPolicy') and not self.profile.get('scienceRepeat5Policy') and data.get('executionProfile')!='science-v3-irb':
+            raise APIError('SCIENCE_PROFILE_REQUIRED','X/2 DRAG 与 IRB 必须显式选择独立执行配置',409)
+        gates_version,science_gates=science_rules(self.profile)
+        if science and (mode != 'real' or policy != 'strict' or len(selected) != 1
+                        or data.get('manualProcedureId') not in SCIENCE_METHODS or _stability is not None):
+            raise APIError('SCIENCE_MANUAL_REQUIRED', '科学执行仅允许单比特人工逐步实验，并须明确选择测项', 409)
         coverage = data.get('coverage', 'full' if mode == 'real' else 'main')
         if coverage not in ('main', 'full', 'working_point'):
             raise APIError('INVALID_COVERAGE', '测量范围必须是 main、full 或 working_point')
+        from .arclight_versions import fresh_lineage
+        analysis_lineage = fresh_lineage(self, data, mode, policy, coverage, selected, _rt)
         seed = None
         if coverage == 'working_point':
             if mode != 'real' or experiment != 'single' or selected != ['Q11']:
                 raise APIError('WORKING_POINT_SCOPE', '复刻工作点仅支持新建 Q11 真机单比特任务', 409)
             seed = build_working_point_seed(self.adapter)
         nodes, edges = self.catalog.nodes([resources[r] for r in selected], mode, self.adapter.capabilities(), experiment, coverage)
+        if _stability is not None:
+            nodes = [node for node in nodes if node['procedureId'] in ('sq_spectroscopy', 'sq_t1')]
+            if len(nodes) != 2 or any(node['capability'] != 'available' for node in nodes):
+                raise APIError('UNSUPPORTED_METHOD', '周期任务需要定频和 T1 执行能力', 409)
+            nodes.sort(key=lambda node: node['procedureId'] != 'sq_spectroscopy')
+            nodes[0]['dependsOn'] = []
+            nodes[0]['parameterOverrides'] = {'span_hz': _stability['spanHz'], 'points': _stability['points']}
+            nodes[1]['dependsOn'] = [nodes[0]['id']]
+            edges = [{'from': nodes[0]['id'], 'to': nodes[1]['id']}]
         if seed:
             for node in nodes:
                 node['parameters'] = deepcopy(seed['parameters'])
                 node['parameterVersions'] = {key: 0 for key in seed['parameters']}
+        from .experiment_setup import manual_selection
+        manual_experiment = manual_selection(self, data, nodes, selected)
+        if science:
+            nodes = [node for node in nodes if node['id'] == manual_experiment['nodeId']]
+            edges = []
         shot_budget = (30000000 if mode == 'real' and coverage in ('full', 'working_point') else 8000000) * len(selected)
         initial_budget = data.get('budget', {})
-        ceilings = {'maxTotalShots':100000000,'maxAttemptsPerNode':10,'maxWorkflowAttempts':200}
-        if not isinstance(initial_budget,dict) or set(initial_budget)-set(ceilings) or any(type(v) is not int or not 1 <= v <= ceilings[k] for k,v in initial_budget.items()):
+        ceilings = task_budget.CEILINGS
+        accounting_parent = None
+        accounting_only = initial_budget == {'mode':task_budget.MODE}
+        if _budget_parent is not None:
+            if _stability is not None or initial_budget not in ({},{'mode':task_budget.MODE}):
+                raise APIError('INVALID_BUDGET_SCOPE', '子任务计量许可与请求预算不一致', 409)
+            accounting_parent = task_budget.inherit_smart_budget(self, _rt, _budget_parent, data, _binding)
+            accounting_only = True
+            initial_budget = dict.fromkeys(ceilings)
+        elif accounting_only:
+            initial_budget = task_budget.limits_for_accounting(mode,selected,experiment,policy,_stability is not None,self.adapter_id)
+        elif not isinstance(initial_budget,dict) or set(initial_budget)-set(ceilings) or any(type(v) is not int or not 1 <= v <= ceilings[k] for k,v in initial_budget.items()):
             raise APIError('INVALID_BUDGET','初始预算必须为范围内的正整数')
         shot_budget = initial_budget.get('maxTotalShots',shot_budget)
         node_attempts = initial_budget.get('maxAttemptsPerNode',3)
@@ -382,21 +791,41 @@ class Controller(ManualSteps):
               'owner': '现场操作员', 'ownerId': 'local-operator', 'createdAt': now(),
               'elapsed': 0, 'firstAcquisitionAt': None, 'finishedAt': None,
               'iterations': 0, 'approved': False, 'events': [], 'nodes': nodes, 'edges': edges,
-              'blueprintVersion': WORKING_POINT_VERSION if seed else VERSION, 'gates': deepcopy(GATES), 'gatesVersion': 'diagnostic-gates/1',
+              'blueprintVersion': 'science-manual/3' if science else WORKING_POINT_VERSION if seed else VERSION,
+              'gates': deepcopy(science_gates if science else GATES),
+              'gatesVersion': gates_version if science else 'diagnostic-gates/1',
               'adapterId': self.adapter_id, 'adapterProfileHash': self.adapter_profile_hash,
               'maxAttemptsPerNode': node_attempts, 'maxWorkflowAttempts': workflow_attempts, 'hardwareConfirmed': False,
               'maxTotalShots': shot_budget, 'reservedShots': 0,
               'budget': {'maxTotalShots': shot_budget, 'maxAttemptsPerNode': node_attempts, 'maxWorkflowAttempts': workflow_attempts,
                          'resourceCount': len(selected), 'basis': 'working-point-pulse-30M-per-resource' if seed else 'full-single-qubit-30M-per-resource' if coverage == 'full' else 'main-8M-per-resource'},
               'cancelRequested': None, 'processedRecordIds': [], 'workflowComplete': False}
+        if accounting_only:
+            wf['budget'].update(mode=task_budget.MODE, basis='operator_selected_accounting')
+            if accounting_parent:
+                wf['budget'].update(basis='smart_parent_accounting', parent=accounting_parent)
+        if analysis_lineage:
+            wf['analysisLineage'] = analysis_lineage
+        if manual_experiment:
+            wf.update(manualExperiment=manual_experiment, currentNodeId=manual_experiment['nodeId'])
+        if science:
+            wf.update(executionProfile='science-shape-repeat5' if self.profile.get('scienceRepeat5Policy') else 'science-flux' if self.profile.get('scienceFluxPolicy') else 'science-v3-irb' if self.profile.get('scienceIRBPolicy') else 'science-v3', gatesSha256=digest(wf['gates']),
+                      completionScope={'selectedNodeCount': 1, 'meaning': '仅指所选科学测项首测、独立复测并经人工确认'})
+        if _stability is not None:
+            wf.update(stabilityBinding=deepcopy(_stability), initialParameters=deepcopy(_stability['parameters']),
+                      completionScope={'selectedNodeCount': 2, 'full13Fresh': False,
+                          'omittedProcedures': [], 'meaning': '本轮定频与 T1；门与读出使用所关联的既有标定'})
         if seed:
             wf['seedReference'] = seed
             wf['completionScope'] = {'selectedNodeCount': len(nodes), 'omittedProcedures': list(WORKING_POINT_OMITTED),
                 'full13Fresh': False, 'meaning': '仅指所选10项脉冲测量完成本轮独立验收；不代表原13项全流程均已新测。'}
         if _binding:
-            wf.update(configurationBinding=deepcopy(_binding), chipVersionId=_binding['chipVersionId'],
-                      deploymentVersionId=_binding['deploymentVersionId'], campaignId=_campaign_id,
+            wf.update(configurationBinding=deepcopy(_binding), campaignId=_campaign_id,
                       initializationSource=deepcopy(_binding.get('source', {})))
+            wf.update({key:_binding[key] for key in ('chipVersionId','deploymentVersionId') if _binding.get(key)})
+            if _binding.get('biasDeploymentVersionId'):wf['biasDeploymentVersionId']=_binding['biasDeploymentVersionId']
+            if _binding.get('observedResourceBinding'):
+                wf['observedResourceBinding'] = deepcopy(_binding['observedResourceBinding'])
             wf['machine'] = self.profile.get('machine', '八号机')
         with (nullcontext(_rt) if _rt is not None else self.store.transaction()) as rt:
             for rule in self.experience.published_rules(rt):
@@ -406,6 +835,12 @@ class Controller(ManualSteps):
                 for node in nodes:
                     if scope.get('resourceId') == node['resourceId'] and scope.get('ownerId') == node['ownerId'] and scope.get('procedureId', node['procedureId']) == node['procedureId']:
                         node['rules'].append(deepcopy(rule))
+            if accounting_only:
+                registered_budget = AccountingBudget(shots=500, timeout_s=3600)
+                parent_id = (wf['budget'].get('parent') or {}).get('parentWorkflowId')
+                rt.db.execute('INSERT INTO platform_accounting_workflows VALUES(?,?)', (wf['id'], parent_id))
+            else:
+                registered_budget = Budget(shots=500, max_attempts=node_attempts, timeout_s=3600, max_total_shots=shot_budget)
             for node in nodes:
                 reads, writes = PARAMETERS.get(node['procedureId'], ([], []))
                 prefix = wf['id'] + ':' + node['resourceId'] + ':'
@@ -413,8 +848,8 @@ class Controller(ManualSteps):
                 rt.register(StepSpec(wf['id'] + '/' + node['id'],
                                      depends_on=tuple(wf['id'] + '/' + n for n in node['dependsOn']),
                                      reads=tuple(norm(k) for k in reads), writes=tuple(norm(k) for k in writes),
-                                     resources=(device_key(self.profile),), budget=Budget(shots=500, max_attempts=node_attempts, timeout_s=3600, max_total_shots=shot_budget),
-                                     criteria=deepcopy(GATES.get(node['procedureId'], {}))))
+                                     resources=(device_key(self.profile),), budget=registered_budget,
+                                     criteria=deepcopy(wf['gates'].get(node['procedureId'], {}))))
             self.store.save(rt, wf, 'created', {'message': ('历史回放' if mode == 'replay' else '真机测量') + '任务已创建'})
         return wf
 
@@ -451,7 +886,7 @@ class Controller(ManualSteps):
         rb_require(target is not None, 'RB_DIAGNOSTIC_SCOPE', '任务没有原登记RB节点')
         parameters, versions = self._parameters(rt, wf, target)
         kind = type(self.adapter)
-        proof = rb_diagnostic_proof(self.root, rt.db, wf, parameters, versions,
+        proof = rb_diagnostic_proof(checked_path(self.adapter.root), rt.db, wf, parameters, versions,
             implementation_id=kind.__module__ + '.' + kind.__qualname__)
         return proof, target, parameters, versions
 
@@ -471,6 +906,9 @@ class Controller(ManualSteps):
         return proof, budget
 
     def inspect_rb_diagnostic(self, workflow_id):
+        scoped = self.for_workflow(workflow_id)
+        if scoped is not self:
+            return scoped.inspect_rb_diagnostic(workflow_id)
         with read_chat_snapshot(self.store.path) as db:
             rt = types.SimpleNamespace(db=db, get_parameters=lambda: {
                 r['name']: {'value': json.loads(r['value']), 'revision': r['revision']}
@@ -616,6 +1054,9 @@ class Controller(ManualSteps):
             elif action == 'queue_rb_diagnostic':
                 self._queue_rb_diagnostic(rt, wf, payload)
             elif action in ('pause', 'abort'):
+                if action == 'pause':
+                    from .smart_main_checkpoint import remember_planning
+                    remember_planning(self, rt, wf)
                 before_stop = (wf['status'], wf['engineState'], wf.get('cancelRequested'))
                 pending_effect = rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (wf['id'],)).fetchone()
                 unknown_effect = rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state='unknown'", (wf['id'],)).fetchone()
@@ -642,10 +1083,19 @@ class Controller(ManualSteps):
                     raise APIError('RECONCILIATION_REQUIRED', '上次设备操作状态未知，先核查回执', 409)
                 if action == 'retry':
                     node = self._node(wf, payload.get('nodeId'))
-                    if node['attempt'] >= wf['maxAttemptsPerNode']:
+                    admission_node = next((n for n in wf['nodes'] if n['id'] == wf.get('currentNodeId')
+                                           and n['engineState'] == wf['engineState'] and n.get('lastAdmissionError')), None)
+                    if (wf['engineState'] in ('plan_rejected', 'budget_exhausted') and admission_node
+                            and node['id'] != admission_node['id']):
+                        raise APIError('ADMISSION_NODE_CHANGED', '请重试本次参数预检未通过的节点', 409)
+                    if task_budget.exhausted(wf, 'maxAttemptsPerNode', node['attempt']):
                         raise APIError('ATTEMPT_BUDGET', '该节点已达到本轮重试预算', 409)
                     node['status'], node['engineState'] = 'pending', 'retry_queued'
-                wf['status'], wf['engineState'], wf['cancelRequested'] = 'queued', 'queued', None
+                from .smart_main_checkpoint import resume_planning
+                planning = action == 'resume' and resume_planning(self, rt, wf)
+                if action == 'retry' and wf.get('smartRun'):
+                    wf['smartRun'].pop('pausedPlanning', None)
+                wf['status'], wf['engineState'], wf['cancelRequested'] = 'queued', 'decision_queued' if planning else 'queued', None
             elif action == 'decide':
                 legacy_decision_error = self._legacy_decision_error(rt, wf, payload.get('nodeId'))
                 if wf['mode'] != 'real' or wf['policy'] != 'autopilot' or (wf['engineState'] not in ('quality_attention', 'waiting_model', 'budget_updated') and not legacy_decision_error):
@@ -703,7 +1153,7 @@ class Controller(ManualSteps):
                     raise APIError('INVALID_STATE', '当前任务没有等待硬件交接', 409)
                 ownership = self.hardware_ownership(refresh=True)
                 if not ownership['verified'] or ownership['owners']:
-                    raise APIError('DEVICE_IN_USE', '设备仍有外部连接或尚不能核实，请先在现用程序中释放连接', 409)
+                    raise OwnershipRefusal(wf, next((n for n in wf['nodes'] if n['id']==wf.get('currentNodeId')), {}), ownership, 'confirmation')
                 wf['hardwareConfirmed'], wf['hardwareConfirmedAt'] = True, now()
                 wf.pop('sharedDeviceFault', None)
                 wf['status'], wf['engineState'] = 'queued', 'queued'
@@ -718,7 +1168,13 @@ class Controller(ManualSteps):
                 unknown = list(rt.db.execute("SELECT * FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (workflow_id,)))
                 remaining = []
                 for effect in unknown:
-                    receipt = self.adapter.reconcile(effect['operation_id'])
+                    source = rt.db.execute('SELECT payload FROM platform_attempts WHERE id=? AND workflow_id=?',
+                        (effect['attempt_id'],workflow_id)).fetchone()
+                    execution = self.for_attempt(workflow_id,json.loads(source[0]),rt) if source else self
+                    if json.loads(effect['request']).get('executionBinding'):
+                        from .attempt_execution import validate_request
+                        execution=validate_request(self,rt,json.loads(effect['request']))
+                    receipt = execution.adapter.reconcile(effect['operation_id'])
                     if receipt.get('status') == 'completed' and isinstance(receipt.get('result'), dict):
                         recovered = deepcopy(receipt['result'])
                         recovered['receiptQuality'] = recovered.get('quality')
@@ -780,6 +1236,9 @@ class Controller(ManualSteps):
                 else:
                     stop_message = '任务已终止' if wf['status'] == 'aborted' else '任务已暂停'
             action_event = {'message': stop_message or '操作：' + action}
+            if wf['status'] == 'queued':
+                # Queue order follows this authorization, not the age of its task.
+                wf['queueEnteredAt'] = now()
             if wf.get('sharedDeviceFault') and wf['status'] == 'queued' and action in ('resume', 'retry', 'run_step'):
                 # This is a new explicit retry permit, not a claim that the
                 # hardware is healthy. Original fault events/receipts remain.
@@ -886,6 +1345,8 @@ class Controller(ManualSteps):
                 return existing
             if payload.get('policy') not in ('strict', 'threshold', 'autopilot'):
                 raise APIError('INVALID_POLICY', '未知策略')
+            if task_budget.only_accounting(wf) and payload['policy'] != wf['policy']:
+                raise APIError('INVALID_BUDGET_SCOPE', '仅记账任务保留创建时的运行策略', 409)
             if wf['status'] not in ('draft', 'paused', 'attention'):
                 raise APIError('INVALID_STATE', '请在采集检查点暂停后更改运行策略', 409)
             if self._has_lease(rt, wf['id']) or rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (wf['id'],)).fetchone():
@@ -898,7 +1359,7 @@ class Controller(ManualSteps):
         return wf
 
     def set_budget(self, workflow_id, payload):
-        ceilings = {'maxTotalShots': 100000000, 'maxAttemptsPerNode': 10, 'maxWorkflowAttempts': 200}
+        ceilings = task_budget.CEILINGS
         try:
             dumps(payload)
         except (ValueError, TypeError):
@@ -916,22 +1377,16 @@ class Controller(ManualSteps):
             if set(payload) - {'operationId', 'expectedRevision', 'budget', 'reason'}:
                 raise APIError('INVALID_BUDGET', '预算请求包含不允许的字段')
             proposed, reason = payload.get('budget'), payload.get('reason')
-            if not isinstance(proposed, dict) or not proposed or set(proposed) - set(ceilings):
-                raise APIError('INVALID_BUDGET', '预算仅支持 maxTotalShots、maxAttemptsPerNode、maxWorkflowAttempts')
             if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 2000:
                 raise APIError('INVALID_BUDGET_REASON', '请填写 1–2000 字的预算调整原因')
             previous = {key: wf[key] for key in ceilings}
-            updated = {**previous, **proposed}
-            for key, value in updated.items():
-                if type(value) is not int or not previous[key] <= value <= ceilings[key]:
-                    raise APIError('INVALID_BUDGET', f'{key} 必须为不小于当前值且不大于 {ceilings[key]} 的整数')
-            if updated == previous:
-                raise APIError('INVALID_BUDGET', '至少增加一项预算；不会自动扩大任务预算')
-            if (updated['maxTotalShots'] < wf.get('reservedShots', 0) or updated['maxWorkflowAttempts'] < wf['iterations']
-                    or updated['maxAttemptsPerNode'] < max((n['attempt'] for n in wf['nodes']), default=0)):
-                raise APIError('INVALID_BUDGET', '预算不得小于已记账的采集或尝试次数')
+            updated = task_budget.revised_limits(wf, proposed)
             wf.update(updated)
             wf.setdefault('budget', {}).update(updated)
+            if proposed == {'mode':task_budget.MODE}:
+                wf['budget'].update(mode=task_budget.MODE, basis='operator_selected_accounting')
+                rt.db.execute('INSERT OR IGNORE INTO platform_accounting_workflows VALUES(?,NULL)', (workflow_id,))
+                shot_accounting.import_existing(rt.db, wf, self.root)
             update = {'operationId': payload['operationId'], 'source': 'operator', 'before': previous,
                       'after': updated, 'reason': reason.strip(), 'ceilings': ceilings, 'updatedAt': now()}
             wf['lastBudgetUpdate'] = deepcopy(update)
@@ -964,13 +1419,21 @@ class Controller(ManualSteps):
         return module
 
     def _supplemental_sources(self):
+        if getattr(self, '_execution_base', None) is not None:
+            # The extension verifies and executes the exact frozen v3 analysis;
+            # the workflow's pre-existing quality policy remains that version.
+            return self._execution_base._supplemental_sources()
         module = self._loaded_supplemental_module()
         root = checked_path(getattr(self.adapter, 'root', self.root))
         manifest_name, runtime_name = self.profile.get('sourceManifest'), self.profile.get('runtimeRoot')
         if not isinstance(manifest_name, str) or not isinstance(runtime_name, str):
             raise APIError('SUPPLEMENTAL_SOURCE_UNAVAILABLE', '当前执行器没有可冻结的原生分析源码清单')
         manifest = checked_path(root / manifest_name, parent=root)
-        analysis_source = checked_path(root / runtime_name / 'platform_analysis.py', parent=root)
+        analysis_name = (self.profile.get('analysisSource') if self.profile.get('id') == 'arclight-private-f8-q11-v3'
+                         else runtime_name + '/platform_analysis.py')
+        if not isinstance(analysis_name, str):
+            raise APIError('SUPPLEMENTAL_SOURCE_UNAVAILABLE', '当前版本缺少明确的原生分析来源')
+        analysis_source = checked_path(root / analysis_name, parent=root)
         records = json.loads(manifest.read_text(encoding='utf-8'))
         entries = [entry for entry in records if isinstance(entry, dict) and isinstance(entry.get('path'), str)
                    and entry['path'].replace('\\', '/').endswith('/platform_analysis.py')
@@ -1203,19 +1666,105 @@ class Controller(ManualSteps):
         return rt.db.execute('SELECT 1 FROM platform_leases WHERE workflow_id=?', (workflow_id,)).fetchone() is not None
 
     def detail(self, workflow_id, node_id):
-        scoped = self.for_workflow(workflow_id)
+        scoped = self.for_node(workflow_id, node_id, purpose='view')
         if scoped is not self:
             return scoped.detail(workflow_id, node_id)
         wf = self.get(workflow_id)
         node = self._node(wf, node_id)
         attempts, decisions = self.store.detail(workflow_id, node_id)
         with self.store.connect() as rt:
-            parameters, _ = self._parameters(rt, wf, node)
+            parameters, versions = self._parameters(rt, wf, node)
+            resolved = {'status': 'unavailable', 'source': 'adapter.build_plan',
+                        'reason': '当前执行器没有只读执行计划'}
+            if wf['mode'] == 'real' and callable(getattr(self.adapter, 'build_plan', None)):
+                try:
+                    self._assert_adapter_binding(wf)
+                    request = {'runId': wf['id'], 'nodeId': node_id, 'attemptId': 'detail-preview',
+                        'operationId': 'detail-preview/' + digest({'workflowId':wf['id'],'nodeId':node_id,'revision':wf['revision']}),
+                        'resourceId': node['resourceId'], 'procedureId': node['procedureId'],
+                        'parameters': deepcopy(parameters), 'parameterVersions': versions,
+                        'adapterId':self.adapter_id, 'adapterProfileHash':self.adapter_profile_hash,
+                        'deadline':time.time() + self.profile.get('maximumRunSeconds',3600)}
+                    if node['procedureId'] in ('sq_rb','sq_allxy'):
+                        request['validationSnapshot'] = self._validation_snapshot(rt, wf, node, parameters, versions)
+                    if node['procedureId'] in SCIENCE_METHODS:
+                        request['configurationBinding'] = deepcopy(self.profile.get('configurationBinding', {}))
+                        request['explicitParameterKeys'] = sorted(node.get('parameterOverrides', {}))
+                        self._science_request_dependencies(rt, wf, node, request)
+                    from .attempt_execution import attach_plan
+                    attach_plan(self, request)
+                    plan = self.adapter.build_plan(request)
+                    if not isinstance(plan.get('parameters'), dict):
+                        raise APIError('INVALID_PLAN', '执行计划未返回解析后的参数')
+                    self._require_spectrum_drive_context(rt, wf, node, plan['parameters'])
+                    resolved = {'status':'ready', 'source':'adapter.build_plan',
+                        'parameters':deepcopy(plan['parameters']), 'estimatedTotalShots':plan.get('estimated_total_shots'),
+                        'totalRows':plan.get('totalRows'), 'adapterProfileHash':self.adapter_profile_hash,
+                        'scope':'当前参数的只读采集计划；不是历史实际执行参数或运行许可'}
+                except Exception as exc:
+                    resolved.update(code=getattr(exc,'code','INVALID_PLAN'), reason=str(exc))
+        defaults = {key: value for key, value in resolved.get('parameters', {}).items() if key not in parameters}
+        from .attempt_execution import summary
         return {'node': node, 'attempts': attempts, 'decisions': decisions, 'rules': node['rules'],
-                'parameters': parameters, 'parameterBounds': self._parameter_schema(node['procedureId'])}
+                'attemptExecutionVersion':summary(self,wf,node),
+                'executionVersionOptions':([{'id':'rabi16-v1','label':'幅度 Rabi · 每点 16 块'}]
+                    if wf.get('adapterId')=='arclight-private-f8-q11-v3' and wf.get('policy')=='strict'
+                    and node.get('procedureId')=='sq_rabi_amplitude' and not wf.get('configurationBinding') else []),
+                'parameters': parameters, 'parameterBounds': self._parameter_schema(node['procedureId']),
+                'parameterVersions':versions,'workflowRevision':wf['revision'],
+                'resolvedExecutionPlan':resolved, 'executionDefaults':defaults, 'executionDefaultsSource':'adapter.build_plan'}
+
+    def pulse_preview(self, workflow_id, node_id, payload):
+        """Read-only draft planning: no command, reservation, effect or acceptance."""
+        scoped = self.for_node(workflow_id, node_id, purpose='view')
+        if scoped is not self:
+            return scoped.pulse_preview(workflow_id, node_id, payload)
+        from .manual_pulse_preview import METHODS, summarize, unavailable
+        if not isinstance(payload, dict) or set(payload)-{'expectedRevision','parameters','scanIndices'}:
+            raise APIError('BAD_PARAMETERS','预览只接受当前参数草稿与扫描点')
+        with self.store.connect() as rt:
+            wf=self.get(workflow_id,rt);node=self._node(wf,node_id)
+            if type(payload.get('expectedRevision')) is not int or payload['expectedRevision']!=wf['revision']:
+                raise APIError('STALE_REVISION','任务版本已更新，请读取当前配置后预览',409)
+            changes=payload.get('parameters',{})
+            if not isinstance(changes,dict) or len(changes)>128:raise APIError('BAD_PARAMETERS','预览参数无效')
+            self._assert_adapter_binding(wf)
+            parameters,versions=self._parameters(rt,wf,node);schema=self._parameter_schema(node['procedureId'])
+            for key,value in changes.items():self._validate_parameter(key,value,schema)
+            normalized=self._normalize_changes(node['procedureId'],deepcopy(changes),parameters) if changes else {}
+            for key,value in normalized.items():self._validate_parameter(key,value,schema)
+            merged={**parameters,**normalized}
+            # The mutation-path helper may persist an invalidation decision.
+            # Preview only checks the same frozen marker and never calls it.
+            marker=deepcopy(wf.get('readoutRevalidations',{}).get(node['resourceId']))
+            if marker and marker['state'] in ('active','fixed_failed'):
+                baseline,baseline_versions=self._parameters(rt,wf,{**node,'parameterOverrides':{}})
+                if any(not self._same_parameter(value,baseline.get(k)) or marker['parameterVersions'][k]!=baseline_versions.get(k,0)
+                       for k,value in marker['values'].items()):
+                    raise APIError('PULSE_PREVIEW_REFERENCE_CHANGED','读出工作点或来源版本已改变；预览不修改核验状态',409)
+            else:marker=None
+            merged=self._readout_revalidation_parameters(node,merged,marker)
+            context={'schema':'manual-pulse-preview/1','workflowId':workflow_id,'nodeId':node_id,
+                'resourceId':node.get('resourceId'),'workflowRevision':wf['revision'],'parameterVersions':versions,
+                'requestedChanges':deepcopy(changes),'normalizedChanges':normalized,
+                'dispatched':False,'hardwareConnected':False,'scope':'当前版本参数草稿；不是执行许可或历史实际结果'}
+            if wf['mode']!='real' or node['procedureId'] not in METHODS or not callable(getattr(self.adapter,'build_plan',None)):
+                return {**context,**unavailable('此方法的完整原生时序尚未覆盖，未绘制替代模型。')}
+            operation='pulse-preview/'+digest({'workflowId':workflow_id,'nodeId':node_id,'parameters':merged})
+            request={'runId':workflow_id,'nodeId':node_id,'attemptId':'pulse-preview','operationId':operation,
+                'resourceId':node['resourceId'],'procedureId':node['procedureId'],'parameters':merged,
+                'parameterVersions':versions,'adapterId':self.adapter_id,'adapterProfileHash':self.adapter_profile_hash,
+                'deadline':time.time()+self.profile.get('maximumRunSeconds',3600)}
+            from .attempt_execution import attach_plan
+            attach_plan(self, request)
+            try:plan=self.adapter.build_plan(request)
+            except Exception as exc:raise APIError(getattr(exc,'code','INVALID_PLAN'),str(exc)) from None
+            self._require_spectrum_drive_context(rt, wf, node, plan.get('parameters') or {})
+            return {**context,'effectiveParameters':deepcopy(plan.get('parameters',{})),
+                'planSha256':digest(plan),**summarize(plan,payload.get('scanIndices'))}
 
     def set_parameters(self, workflow_id, node_id, payload):
-        scoped = self.for_workflow(workflow_id)
+        scoped = self.for_node(workflow_id, node_id)
         if scoped is not self:
             return scoped.set_parameters(workflow_id, node_id, payload)
         with self.store.transaction() as rt:
@@ -1232,17 +1781,30 @@ class Controller(ManualSteps):
             self._assert_adapter_binding(wf)
             node = self._node(wf, node_id)
             changes = payload.get('parameters')
-            if not isinstance(changes, dict) or not changes:
+            clear_drive = payload.get('clearSpectrumDriveOverrides', False)
+            if type(clear_drive) is not bool or not isinstance(changes, dict) or (clear_drive and changes) or (not clear_drive and not changes):
                 raise APIError('BAD_PARAMETERS', '请提供需要修改的参数')
+            parameters, versions = self._parameters(rt, wf, node)
+            cleared = {}
+            if clear_drive:
+                if not self._spectrum_drive_conflicts(rt, wf, node, parameters):
+                    raise APIError('NO_SPECTRUM_DRIVE_CONFLICT', '当前步骤没有需要清除的光谱驱动幅度冲突', 409)
+                overrides = node.get('parameterOverrides', {})
+                cleared = {k: overrides[k] for k in ('drive_amp', 'half_pi_amp') if k in overrides}
+                if not cleared:
+                    raise APIError('NO_SPECTRUM_DRIVE_OVERRIDE', '当前步骤没有已保存的驱动幅度覆盖', 409)
+                node['parameterOverrides'] = {k:v for k,v in overrides.items() if k not in cleared}
+                parameters, versions = self._parameters(rt, wf, node)
             schema = self._parameter_schema(node['procedureId'])
             for key, value in changes.items():
                 self._validate_parameter(key, value, schema)
-            parameters, versions = self._parameters(rt, wf, node)
             requested_changes = deepcopy(changes)
-            changes = self._normalize_changes(node['procedureId'], changes, parameters)
+            changes = {} if clear_drive else self._normalize_changes(node['procedureId'], changes, parameters)
             for key, value in changes.items():
                 self._validate_parameter(key, value, schema)
             merged = {**parameters, **changes}
+            if getattr(self, '_attempt_execution_authorization', None) and digest(merged) != self._attempt_execution_authorization['selectionParametersSha256']:
+                raise APIError('EXECUTION_VERSION_PARAMETERS_CHANGED', '已冻结下一次尝试的参数；请先取消本次执行版本选择后修改', 409)
             marker = self._readout_revalidation(rt, wf, node)
             merged = self._readout_revalidation_parameters(node, merged, marker)
             self._validate_plan(wf, node, merged, versions, payload['operationId'])
@@ -1254,13 +1816,101 @@ class Controller(ManualSteps):
                 wf['status'], wf['engineState'] = 'paused', 'parameters_updated'
             self._record_decision(rt, wf, node_id, {'action': 'parameters_updated', 'reason': '操作员保存参数；未启动采集',
                 'evidenceIds': [], 'parameterChanges': {key: {'from': before[key], 'to': value} for key, value in changes.items()},
+                **({'clearedParameterOverrides': cleared, 'inheritedParameters': {k: parameters.get(k) for k in cleared}} if cleared else {}),
                 **({'requestedParameterChanges': requested_changes, 'normalization': '执行器脉冲策略及采样网格规范化'} if changes != requested_changes else {}),
                 'invalidatedNodes': affected}, 'operator')
             self.store.save(rt, wf, 'parameters_updated', {'nodeId': node_id, 'message': '参数已保存，相关结果已标记失效；等待明确启动或继续'})
             rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (payload['operationId'], request_hash, dumps(wf)))
         return wf
 
+    def _stability_retry_frequency(self, rt, wf, node, *, operation_id, changes, reason):
+        """Queue one bounded spectral retry inside the schedule transaction."""
+        from .stability import RECOVERY_POLICY, _frequency_problem
+        request_hash = digest({'kind': 'stability_frequency_retry', 'workflowId': wf['id'],
+                               'nodeId': node['id'], 'changes': changes, 'reason': reason})
+        if not isinstance(operation_id, str) or not 1 <= len(operation_id) <= 240:
+            raise APIError('OPERATION_ID_REQUIRED', '频窗复核缺少有效操作编号')
+        prior = rt.db.execute('SELECT request_hash,response FROM platform_commands WHERE id=?', (operation_id,)).fetchone()
+        if prior:
+            if prior[0] != request_hash:
+                raise APIError('IDEMPOTENCY_CONFLICT', '同一频窗复核编号对应不同请求', 409)
+            return json.loads(prior[1])
+        current = self.get(wf['id'], rt)
+        if current['revision'] != wf['revision']:
+            raise APIError('STALE_REVISION', '周期子任务已更新', 409)
+        wf = deepcopy(current)
+        node = self._node(wf, node['id'])
+        binding = wf.get('stabilityBinding') or {}
+        policy = binding.get('frequencyRecovery') or {}
+        schedule_row = rt.db.execute('SELECT payload FROM platform_stability WHERE id=?', (binding.get('scheduleId'),)).fetchone()
+        schedule = json.loads(schedule_row[0]) if schedule_row else {}
+        round_ = next((r for r in schedule.get('rounds', []) if r.get('workflowId') == wf['id'] and r.get('number') == binding.get('round')), None)
+        if (policy.get('policy') != RECOVERY_POLICY or schedule.get('state') != 'running'
+                or schedule.get('frequencyRecovery') != policy or round_ is None
+                or binding.get('calibrationHash') != schedule.get('calibrationHash')
+                or binding.get('frequencyNodeId') != node['id'] or node['procedureId'] != 'sq_spectroscopy'
+                or node['resourceId'] != schedule.get('resourceId')
+                or wf.get('mode') != 'real' or wf['status'] not in ('attention', 'failed')
+                or wf.get('cancelRequested') or wf.get('sharedDeviceFault') or wf.get('engineState') == 'needs_reconciliation'):
+            raise APIError('STABILITY_RECOVERY_BINDING', '当前任务没有有效的本轮频窗复核许可', 409)
+        t1 = self._node(wf, binding.get('t1NodeId'))
+        if t1['procedureId'] != 'sq_t1' or t1['resourceId'] != node['resourceId'] or t1.get('attempt', 0):
+            raise APIError('STABILITY_RECOVERY_BINDING', '频窗复核须在本轮 T1 开始之前', 409)
+        if (len(round_.get('recoveryEvents', [])) >= policy['maxExpansions']
+                or node['attempt'] >= policy['maximumFrequencyAttempts']
+                or task_budget.exhausted(wf, 'maxAttemptsPerNode', node['attempt'])):
+            raise APIError('ATTEMPT_BUDGET', '本轮频窗复核已达到尝试预算', 409)
+        if (rt.db.execute('SELECT 1 FROM platform_leases WHERE workflow_id=? OR resource=?', (wf['id'], device_key(self.profile))).fetchone()
+                or rt.db.execute("SELECT 1 FROM platform_effects WHERE state IN ('pending','unknown')").fetchone()):
+            raise APIError('RECONCILIATION_REQUIRED', '存在设备占用或未知采集，未创建频窗复核', 409)
+        problem = _frequency_problem(node, binding)
+        if (not problem or problem.get('code') not in ('frequency_peak_missing', 'frequency_peak_at_edge')
+                or reason != problem or operation_id != f"{schedule['id']}/round/{round_['number']}/expand/{node['latestAttemptId']}"):
+            raise APIError('CURRENT_EVIDENCE_REQUIRED', '频窗复核须对应本轮当前实测结果', 409)
+        self._assert_adapter_binding(wf)
+        schema = self._parameter_schema(node['procedureId'])
+        if not isinstance(changes, dict) or set(changes) != {'span_hz', 'start_hz', 'stop_hz'}:
+            raise APIError('BAD_PARAMETERS', '频窗复核只允许修改频率窗口')
+        for key, value in changes.items():
+            self._validate_parameter(key, value, schema)
+        window = problem['window']
+        expected_span = min(window['spanHz'] * policy['factor'], policy['maxSpanHz'], schema['span_hz']['max'])
+        center = (window['startHz'] + window['stopHz']) / 2
+        if (expected_span <= window['spanHz'] or changes != {'span_hz': expected_span,
+                'start_hz': center - expected_span / 2, 'stop_hz': center + expected_span / 2}):
+            raise APIError('FREQUENCY_WINDOW_LIMIT', '频窗复核必须保持中心并遵守冻结扩窗上限', 409)
+        parameters, versions = self._parameters(rt, wf, node)
+        if parameters.get('frequencies_hz'):
+            raise APIError('FREQUENCY_WINDOW_FIXED_AXIS', '存在显式频率数组，不能自动替换扫描轴', 409)
+        normalized = self._normalize_changes(node['procedureId'], changes, parameters)
+        if normalized != changes:
+            raise APIError('FREQUENCY_WINDOW_LIMIT', '执行器不能保持冻结频窗')
+        merged = {**parameters, **changes}
+        budget = self._validate_plan(wf, node, merged, versions, operation_id, joint_budget=True, rt=rt)
+        rt.db.execute('SAVEPOINT stability_frequency_retry')
+        try:
+            node.setdefault('parameterOverrides', {}).update(changes)
+            node['parameters'] = merged
+            affected = self._invalidate(wf, node['id'], include_target=True)
+            wf.update(currentNodeId=node['id'], status='attention', engineState='stability_frequency_retry')
+            self._record_decision(rt, wf, node['id'], {'action': 'stability_frequency_retry', 'reason': deepcopy(reason),
+                'evidenceIds': [], 'parameterChanges': {k: {'from': parameters.get(k), 'to': v} for k, v in changes.items()},
+                'invalidatedNodes': affected, 'budgetLookahead': budget}, 'stability_policy')
+            self.store.save(rt, wf, 'stability_frequency_retry', {'nodeId': node['id'], 'message': reason['message']})
+            updated = self.action(wf['id'], {'action': 'retry', 'operationId': operation_id + '/queue',
+                'expectedRevision': wf['revision'], 'nodeId': node['id'], 'attemptId': node['latestAttemptId']}, _rt=rt)
+            rt.db.execute('INSERT INTO platform_commands VALUES(?,?,?)', (operation_id, request_hash, dumps(updated)))
+            rt.db.execute('RELEASE SAVEPOINT stability_frequency_retry')
+            return updated
+        except Exception:
+            rt.db.execute('ROLLBACK TO SAVEPOINT stability_frequency_retry')
+            rt.db.execute('RELEASE SAVEPOINT stability_frequency_retry')
+            raise
+
     def _validate_plan(self, wf, node, parameters, versions, operation_id, *, joint_budget=False, rt=None):
+        scoped = self if getattr(self, '_attempt_execution_authorization', None) else self.for_node(wf['id'], node['id'], rt)
+        if scoped is not self:
+            return scoped._validate_plan(wf, node, parameters, versions, operation_id, joint_budget=joint_budget, rt=rt)
         if not callable(getattr(self.adapter, 'build_plan', None)):
             if joint_budget and self._physical_adapter:
                 raise APIError('INVALID_BUDGET', '物理执行器缺少可核查的采集计划')
@@ -1268,27 +1918,147 @@ class Controller(ManualSteps):
         request = {'runId': wf['id'], 'nodeId': node['id'], 'attemptId': 'parameter-validation',
                    'operationId': 'validate/' + operation_id, 'resourceId': node['resourceId'],
                    'procedureId': node['procedureId'], 'parameters': parameters, 'parameterVersions': versions,
+                   'adapterId': self.adapter_id, 'adapterProfileHash': self.adapter_profile_hash,
                    'deadline': time.time() + self.profile.get('maximumRunSeconds', 3600)}
+        if node['procedureId'] in SCIENCE_METHODS:
+            request['configurationBinding'] = deepcopy(self.profile.get('configurationBinding', {}))
+            request['explicitParameterKeys'] = sorted(node.get('parameterOverrides', {}))
         if node['procedureId'] in ('sq_rb', 'sq_allxy'):
             with (nullcontext(rt) if rt is not None else self.store.connect()) as reader:
                 request['validationSnapshot'] = self._validation_snapshot(reader, wf, node, parameters, versions)
         try:
+            with (nullcontext(rt) if rt is not None else self.store.connect()) as reader:
+                if joint_budget and self._physical_adapter:
+                    from .gate_calibration_context import require_current_gate
+                    require_current_gate(self, reader, wf, node, parameters)
+                    from .smart_rabi_window import check_plan as check_rabi_window
+                    check_rabi_window(self, reader, wf, node, parameters, versions)
+                self._science_request_dependencies(reader, wf, node, request)
+            from .attempt_execution import attach_plan
+            attach_plan(self, request)
             plan = self.adapter.build_plan(request)
             if joint_budget and self._physical_adapter:
-                return self._selection_budget(wf, request, plan)
+                if node['procedureId'] == 'sq_spectroscopy':
+                    with (nullcontext(rt) if rt is not None else self.store.connect()) as reader:
+                        self._require_spectrum_drive_context(reader, wf, node, plan.get('parameters') or {})
+                return self._selection_budget(wf, request, plan, rt=rt)
         except Exception as exc:
+            if isinstance(exc, APIError) and exc.code == 'SPECTRUM_DRIVE_CONTEXT_CONFLICT':
+                raise
             raise APIError(getattr(exc, 'code', 'INVALID_PLAN'), str(exc)) from None
 
-    def _selection_budget(self, wf, request, plan):
+    def _science_request_dependencies(self, rt, wf, node, request):
+        """Resolve immutable source IDs afresh, never accepting a client proof."""
+        if node['procedureId'] not in SCIENCE_METHODS:
+            return
+        if wf.get('smartParent'):
+            from .smart_science import validate_target
+            validate_target(self, rt, wf, request['parameters'])
+        if not (self.profile.get('sciencePolicy') or self.profile.get('scienceFluxPolicy')):
+            raise APIError('SCIENCE_PROFILE_REQUIRED', '科学实验需要独立执行配置', 409)
+        if wf.get('gatesVersion') != science_rules(self.profile)[0] or wf.get('gatesSha256') != digest(wf.get('gates', {})):
+            raise APIError('SCIENCE_GATES_CHANGED', '冻结科学验收规则已改变', 409)
+        if wf.get('observedResourceBinding'):
+            self._validate_observed_resource_binding(wf, rt)
+            request['observedResourceBinding'] = deepcopy(wf['observedResourceBinding'])
+        if node['procedureId'] in SCIENCE_FLUX_METHODS:
+            from .flux_binding import validate_bias_binding
+            if wf.get('configurationBinding',{}).get('biasDeploymentBinding'):
+                validate_bias_binding(self.workspace.chips,wf,self.profile)
+            from .flux_execution import request_authorization
+            request_authorization(self,rt,wf,node,request)
+        from .science_dependencies import ScienceDependencyResolver, MAX_REQUEST_BYTES
+        scope = {'workflowId': wf['id'], 'resourceId': node['resourceId']}
+        scope.update({key: wf[key] for key in ('chipVersionId', 'deploymentVersionId') if wf.get(key)})
+        if node['procedureId']=='sq_flux_point_recheck':
+            from .flux_points import resolve_point
+            point=resolve_point(self,rt,node.get('workingPointId'),resource_id=node['resourceId'],scope=scope)
+            previous_point=request.get('fluxPointEvidence')
+            if previous_point is not None and previous_point!=point:
+                raise APIError('FLUX_POINT_CHANGED','工作点来源已偏离本次操作冻结证明',409)
+            if {'role':'flux_scan','recordId':point['recordId']} not in node.get('scienceReferences',[]):
+                raise APIError('FLUX_POINT_EVIDENCE','工作点与选择的偏置扫描来源不一致',409)
+            request['fluxPointEvidence']=point
+        resolver = ScienceDependencyResolver(self)
+        previous = request.pop('scienceDependencies', None)
+        proof = resolver.resolve(rt, kind='measurement', scope=scope,
+            refs=deepcopy(node.get('scienceReferences', [])), inputs={}, use='execution', consumer=request)
+        if previous is not None and previous.get('closureSha256') != proof['closureSha256']:
+            raise APIError('SCIENCE_DEPENDENCY_CHANGED', '前置来源已偏离本次操作冻结证明', 409)
+        request['scienceDependencies'] = proof
+        request_bytes = len(dumps(request).encode('utf-8'))
+        if request_bytes > MAX_REQUEST_BYTES:
+            raise APIError('SCIENCE_REQUEST_LIMIT',
+                f'冻结执行请求为 {request_bytes} 字节，超过 {MAX_REQUEST_BYTES} 字节的证据容量；未创建采集许可或下发仪器。', 413)
+
+    def _selection_budget(self, wf, request, plan, *, rt=None):
         """Plan-only lookahead; actual per-operation reservation remains in _call_adapter."""
         adapter_type = type(self.adapter)
-        parameters, basis = verification_probe(
-            implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__,
-            profile_id=self.profile.get('id'), procedure_id=request['procedureId'],
-            request_parameters=request['parameters'], selection_plan=plan)
+        if request['procedureId'] in SCIENCE_METHODS:
+            from adapters.science_v3_adapter import ScienceV3Adapter
+            from adapters.science_v3.plans import VERIFY
+            from adapters.science_shape_repeat5.adapter import ScienceRepeat5Adapter
+            if request['procedureId'] in SCIENCE_FLUX_METHODS:
+                from adapters.science_flux_adapter import ScienceFluxAdapter
+                from adapters.science_flux.contracts import policy_for
+                expected=policy_for(self.profile.get('biasRoutes',{}).get(request['resourceId']))
+                if type(self.adapter) is not ScienceFluxAdapter or plan.get('adapter')!='science-flux' or plan.get('policy')!=expected:
+                    raise APIError('VERIFICATION_BUDGET_UNKNOWN','偏置复测容量只接受已审计执行器与冻结线路策略')
+                parameters=self.adapter.build_verification_parameters(request['procedureId'],deepcopy(plan['parameters']),{})
+                basis='science_flux_same_bias_axes_full_fresh_acquisition_and_'+('declared_end_command' if expected.endswith('_v2') else 'restore')
+            elif request['procedureId'] in SCIENCE_IRB_METHODS:
+                from adapters.science_v3_irb.adapter import ScienceIRBAdapter
+                from adapters.science_v3_irb.beta import policy_for, candidate_key
+                expected=policy_for(request['procedureId'],plan['parameters'])
+                if (type(self.adapter),plan.get('adapter')) not in ((ScienceIRBAdapter,'science-v3-irb'),(ScienceRepeat5Adapter,'science-repeat5')) or plan.get('policy')!=expected:
+                    raise APIError('VERIFICATION_BUDGET_UNKNOWN','X/2 科学复测只接受已审计执行器及对应方法策略')
+                candidate={}
+                if request['procedureId']=='sq_drag_half_scan':
+                    axis=plan['parameters']['scan_axis_values'];candidate={candidate_key(plan['parameters']):(axis[0]+axis[-1])/2}
+                parameters=self.adapter.build_verification_parameters(request['procedureId'],deepcopy(plan['parameters']),candidate)
+                basis='science_irb_full_fresh_seed_campaign' if request['procedureId']=='sq_drag_irb' else 'science_half_drag_same_scan_plus_frozen_candidate_rows'
+            else:
+                if (type(self.adapter),plan.get('adapter')) not in ((ScienceV3Adapter,'science-v3'),(ScienceRepeat5Adapter,'science-repeat5')):
+                    raise APIError('VERIFICATION_BUDGET_UNKNOWN', '科学复测容量只接受已核验的执行器实现')
+                parameters = deepcopy(plan['parameters'])
+                key = 'shape_pi_amp' if request['procedureId']=='sq_shape_rabi_amplitude_repeat5' else VERIFY.get(request['procedureId'])
+                if key:
+                    axis = parameters['scan_axis_values']
+                    parameters['verify_' + key] = (axis[0] + axis[-1]) / 2
+                basis = 'science_v3_same_scan_plus_frozen_candidate_rows'
+        else:
+            implementation_id = adapter_type.__module__ + '.' + adapter_type.__qualname__
+            profile_id = self.profile.get('id')
+            from adapters.arclight_dynamic import DynamicArcLightAdapter, RUNTIME as DYNAMIC_RUNTIME
+            if type(self.adapter) is DynamicArcLightAdapter:
+                # This exact subclass changes only resource routing around the
+                # inherited ArcLight sampling/verification builders. Authenticate
+                # that frozen binding before reusing the audited count semantics.
+                binding = self.profile.get('configurationBinding', {})
+                if (self.profile.get('runtimeRoot') != DYNAMIC_RUNTIME
+                        or self.profile.get('runner') != DYNAMIC_RUNTIME + '/platform_worker.py'
+                        or self.profile.get('sourceManifest') != DYNAMIC_RUNTIME + '/source_manifest.json'
+                        or not all(binding.get(key) for key in ('chipVersionId','deploymentVersionId','chipHash','deploymentHash'))
+                        or plan.get('configurationBinding') != binding
+                        or plan.get('routing') != self.adapter._routing(request['resourceId'])):
+                    raise APIError('VERIFICATION_BUDGET_UNKNOWN', '动态配置未满足已核验采样容量语义')
+                implementation_id, profile_id = 'adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v2'
+            parameters, basis = verification_probe(
+                implementation_id=implementation_id, profile_id=profile_id, procedure_id=request['procedureId'],
+                request_parameters=request['parameters'], selection_plan=plan)
         probe = deepcopy(request)
         probe['parameters'] = parameters
         probe['operationId'] = 'budget-verify/' + digest(request['operationId'])
+        probe.pop('biasCommandAuthorization',None)
+        if request['procedureId'] in SCIENCE_FLUX_METHODS:
+            from adapters.science_flux.contracts import command_authorization,is_commanded
+            route=self.profile.get('biasRoutes',{}).get(request['resourceId'],{})
+            if is_commanded(route):probe['biasCommandAuthorization']=command_authorization(route,probe['operationId'],stage='plan_only')
+        if request['procedureId'] in SCIENCE_METHODS:
+            with (nullcontext(rt) if rt is not None else self.store.connect()) as reader:
+                self._science_request_dependencies(reader, wf, self._node(wf, request['nodeId']), probe)
+        from .attempt_execution import attach_plan
+        attach_plan(self, probe)
         verification_plan = self.adapter.build_plan(probe)
         return selection_lookahead(wf, plan, verification_plan, basis=basis)
 
@@ -1304,8 +2074,49 @@ class Controller(ManualSteps):
 
     def _loop(self):
         while not self.stop_event.is_set():
+            if time.monotonic() >= getattr(self, '_smart_science_check', 0):
+                self._smart_science_check = time.monotonic() + 1
+                try:
+                    from .smart_science import tick as check_smart_science
+                    check_smart_science(self)
+                except Exception as exc:
+                    import sys
+                    self._smart_science_check = time.monotonic() + 15
+                    print('Q11 gate queue: '+type(exc).__name__, file=sys.stderr, flush=True)
+            if time.monotonic() >= getattr(self, '_smart_report_check', 0):
+                self._smart_report_check = time.monotonic() + 2
+                try:
+                    from .smart_q11_report_jobs import tick as check_smart_report
+                    check_smart_report(self)
+                except Exception as exc:
+                    import sys
+                    self._smart_report_check = time.monotonic() + 30
+                    print('Q11 report queue: '+type(exc).__name__, file=sys.stderr, flush=True)
+            if getattr(self, '_model_recovery_error', None) is None:
+                try:
+                    model_recovery.recover_due(self)
+                except Exception as exc:
+                    import sys
+                    self._model_recovery_error = {'type': type(exc).__name__, 'at': now()}
+                    print('Model recovery scheduler disabled: ' + type(exc).__name__, file=sys.stderr, flush=True)
+            if self._stability_error is None:
+                try:
+                    self.stability.tick()
+                except Exception as exc:
+                    import sys
+                    self._stability_error = {'type': type(exc).__name__, 'at': now(),
+                        'message': '周期调度已暂停，请检查服务日志；普通测量队列继续受控制器管理'}
+                    print('Stability scheduler paused: '+type(exc).__name__, file=sys.stderr, flush=True)
+                    try:
+                        self.stability.halt_after_error(type(exc).__name__)
+                    except Exception:
+                        # Do not dispatch periodic children if their stop could
+                        # not be persisted. Their authorization remains frozen.
+                        print('Stability permit persistence failed; periodic dispatch disabled', file=sys.stderr, flush=True)
             self._pause_shared_queue()
-            queued = [w for w in reversed(self.list()) if w['status'] == 'queued']
+            queued = self._queued_workflows()
+            if self._stability_error is not None:
+                queued = [w for w in queued if not w.get('stabilityBinding')]
             if self._workspace_service is not None:
                 queued = [w for w in queued if not self.workspace.queue_blocker(w)]
             if queued:
@@ -1316,6 +2127,53 @@ class Controller(ManualSteps):
             else:
                 self.wake.wait(.5)
                 self.wake.clear()
+
+    def _queued_workflows(self, rt=None):
+        """FIFO authorized turns; reads only and never grants a missing permit."""
+        workflows = self.store.workflows(rt)
+        eligible = [wf for wf in workflows if wf['status'] == 'queued']
+        def key(wf):
+            permit = wf.get('manualStep') or wf.get('rbDiagnostic') or {}
+            at = wf.get('queueEnteredAt') or (permit.get('createdAt') if permit.get('state') == 'queued' else None)
+            return (at or wf.get('updatedAt') or wf['createdAt'], wf['createdAt'], wf['id'])
+        return sorted(eligible, key=key)
+
+    def _yield_to_waiter(self, workflow_id, *, decision=False):
+        """Hand over only after the complete attempt has released its lease.
+
+        Selection and its independent verification are never separated. A known
+        quality failure can defer its model request, but unknown effects or a
+        quarantined lease never become a free-device claim.
+        """
+        with self.store.transaction() as rt:
+            current = self.get(workflow_id, rt)
+            if (current['mode'] != 'real' or current['policy'] != 'autopilot'
+                    or current['status'] not in ('queued', 'running', 'attention')
+                    or current.get('cancelRequested') or current.get('rbDiagnostic', {}).get('state') in ('queued','running')
+                    or self._has_lease(rt, workflow_id)
+                    or rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (workflow_id,)).fetchone()):
+                return False
+            if not decision and all(n['engineState'] in ('verified','acknowledged','unsupported') for n in current['nodes']):
+                return False
+            workflows = self.store.workflows(rt)
+            if self._shared_blocker(current, workflows):
+                return False
+            group = device_key(current.get('configurationBinding', {}).get('profile', self.profile))
+            waiting = [w for w in self._queued_workflows(rt) if w['id'] != workflow_id and w['mode'] == 'real'
+                       and not w.get('cancelRequested') and not w.get('configurationIssue')
+                       and (not is_manual(w) or w.get('manualStep', {}).get('state') == 'queued')
+                       and device_key(w.get('configurationBinding', {}).get('profile', self.profile)) == group
+                       and not self._shared_blocker(w, workflows)
+                       and not self._has_lease(rt, w['id'])
+                       and not rt.db.execute("SELECT 1 FROM platform_effects WHERE workflow_id=? AND state IN ('pending','unknown')", (w['id'],)).fetchone()]
+            if not waiting:
+                return False
+            current.update(status='queued', engineState='decision_queued' if decision else 'queued', queueEnteredAt=now())
+            self.store.save(rt, current, 'device_queue_yield', {
+                'message': '本步采集回执已结束，先交接给已排队任务；稍后再处理本任务' if decision else '本步首测与独立复测已结束，先交接给已排队任务',
+                'waitingWorkflowId': waiting[0]['id'], 'boundary': 'completed_attempt', 'decisionDeferred': decision})
+        self.wake.set()
+        return True
 
     def _shared_blocker(self, workflow, workflows):
         group = device_key(workflow.get('configurationBinding', {}).get('profile', self.profile))
@@ -1343,12 +2201,19 @@ class Controller(ManualSteps):
                 return row
         return None
 
-    def _attention(self, workflow_id, state, message, *, node_id=None, preserve_diagnostic_stop=False, shared_device_fault=False):
+    def _attention(self, workflow_id, state, message, *, node_id=None, preserve_diagnostic_stop=False, shared_device_fault=False, ownership_check=None, decision_revision=None):
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
+            if decision_revision is not None and (wf['revision'] != decision_revision or wf.get('cancelRequested')
+                    or wf['status'] in TERMINAL or wf['status'] == 'paused' or wf['engineState'] == 'deciding'):
+                return False
             if (preserve_diagnostic_stop and wf.get('rbDiagnostic')
                     and (wf['status'] in ('paused', 'aborted') or wf.get('cancelRequested')
                          or wf.get('engineState') == 'needs_reconciliation')):
+                if ownership_check is not None:
+                    rt._event(workflow_id,'hardware_ownership_rejected',{'message':message,'nodeId':wf.get('currentNodeId'),
+                        'attemptId':next((n.get('latestAttemptId') for n in wf['nodes'] if n['id']==wf.get('currentNodeId')),None),
+                        'ownershipCheck':ownership_check})
                 return
             if wf['status'] in TERMINAL:
                 return
@@ -1358,10 +2223,14 @@ class Controller(ManualSteps):
             wf['status'], wf['engineState'] = 'attention', state
             if shared_device_fault:
                 wf['sharedDeviceFault'] = True
+            if ownership_check is not None and not wf.get('currentNodeId'):
+                wf['ownershipCheck']=deepcopy(ownership_check)
             if wf.get('currentNodeId'):
                 node = self._node(wf)
                 node['status'], node['engineState'], node['detail'] = 'attention', state, message
-            self.store.save(rt, wf, 'attention', {'message': message})
+                if ownership_check is not None:
+                    node['ownershipCheck'] = deepcopy(ownership_check)
+            self.store.save(rt, wf, 'attention', {'message': message, **({'ownershipCheck':ownership_check} if ownership_check is not None else {})})
             if device_fault_blocks(wf):
                 self._pause_shared_queue(_rt=rt)
 
@@ -1400,7 +2269,8 @@ class Controller(ManualSteps):
             return self._attention(workflow_id, 'waiting_hardware', '请确认当前是主机读出/XY/采集卡接线', preserve_diagnostic_stop=True)
         ownership = self.hardware_ownership(refresh=True)
         if not ownership['verified'] or ownership['owners']:
-            return self._attention(workflow_id, 'waiting_hardware', '检测到其他程序仍连接机箱，等待释放；未下发测量', preserve_diagnostic_stop=True, shared_device_fault=True)
+            refusal=OwnershipRefusal(wf, next((n for n in wf['nodes'] if n['id']==wf.get('currentNodeId')), {}), ownership, 'schedule')
+            return self._attention(workflow_id, 'waiting_hardware', refusal.message, preserve_diagnostic_stop=True, shared_device_fault=True, ownership_check=refusal.ownershipCheck)
         diagnostic = wf.get('rbDiagnostic') or {}
         if diagnostic.get('state') == 'queued':
             return self._run_rb_diagnostic(workflow_id, diagnostic['id'])
@@ -1423,9 +2293,11 @@ class Controller(ManualSteps):
             node = ready[0]
             if node['capability'] != 'available':
                 return self._attention(workflow_id, 'unsupported_method', '当前方法尚未接入：' + node['label'], node_id=node['id'])
-            if wf['iterations'] >= wf['maxWorkflowAttempts'] or node['attempt'] >= wf['maxAttemptsPerNode']:
+            if task_budget.exhausted(wf, 'maxWorkflowAttempts', wf['iterations']) or task_budget.exhausted(wf, 'maxAttemptsPerNode', node['attempt']):
                 return self._attention(workflow_id, 'budget_exhausted', '达到本轮测量预算，保留全部候选与结果', node_id=node['id'])
             if not self._execute_node(workflow_id, node['id']):
+                return
+            if self._yield_to_waiter(workflow_id):
                 return
 
     def _replay(self, workflow_id):
@@ -1467,6 +2339,10 @@ class Controller(ManualSteps):
         self._complete(workflow_id)
 
     def _complete(self, workflow_id):
+        if self.get(workflow_id).get('smartRun', {}).get('schema') == 'q11-full-same-gate/1':
+            from .smart_science import begin
+            if begin(self, workflow_id):
+                return
         with self.store.transaction() as rt:
             wf = self.get(workflow_id, rt)
             passed = [n for n in wf['nodes'] if n['engineState'] == 'verified']
@@ -1509,6 +2385,13 @@ class Controller(ManualSteps):
         prefix = wf['id'] + ':' + node['resourceId'] + ':'
         values = {k: v for k, v in self.profile.get('resources', {}).get(node['resourceId'], {}).items()
                   if k not in ('q', 'calibrationStatus') and (number(v) or k in self.profile.get('parameterBounds', {}))}
+        if wf.get('stabilityBinding'):
+            values.update(wf.get('initialParameters', {}))
+        if (wf.get('smartRun') or {}).get('schema') == 'q11-full-same-gate/1':
+            initialization = wf['smartRun'].get('initialization', {})
+            values.update(initialization.get('parameters', {}))
+            from .smart_q11_launch import spectroscopy_initial_hints
+            values.update(spectroscopy_initial_hints(wf, node, initialization, values))
         versions = {k: 0 for k in values}
         for key, entry in rt.get_parameters().items():
             if key.startswith(prefix):
@@ -1516,6 +2399,17 @@ class Controller(ManualSteps):
         # Observed parameters are snapshots, not overrides. A retry/backtrack
         # must inherit freshly committed upstream values unless explicitly tuned.
         values.update(node.get('parameterOverrides', {}))
+        if node['procedureId'] in SCIENCE_METHODS:
+            from adapters.science_v3.plans import BOUNDS
+            allowed=set(self.adapter.validation_parameter_keys()) if node['procedureId'] in SCIENCE_IRB_METHODS or node['procedureId'] in SCIENCE_FLUX_METHODS else set(BOUNDS)|{'scan_axis_values'}
+            if wf.get('smartParent') and node['procedureId']=='sq_drag_half_scan':
+                from adapters.science_v3_irb.half_scan import SCAN_FIELDS
+                allowed.intersection_update(SCAN_FIELDS)
+            elif wf.get('smartParent') and node['procedureId']=='sq_drag_irb':
+                from adapters.science_v3_irb.plans import FIELDS, DEFAULTS
+                allowed.intersection_update(FIELDS|set(DEFAULTS)|{'pulse_compatibility'})
+            values = {key: value for key, value in values.items() if key in allowed}
+            versions = {key: versions.get(key, 0) for key in values}
         return values, versions
 
     def _readout_revalidation(self, rt, wf, node, parameters=None, versions=None):
@@ -1630,6 +2524,9 @@ class Controller(ManualSteps):
         return rabi['id']
 
     def _execute_node(self, workflow_id, node_id, *, diagnostic_branch_id=None):
+        scoped = self.for_node(workflow_id, node_id)
+        if scoped is not self:
+            return scoped._execute_node(workflow_id, node_id, diagnostic_branch_id=diagnostic_branch_id)
         wf_before = self.get(workflow_id)
         if is_manual(wf_before):
             self._assert_manual_dispatch(wf_before, node_id)
@@ -1640,6 +2537,10 @@ class Controller(ManualSteps):
             self._attention(workflow_id, 'supplemental_acceptance_mismatch', str(exc), node_id=node_id)
             return False
         node_before = self._node(wf_before, node_id)
+        if wf_before.get('stabilityBinding'):
+            from .stability import admit_t1
+            if not admit_t1(self, wf_before, node_before):
+                return False
         if node_before['procedureId'] == 'sq_rb' and diagnostic_branch_id is None:
             if not self._rb_prerequisites_current(workflow_id, node_id):
                 return False
@@ -1666,7 +2567,8 @@ class Controller(ManualSteps):
                                                     joint_budget=True, rt=rt)
                 except APIError as exc:
                     # Admission is before lease, effect, attempt count or result replacement.
-                    wf.update(status='attention', engineState='budget_exhausted' if 'BUDGET' in exc.code else 'plan_rejected')
+                    wf.update(status='attention', currentNodeId=node_id,
+                              engineState='budget_exhausted' if 'BUDGET' in exc.code else 'plan_rejected')
                     node.update(status='attention', engineState=wf['engineState'], detail=exc.message,
                                 lastAdmissionError={'code': exc.code, 'message': exc.message, 'at': now()})
                     self.store.save(rt, wf, 'acquisition_admission_rejected',
@@ -1686,6 +2588,13 @@ class Controller(ManualSteps):
                        'adapterId': self.adapter_id, 'adapterProfileHash': self.adapter_profile_hash,
                        'deadline': time.time() + self.profile.get('maximumRunSeconds', 3600),
                        'outputDir': str(self.root / 'data' / 'runs' / workflow_id / attempt_id), 'leaseToken': token}
+            from .attempt_execution import claim
+            claim(self, rt, wf, node, attempt, request)
+            from .smart_rabi_window import claim as claim_rabi_window
+            claim_rabi_window(wf, node, attempt, request)
+            if node['procedureId'] in SCIENCE_METHODS:
+                request['configurationBinding'] = deepcopy(self.profile.get('configurationBinding', {}))
+                request['explicitParameterKeys'] = sorted(node.get('parameterOverrides', {}))
             if diagnostic_branch_id is not None:
                 wf['rbDiagnostic'].update(state='running', attemptId=attempt_id)
                 branch = {k: wf['rbDiagnostic'][k] for k in ('id','policyVersion','commandOperationId',
@@ -1704,12 +2613,16 @@ class Controller(ManualSteps):
             if supplemental and node['id'] in supplemental['applicableNodeIds']:
                 request['supplementalAcceptance'] = {k: supplemental[k] for k in
                     ('policyVersion', 'policyHash', 'moduleSha256', 'sourceManifestSha256', 'baseGatesSha256')}
+            self._science_request_dependencies(rt, wf, node, request)
             rt.db.execute('INSERT INTO platform_effects VALUES(?,?,?,?,?,NULL)',
                           (request['operationId'], workflow_id, attempt_id, 'pending', dumps(request)))
             self.store.attempt(rt, workflow_id, attempt)
             node['lastCompletedAttemptId'] = node.get('latestAttemptId')
             node.pop('result', None)
             node.pop('telemetry', None)
+            # A prior refusal stays in its event/attempt; do not present it as
+            # the ownership observation for this new acquisition attempt.
+            node.pop('ownershipCheck', None)
             node.update(status='running', engineState='acquiring', latestAttemptId=attempt_id,
                         parameters=parameters, parameterVersions=versions, progress=0,
                         detail='正在采集本轮新数据')
@@ -1718,11 +2631,13 @@ class Controller(ManualSteps):
                 wf['firstAcquisitionAt'] = attempt['startedAt']
             self.store.save(rt, wf, 'acquisition_started', {'message': node['qubits'] + ' · ' + node['label'], 'attemptId': attempt_id})
         preliminary = verification = verify_request = None
+        command_finalization_attempted=False
         try:
             result = self._call_adapter(request, token)
             if result is None:
                 return False
-            preliminary = evaluate(result, request['procedureId'], 'real', wf['gates'], independent=False)
+            preliminary = evaluate(result, request['procedureId'], 'real', wf['gates'], independent=False,
+                                   rule_version=wf['gatesVersion'])
             self._readout_revalidation_quality(request, preliminary)
             self._apply_supplemental_acceptance(wf, request, preliminary, 'selection')
             if diagnostic_branch_id is not None:
@@ -1735,6 +2650,9 @@ class Controller(ManualSteps):
             if not gate_reasons and not self._cancel_requested(workflow_id):
                 verify_request = deepcopy(request)
                 verify_request['operationId'] = attempt_id + '/verify'
+                if request['procedureId'] in SCIENCE_FLUX_METHODS:
+                    from .flux_execution import verification_authorization
+                    verification_authorization(self,verify_request,request['operationId'])
                 # Each independent acquisition has its own operation time limit.
                 verify_request['deadline'] = time.time() + self.profile.get('maximumRunSeconds', 3600)
                 raw_candidate = deepcopy(result.get('candidateParameters', {}))
@@ -1758,11 +2676,13 @@ class Controller(ManualSteps):
                     self._node(current).update(engineState='verifying', detail='正在独立复测候选参数',
                         result=deepcopy(attempt['result']), mainProcedureComplete=False)
                     verify_request['validationSnapshot'] = self._validation_snapshot(rt, current, self._node(current), verify_request['parameters'], versions)
+                    self._science_request_dependencies(rt, current, self._node(current), verify_request)
                     if self._physical_adapter:
                         # Candidate changes are now known. Check only verification's
                         # actual cost; selection has already consumed its reservation.
                         verify_request['verificationBudgetCheck'] = verify_admission(
                             current, self.adapter.build_plan(verify_request), request.get('budgetLookahead'))
+                    self._science_request_dependencies(rt, current, self._node(current), verify_request)
                     rt.db.execute('INSERT INTO platform_effects VALUES(?,?,?,?,?,NULL)',
                                   (verify_request['operationId'], workflow_id, attempt_id, 'pending', dumps(verify_request)))
                     self.store.attempt(rt, workflow_id, attempt)
@@ -1773,7 +2693,19 @@ class Controller(ManualSteps):
                 source_ids = {a['sha256'] for a in result.get('artifacts', []) if a['kind'] == 'raw'}
                 verify_ids = {a['sha256'] for a in verification.get('artifacts', []) if a['kind'] == 'raw'}
                 independent = bool(source_ids and verify_ids and source_ids.isdisjoint(verify_ids))
-                result = evaluate(verification, request['procedureId'], 'real', wf['gates'], independent=independent)
+                result = evaluate(verification, request['procedureId'], 'real', wf['gates'], independent=independent,
+                                  rule_version=wf['gatesVersion'])
+                if request['procedureId'] in SCIENCE_FLUX_METHODS:
+                    from .science_flux_quality import check_independent
+                    cross_reasons=check_independent(preliminary,verification,request['procedureId'])
+                    if cross_reasons:
+                        result['quality'].update(status='failed',reasons=result['quality']['reasons']+cross_reasons)
+                if request['procedureId']=='sq_drag_irb':
+                    from .science_irb_quality import check_independent
+                    cross_reasons=check_independent(preliminary,verification)
+                    if cross_reasons:
+                        result['quality'].update(status='failed',reasons=result['quality']['reasons']+cross_reasons)
+                        result['diagnosticMetrics']={key:result['metrics'].pop(key) for key in ('gate_fidelity','clifford_fidelity') if key in result['metrics']}
                 self._readout_revalidation_quality(verify_request, result)
                 if preliminary.get('supplementalQuality'):
                     result['supplementalQuality'] = deepcopy(preliminary['supplementalQuality'])
@@ -1795,6 +2727,9 @@ class Controller(ManualSteps):
                                                         'reason': '执行器脉冲策略及采样网格规范化', 'adapterId': self.adapter_id}
             else:
                 result = preliminary
+            from .flux_execution import finalize_lease
+            command_finalization_attempted=True
+            finalize_lease(self,request,token)
             with self.store.transaction() as rt:
                 current = self.get(workflow_id, rt)
                 current_node = self._node(current, node_id)
@@ -1868,6 +2803,9 @@ class Controller(ManualSteps):
                     if passed and not manual:
                         current_marker['endedAt'] = now()
                 current['progress'] = round(100 * sum(n['engineState'] == 'verified' for n in current['nodes']) / len(current['nodes']))
+                from .smart_main_checkpoint import record as record_smart_main
+                main_checkpointed = (not manual and diagnostic_branch_id is None
+                    and record_smart_main(self, rt, current, node_id))
                 self.store.save(rt, current, 'readout_revalidation_started' if rebuild_target else ('awaiting_acceptance' if manual else 'node_verified') if passed else 'quality_attention',
                                 {'message': self._node(current)['detail'] if rebuild_target else current_node['label'] + '：' + current_node['detail'], 'attemptId': attempt_id})
             if self._cancel_requested(workflow_id):
@@ -1879,6 +2817,11 @@ class Controller(ManualSteps):
                 return False
             if manual:
                 return False
+            if main_checkpointed:
+                # The durable queue owns the next transition. In particular a
+                # failed result reaches _decide once through decision_queued.
+                self.wake.set()
+                return False
             if passed:
                 if rebuild_target:
                     return current['status'] == 'queued'
@@ -1886,8 +2829,19 @@ class Controller(ManualSteps):
                     self._attention(workflow_id, 'awaiting_acceptance', '独立复测通过，等待确认后推进')
                     return False
                 return True
+            if self._yield_to_waiter(workflow_id, decision=True):
+                return False
             return self._decide(workflow_id, node_id)
         except Exception as exc:
+            ownership_refusal=exc if isinstance(exc,OwnershipRefusal) else None
+            finalization_failed=isinstance(exc,APIError) and exc.code=='BIAS_LOCK_RECONCILIATION'
+            if not command_finalization_attempted:
+                try:
+                    from .flux_execution import finalize_lease
+                    finalize_lease(self,request,token)
+                except Exception as release_exc:
+                    finalization_failed=True
+                    exc=APIError('BIAS_LOCK_RECONCILIATION',str(exc)+'；'+str(release_exc),409)
             with self.store.transaction() as rt:
                 current = self.get(workflow_id, rt)
                 if diagnostic_branch_id is not None and isinstance(exc, APIError) and exc.code.startswith('RB_DIAGNOSTIC_'):
@@ -1901,7 +2855,7 @@ class Controller(ManualSteps):
                     # local attempt already holds a passed result. Use the durable
                     # unaccepted placeholder before clearing pending below.
                     attempt['result'] = deepcopy(stored_result)
-                pending = rt.db.execute("SELECT 1 FROM platform_effects WHERE attempt_id=? AND state IN ('pending','unknown')", (attempt_id,)).fetchone()
+                pending = finalization_failed or rt.db.execute("SELECT 1 FROM platform_effects WHERE attempt_id=? AND state IN ('pending','unknown')", (attempt_id,)).fetchone()
                 state = 'needs_reconciliation' if pending else 'execution_failed'
                 if not pending and isinstance(exc, APIError) and 'BUDGET' in exc.code:
                     state = 'budget_exhausted'
@@ -1954,15 +2908,20 @@ class Controller(ManualSteps):
                         if summary.get('reason') == 'connection_failed':
                             current['sharedDeviceFault'] = True
                 attempt.update(state=state, endedAt=now(), error=str(exc))
+                if ownership_refusal is not None:
+                    attempt['ownershipCheck']=deepcopy(ownership_refusal.ownershipCheck)
                 self.store.attempt(rt, workflow_id, attempt)
                 node = self._node(current, node_id)
                 node.update(status='attention', engineState=state, detail=message)
+                if ownership_refusal is not None:
+                    node['ownershipCheck']=deepcopy(ownership_refusal.ownershipCheck)
                 if stopped or preserved_selection:
                     node['result'] = deepcopy(attempt['result'])
                 current.update(status='attention', engineState=state)
                 if manual and current.get('manualStep', {}).get('attemptId') == attempt_id:
                     current['manualStep'].update(state='finished', finishedAt=now(), resultStatus='unverified')
-                self.store.save(rt, current, 'reconciliation_required' if pending else 'attention', {'message': message})
+                self.store.save(rt, current, 'reconciliation_required' if pending else 'attention', {'message': message,
+                    **({'ownershipCheck':ownership_refusal.ownershipCheck} if ownership_refusal is not None else {})})
                 if device_fault_blocks(current):
                     self._pause_shared_queue(_rt=rt)
                 if not pending and current.get('cancelRequested'):
@@ -2026,13 +2985,22 @@ class Controller(ManualSteps):
                 self.store.save(rt, wf, 'worker_progress', {'nodeId': node['id'], 'message': str(event.get('message') or event.get('event') or '采集进度'), 'telemetry': event})
         try:
             if self._physical_adapter:
+                if request.get('rabiWindowAuthorization'):
+                    from .smart_rabi_window import validate_live as validate_rabi_window
+                    with self.store.connect() as reader:
+                        validate_rabi_window(self, reader, request)
+                if request.get('executionBinding'):
+                    from .attempt_execution import validate_request
+                    with self.store.connect() as reader:
+                        validate_request(self, reader, request, live=True)
                 wf = self.get(request['runId'])
                 self._assert_adapter_binding(wf)
                 if not (wf.get('hardwareConfirmed') or self.profile.get('connectionConfirmedAt')):
                     raise APIError('HARDWARE_HANDOFF_REQUIRED', '本次任务尚未确认设备独占交接，未启动采集', 409)
                 ownership = self.hardware_ownership(refresh=True)
-                if not ownership['verified'] or ownership['owners']:
-                    raise APIError('DEVICE_IN_USE', '设备仍由其他程序连接，未启动本次采集', 409)
+                from .flux_execution import owns_verification_reservation
+                if not ownership['verified'] or (ownership['owners'] and not owns_verification_reservation(self,request,ownership)):
+                    raise OwnershipRefusal(wf, self._node(wf,request['nodeId']), ownership, 'dispatch')
                 # This instance is scoped to an accepted, exclusive run. Do not
                 # persist an enabled flag that silently arms future workflows.
                 execution_adapter = self.adapter.with_execution_enabled()
@@ -2045,21 +3013,35 @@ class Controller(ManualSteps):
             else:
                 execution_adapter = self.adapter
             if hasattr(execution_adapter, 'build_plan'):
+                if request['procedureId'] in SCIENCE_METHODS:
+                    with self.store.connect() as reader:
+                        current = self.get(request['runId'], reader)
+                        self._science_request_dependencies(reader, current, self._node(current, request['nodeId']), request)
                 estimate = execution_adapter.build_plan(request).get('estimated_total_shots')
-                if not isinstance(estimate, int) or estimate <= 0:
+                if type(estimate) is not int or estimate <= 0:
                     raise APIError('INVALID_BUDGET', '执行器没有提供可核查的采集预算')
                 with self.store.transaction() as rt:
                     wf = self.get(request['runId'], rt)
                     if request.get('rbDiagnostic'):
                         self._assert_rb_diagnostic_dispatch(rt, wf, self._node(wf, request['nodeId']),
                             request['rbDiagnostic']['id'], attempt_id=request['attemptId'])
-                    if wf.get('reservedShots', 0) + estimate > wf.get('maxTotalShots', 8000000):
+                    remaining = task_budget.remaining(wf, 'maxTotalShots', wf.get('reservedShots', 0))
+                    if remaining is not None and estimate > remaining:
                         raise APIError('TOTAL_SHOTS_BUDGET', '本任务累计采集预算不足，未下发本次采集')
+                    if task_budget.only_accounting(wf):
+                        shot_accounting.reserve(rt.db,wf['id'],request['operationId'],estimate)
                     wf['reservedShots'] = wf.get('reservedShots', 0) + estimate
                     self.store.save(rt, wf, 'budget_reserved', {'message': f'本次预留 {estimate} shots；未知执行不返还预算',
                                                              'operationId': request['operationId'], 'shots': estimate})
             result = execution_adapter.execute(request, emit, lambda: self._cancel_requested(request['runId']))
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc,APIError) and exc.code=='SHOT_RESERVATION_EXISTS':
+                raise  # The original invocation owns its receipt and device lease.
+            if isinstance(exc,OwnershipRefusal):
+                # Keep the observed refusal even if later reconciliation itself
+                # fails; this event does not acknowledge or release any effect.
+                with self.store.transaction() as rt:
+                    record_rollback_refusal(rt,exc)
             receipt = self.adapter.reconcile(request['operationId'])
             with self.store.transaction() as rt:
                 status = receipt.get('status')
@@ -2142,11 +3124,39 @@ class Controller(ManualSteps):
         return True
 
     def _cancel_requested(self, workflow_id):
-        return self.stop_event.is_set() or bool(self.get(workflow_id).get('cancelRequested'))
+        wf = self.get(workflow_id)
+        if wf.get('smartParent'):
+            from .smart_science import cancelled
+            if cancelled(self, wf):
+                return True
+        return self.stop_event.is_set() or bool(wf.get('cancelRequested'))
 
     def _calibration_context_reasons(self, rt, wf, node, result):
         if not self._physical_adapter:
             return []
+        if node['procedureId'] in SCIENCE_METHODS:
+            # V3 has optional shape/transition fields and generated sampling
+            # defaults. Compare against the actual frozen operation plans rather
+            # than requiring every possible schema field in committed calibration.
+            try:
+                rows = list(rt.db.execute('SELECT operation_id,state,request FROM platform_effects WHERE workflow_id=? AND attempt_id=?',
+                    (wf['id'], node.get('latestAttemptId'))))
+                effects = {row['operation_id'].rsplit('/',1)[-1]:row for row in rows}
+                if any(stage not in effects or effects[stage]['state'] != 'completed' for stage in ('measure','verify')):
+                    return ['科学验收缺少已完成的首测及独立复测执行记录']
+                measure = json.loads(effects['measure']['request'])
+                verification = json.loads(effects['verify']['request'])
+                current, versions = self._parameters(rt, wf, node)
+                if (current != measure['parameters'] or any(versions.get(key,0) != version
+                        for key, version in measure.get('parameterVersions',{}).items())):
+                    return ['科学采集后参数或版本已改变，必须重新采集']
+                self._science_request_dependencies(rt, wf, node, verification)
+                expected = self.adapter.build_plan(verification)['parameters']
+                if result.get('parameters') != expected:
+                    return ['科学采集参数与冻结的独立复测计划不一致']
+                return []
+            except Exception as exc:
+                return ['科学来源或冻结采集上下文未通过重新核验：' + str(exc)]
         keys = self.adapter.validation_parameter_keys() if callable(getattr(self.adapter, 'validation_parameter_keys', None)) else CALIBRATION_KEYS
         actual = result.get('parameters')
         actual = actual if isinstance(actual, dict) else {}
@@ -2154,12 +3164,31 @@ class Controller(ManualSteps):
         missing = [k for k in keys if k not in actual or k not in committed]
         if missing:
             return ['实际采集回执缺少完整校准上下文，不能验收：' + ', '.join(missing)]
-        outputs = {PARAMETER_ALIASES.get(k, k) for k in PARAMETERS.get(node['procedureId'], ([], []))[1]}
-        changed = [k for k in keys if k not in outputs and not self._same_parameter(actual[k], committed[k])]
+        changed = self._nonoutput_context_changes(node, actual, committed, keys)
         if changed:
             detail = ', '.join(f'{k}: {committed[k]} → {actual[k]}' for k in changed)
             return ['本轮实测工作点与已提交校准不同，当前方法不能提交这些上下文参数；请回到相应上游校准验证：' + detail]
         return []
+
+    def _nonoutput_context_changes(self, node, actual, committed, keys):
+        outputs = {PARAMETER_ALIASES.get(k, k) for k in PARAMETERS.get(node['procedureId'], ([], []))[1]}
+        return [key for key in keys if key not in outputs and not self._same_parameter(actual[key], committed[key])]
+
+    def _spectrum_drive_conflicts(self, rt, wf, node, planned):
+        if not self._physical_adapter or wf.get('mode') != 'real' or node['procedureId'] != 'sq_spectroscopy':
+            return {}
+        committed, versions = self._parameters(rt, wf, {**node, 'parameterOverrides': {}})
+        validated = self.adapter.validation_parameter_keys() if callable(getattr(self.adapter,'validation_parameter_keys',None)) else CALIBRATION_KEYS
+        # A profile default (version zero) does not attest an accepted pi amplitude.
+        keys = [k for k in ('drive_amp','half_pi_amp') if versions.get(k,0)>0 and k in validated and k in planned and k in committed]
+        return {k:(committed[k],planned[k]) for k in self._nonoutput_context_changes(node, planned, committed, keys)}
+
+    def _require_spectrum_drive_context(self, rt, wf, node, planned):
+        conflicts = self._spectrum_drive_conflicts(rt, wf, node, planned)
+        if conflicts:
+            labels = {'drive_amp':'驱动幅度', 'half_pi_amp':'半门幅度'}
+            message = '；'.join(f'{labels[k]}（{k}）已提交 {current!s}，拟下发 {proposed!s}' for k,(current,proposed) in conflicts.items())
+            raise APIError('SPECTRUM_DRIVE_CONTEXT_CONFLICT', message+'。请在本步参数中恢复继承已提交幅度。', 409)
 
     def _commit_candidate(self, rt, wf, node, candidate, versions):
         prefix = wf['id'] + ':' + node['resourceId'] + ':'
@@ -2167,6 +3196,9 @@ class Controller(ManualSteps):
         changed_readout = []
         baseline, _ = self._parameters(rt, wf, {**node, 'parameterOverrides': {}})
         allowed = {PARAMETER_ALIASES.get(k, k) for k in PARAMETERS.get(node['procedureId'], ([], []))[1]}
+        if node['procedureId']=='sq_drag_half_scan':
+            from adapters.science_v3_irb.beta import candidate_key
+            allowed={candidate_key(node.get('result',{}).get('parameters',node.get('parameters',{})))}
         for key, value in candidate.items():
             key = PARAMETER_ALIASES.get(key, key)
             if key not in allowed or not number(value):
@@ -2230,6 +3262,8 @@ class Controller(ManualSteps):
             if node['id'] in affected:
                 node.pop('humanAcceptedAttemptId', None)
                 node.pop('humanAcceptedAt', None)
+                for accepted_key in ('agentAcceptedAttemptId','agentAcceptedAt','agentAcceptedByParentId'):
+                    node.pop(accepted_key, None)
                 node['status'], node['engineState'], node['progress'], node['mainProcedureComplete'] = 'pending', 'stale', 0, False
                 node['detail'] = '前置参数已变更，历史结果保留，等待重新测量'
                 if node.get('result'):
@@ -2295,6 +3329,20 @@ class Controller(ManualSteps):
             return None
 
     def _normalize_changes(self, procedure, changes, parameters):
+        from .smart_q11_launch import SHORT_HALF_POLICY
+        if (procedure == 'sq_spectroscopy' and parameters.get('pulse_compatibility') == SHORT_HALF_POLICY
+                and 'drive_amp' in changes and 'half_pi_amp' in changes
+                and not self._same_parameter(changes['drive_amp'], changes['half_pi_amp'])):
+            raise APIError('PULSE_POLICY_MISMATCH', '当前短半脉冲策略要求 π/2 与 π 同幅度，π/2 使用半时长', 409)
+        if procedure in SCIENCE_IRB_METHODS:
+            mode_keys = getattr(self.adapter, 'parameter_keys_by_mode', None)
+            if callable(mode_keys):
+                from adapters.science_v3_irb.beta import mode_of
+                try:allowed=set(mode_keys(procedure)[mode_of({**parameters,**changes})])
+                except (ValueError,KeyError,TypeError) as exc:
+                    raise APIError('SCIENCE_DRAG_MODE_INVALID',str(exc),409) from None
+                if set(changes)-allowed:
+                    raise APIError('SCIENCE_DRAG_MODE_PARAMETERS','参数不属于所选 DRAG 系数模式：'+', '.join(sorted(set(changes)-allowed)))
         hook = getattr(self.adapter, 'normalize_parameter_changes', None)
         result = hook(procedure, deepcopy(changes), deepcopy(parameters)) if callable(hook) else changes
         if not isinstance(result, dict):
@@ -2309,6 +3357,17 @@ class Controller(ManualSteps):
         if 'enum' in rule:
             if value not in rule['enum'] or isinstance(value, (dict, list)):
                 raise APIError('PARAMETER_OUT_OF_RANGE', key + ' 不在允许选项内')
+        elif rule.get('type')=='integerArray':
+            if (not isinstance(value,list) or not rule['minItems']<=len(value)<=rule['maxItems']
+                    or any(type(item) is not int or not rule['min']<=item<=rule['max'] for item in value)
+                    or rule.get('strictlyIncreasing') and any(b<=a for a,b in zip(value,value[1:]))):
+                raise APIError('PARAMETER_OUT_OF_RANGE',key+' 必须为范围内严格递增的整数数组')
+        elif rule.get('type')=='numberArray':
+            if (not isinstance(value,list) or not rule['minItems']<=len(value)<=rule['maxItems']
+                    or any(not number(item) or not rule['min']<=item<=rule['max'] for item in value)
+                    or rule.get('unique') and len(set(value))!=len(value)
+                    or rule.get('strictlyIncreasing') and any(b<=a for a,b in zip(value,value[1:]))):
+                raise APIError('PARAMETER_OUT_OF_RANGE',key+' 必须为明确、有限且符合线路范围的数值数组')
         elif not number(value) or not rule['min'] <= value <= rule['max'] or (rule.get('integer') and int(value) != value):
             raise APIError('PARAMETER_OUT_OF_RANGE', key + ' 超出允许范围或类型')
 
@@ -2319,6 +3378,9 @@ class Controller(ManualSteps):
         return type(left) is type(right) and left == right
 
     def _assert_adapter_binding(self, wf):
+        if getattr(self, '_execution_base', None) is not None:
+            from .attempt_execution import assert_binding
+            return assert_binding(self, wf)
         if wf['mode'] == 'real' and (wf.get('adapterId') != self.adapter_id or wf.get('adapterProfileHash') != self.adapter_profile_hash
                                     or self._adapter_fingerprint() != self.adapter_profile_hash):
             raise APIError('ADAPTER_CHANGED', '任务绑定的执行器或配置已变化，请创建与当前配置绑定的新任务', 409)
@@ -2451,10 +3513,12 @@ class Controller(ManualSteps):
             'scope': 'per_operation',
             'maximumWorkflowShots': wf['maxTotalShots'],
             'reservedWorkflowShots': wf.get('reservedShots', 0),
-            'remainingWorkflowShots': max(0, wf['maxTotalShots'] - wf.get('reservedShots', 0)),
+            'remainingWorkflowShots': task_budget.remaining(wf, 'maxTotalShots', wf.get('reservedShots', 0)),
             'selectionAndVerificationBudgetedSeparately': True,
             'selectionAdmissionRequiresVerificationCapacity': self._physical_adapter,
             'budgetSemantics': 'maximumTotalShots 和 maximumPoints 分别限制一次原生操作。启动 selection 前必须有首测与后续独立 verification 的联合容量；该预检不扣预算，实际每个 operation 仍只预留一次。verification 只检查自身剩额，不再为首测计费；失败或取消不退还已预留预算。'}
+        if task_budget.only_accounting(wf):
+            constraints.update(budgetMode=task_budget.MODE, budgetSemantics='逐次记录真实操作及预留 shots。任务不设累计额度，单次原生上限与首复测要求仍须满足。')
         adapter_type = type(self.adapter)
         semantics = sampling_context(implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__,
             profile_id=self.profile.get('id'), procedure_id=node['procedureId'])
@@ -2515,10 +3579,7 @@ class Controller(ManualSteps):
             if implementation != 'adapters.arclight.ArcLightAdapter':
                 return bounded_context([], wf, status='unsupported_identity')
             root = checked_path(self.adapter.root)
-            profiles = {identity: checked_path(root / filename, parent=root).read_bytes()
-                        for identity, (filename, _) in PROFILE_FILES.items()}
-            manifest = checked_path(root / 'adapters/arclight_runtime/source_manifest.json', parent=root).read_bytes()
-            bindings = audited_bindings(implementation, profiles, manifest)
+            bindings = load_audited_bindings(root, implementation)
             if (wf.get('adapterId') not in bindings
                     or wf.get('adapterProfileHash') != bindings[wf['adapterId']]['fingerprint']):
                 return bounded_context([], wf, status='unaudited_binding')
@@ -2598,10 +3659,17 @@ class Controller(ManualSteps):
         except (APIError, OSError, ValueError, TypeError, KeyError):
             return bounded_context([], wf, examined=examined, excluded=excluded, status='archive_unavailable')
 
-    def _decide(self, workflow_id, node_id):
+    def _decide(self, workflow_id, node_id, *, _smart_parent=None):
+        if getattr(self, '_attempt_execution_authorization', {}).get('executionVersion') == 'smart-rabi16-v1':
+            # Replanning belongs to the unchanged parent controller; the
+            # completed attempt's adapter is only its immutable evidence reader.
+            return self._execution_base._decide(workflow_id, node_id, _smart_parent=_smart_parent)
         wf = self.get(workflow_id)
         node = self._node(wf, node_id)
-        if wf['policy'] != 'autopilot':
+        if _smart_parent is not None:
+            from .smart_science import assert_authorized
+            assert_authorized(self, wf, _smart_parent)
+        if wf['policy'] != 'autopilot' and _smart_parent is None:
             self._attention(workflow_id, 'quality_attention', '本轮结果待处理；可查看质量依据后复测或选择自主策略')
             return False
         try:
@@ -2609,7 +3677,11 @@ class Controller(ManualSteps):
         except APIError as exc:
             self._attention(workflow_id, 'adapter_changed', exc.message, node_id=node_id)
             return False
-        self._attention(workflow_id, 'deciding', '智能体正在根据实测证据选择下一步')
+        from .smart_main_checkpoint import is_smart_main
+        decision_revision = wf['revision'] if is_smart_main(wf) else None
+        if self._attention(workflow_id, 'deciding', '智能体正在根据实测证据选择下一步',
+                           decision_revision=decision_revision) is False:
+            return False
         wf = self.get(workflow_id)
         node = self._node(wf, node_id)
         with self.store.connect() as rt:
@@ -2620,7 +3692,7 @@ class Controller(ManualSteps):
         backtrack_admission = eligible_backtracks(wf, self._ancestors(wf, node))
         payload = {'runId': workflow_id, 'nodeId': node_id, 'revision': wf['revision'], 'mode': 'real',
                    'goal': wf['name'], 'observations': {'result': node.get('result'), 'parameters': effective_parameters,
-                   'attempt': node['attempt'], 'remainingAttempts': wf['maxAttemptsPerNode'] - node['attempt']},
+                   'attempt': node['attempt'], 'remainingAttempts': task_budget.remaining(wf, 'maxAttemptsPerNode', node['attempt'])},
                    'allowedActions': ['retry', 'backtrack', 'wait', 'stop'], 'allowedBacktrackTargets': backtrack_admission['allowed'],
                    'backtrackAdmission': backtrack_admission,
                    'parameterBounds': self._parameter_schema(node['procedureId']), 'rules': node['rules'], 'history': history[-8:]}
@@ -2633,6 +3705,9 @@ class Controller(ManualSteps):
                 for key, value in marker['values'].items():
                     payload['parameterBounds'][key] = {'min': value, 'max': value}
         payload = build_decision_context(payload, procedure_id=node['procedureId'])
+        if model_recovery.enabled(wf):
+            from .smart_evidence_projection import compact_block_evidence
+            payload = compact_block_evidence(payload)
         # Separate from observations/history: historical IDs can never become
         # the current attempt's evidence allowlist, including in legacy agents.
         if node['procedureId'] == 'ro_power_shift':
@@ -2649,6 +3724,30 @@ class Controller(ManualSteps):
             payload['modelParameterSemantics'] = semantics
             if rescan_context['state'] is not None:
                 payload['modelParameterSemantics']['fixedReadoutContext'] = rescan_context
+        if _smart_parent is not None:
+            from .smart_science import decision_bounds as science_decision_bounds
+            payload['parameterBounds'] = science_decision_bounds(wf, payload['parameterBounds'])
+            payload['allowedActions'] = ['retry', 'wait', 'stop']
+            payload['allowedBacktrackTargets'] = []
+            payload['smartScienceScope'] = {'parentWorkflowId': _smart_parent,
+                'meaning': '仅可调整给出的扫描和采集参数；门与读出来源保持冻结，失败结果不能批准'}
+        from . import smart_sampling
+        payload['parameterBounds'] = smart_sampling.model_bounds(self, wf, node, payload['parameterBounds'])
+        from . import smart_rabi_window
+        payload['parameterBounds'], window_scope = smart_rabi_window.model_scope(self, wf, node, payload['parameterBounds'])
+        if window_scope is not None:
+            payload['smartRabiWindowScope'] = window_scope
+            # This is an evidence-bound addition to the ordinary method
+            # semantics, not a change to the general method allowlist.
+            scoped_semantics = payload.get('modelParameterSemantics')
+            if scoped_semantics is not None:
+                scoped_semantics['parameterBounds'] = deepcopy(payload['parameterBounds'])
+                scoped_semantics['excludedParameters'] = [key for key in scoped_semantics['excludedParameters'] if key != 'drive_length_s']
+                scoped_semantics['notes'].append(window_scope['meaning'])
+        if (payload['parameterBounds'].get('acquisitions_per_point', {}).get('max') == 16
+                and smart_sampling.eligible(wf, node)):
+            payload['smartSamplingScope'] = {'policy': 'q11-smart-rabi-independent-blocks16/1',
+                'meaning': '已核对当前完整弱响应；可申请16个独立2000-shot块，保持驱动/门长/读出工作点。9至15块不属于此版本。首复测独立且正常计量。'}
         decision_bounds = deepcopy(payload['parameterBounds'])
         semantic_conditions = deepcopy(semantics['conditions']) if semantics['applied'] else []
         payload['executionConstraints'] = self._decision_execution_constraints(wf, node, payload)
@@ -2662,24 +3761,61 @@ class Controller(ManualSteps):
         upstream_context = resolve_accepted_upstream(self.root, self.store.path, wf, node,
             implementation_id=adapter_type.__module__ + '.' + adapter_type.__qualname__)
         payload = attach_accepted_upstream(payload, upstream_context)
-        response = self._brain('/decide', payload)
+        from .smart_q11_launch import attach_rabi_history
+        payload = attach_rabi_history(payload, wf, node['procedureId'])
+        payload = model_recovery.attach_feedback(payload, wf)
+        payload = model_recovery.prepare_call(self, payload)
+        if payload is None:
+            return False
+        from .historical_measurements import capability as historical_search_capability
+        history_capability = historical_search_capability({**wf, 'revision': payload['revision']}, node)
+        if history_capability:
+            payload['historicalEvidenceSearch'] = history_capability
+        if model_recovery.enabled(wf):
+            from .smart_evidence_projection import fit_final_input
+            payload = fit_final_input(payload)
+        if javascript_json_units_upper_bound(payload) > MODEL_INPUT_MAX_UNITS:
+            payload.pop('historicalEvidenceSearch', None)  # Optional reference tool cannot crowd out current evidence.
+        response = model_recovery.call_model(self, payload)
         with self.store.transaction() as rt:
             current = self.get(workflow_id, rt)
             if current['revision'] != payload['revision']:
                 return False  # A user action superseded this model call.
+            if _smart_parent is not None:
+                try:
+                    assert_authorized(self, current, _smart_parent, rt)
+                except APIError:
+                    return False
             current_node = self._node(current, node_id)
             if not isinstance(response, dict) or response.get('status') != 'ok':
                 message = str(response.get('message') or response.get('error') or '模型尚未返回有效决策') if isinstance(response, dict) else '模型尚未返回有效决策'
                 current['status'], current['engineState'] = 'attention', 'waiting_model'
                 current_node.update(status='attention', engineState='waiting_model', detail=message)
+                error = response.get('error', {}) if isinstance(response, dict) else {}
+                code = error.get('code', 'MODEL_UNAVAILABLE') if isinstance(error, dict) else 'MODEL_UNAVAILABLE'
+                model_recovery.record_failure(self, rt, current, current_node, payload,
+                    code=code, message=message, transient=True)
                 self.store.save(rt, current, 'attention', {'message': message})
                 return False
             try:
                 binding = response.get('binding')
                 if binding and binding != {k: payload[k] for k in ('runId', 'nodeId', 'revision')}:
                     raise APIError('STALE_MODEL_DECISION', '模型响应绑定了不同运行版本')
-                decision = validate_proposal(response.get('decision'), current, current_node, decision_bounds)
+                if _smart_parent is not None:
+                    from .smart_science import validate_decision
+                    decision = validate_decision(self, current, current_node, response.get('decision'), decision_bounds)
+                else:
+                    decision = validate_proposal(response.get('decision'), current, current_node, decision_bounds)
+                if payload.get('modelEvidenceCatalog'):
+                    from .smart_evidence_projection import check_shown_evidence
+                    check_shown_evidence(payload, decision)
+                if _smart_parent is not None and decision['action'] not in ('retry','wait','stop'):
+                    raise APIError('SMART_SCIENCE_DECISION', '科学子项仅能调整当前扫描，不能跳过或更换门来源', 409)
+                model_recovery.guard_proposal(current, decision, controller=self, rt=rt, node=current_node,
+                                              bounds=decision_bounds, targets=payload['allowedBacktrackTargets'])
                 release_readout = None
+                window_authorization = None
+                sampling_plan_controller = self
                 if decision['action'] == 'retry':
                     requested_changes = {k: v.get('to') if isinstance(v, dict) else v for k, v in decision.get('parameterChanges', {}).items()}
                     parameters, versions = self._parameters(rt, current, current_node)
@@ -2688,11 +3824,15 @@ class Controller(ManualSteps):
                         if (condition.get('requiresCallerSemanticCheck') and set(condition['parameters']).intersection(changes)
                                 and not set(condition.get('requires', [])).issubset(changes)):
                             raise APIError('INEFFECTIVE_PARAMETER_CHANGE', '固定读出点的 points 只有与 amp_start、amp_stop 成对重扫请求同时提供才生效')
-                    for key, value in changes.items():
-                        self._validate_parameter(key, value, self._parameter_schema(current_node['procedureId']))
                     trial, release_readout = self._readout_retry_parameters(rt, current, current_node, parameters, versions, changes)
-                    lookahead = self._validate_plan(current, current_node, trial, versions, ident('model-plan'),
-                                                    joint_budget=True, rt=rt)
+                    model_recovery.guard_retry(self, rt, current, current_node, trial)
+                    if smart_sampling.eligible(current, current_node):
+                        window_authorization = smart_rabi_window.prepare_retry(self, rt, current, current_node, trial, versions, decision)
+                    sampling_plan_controller = smart_sampling.authorize_retry(self, rt, current, current_node, trial, versions, decision)
+                    for key, value in changes.items():
+                        sampling_plan_controller._validate_parameter(key, value, sampling_plan_controller._parameter_schema(current_node['procedureId']))
+                    lookahead = sampling_plan_controller._validate_plan(current, current_node, trial, versions, ident('model-plan'),
+                                                                        joint_budget=True, rt=rt)
                     if lookahead is not None:
                         decision['budgetLookahead'] = lookahead
                     decision['parameterChanges'] = changes
@@ -2722,14 +3862,17 @@ class Controller(ManualSteps):
                 current_node.update(status='attention', engineState='waiting_model',
                                     detail='模型决策未执行：' + exc.message,
                                     lastDecisionError={'code': exc.code, 'message': exc.message, 'at': now()})
+                model_recovery.record_failure(self, rt, current, current_node, payload,
+                    code=exc.code, message=current_node['detail'], proposal=response.get('decision'))
                 self.store.save(rt, current, 'model_decision_rejected', {
                     'nodeId': node_id, 'attemptId': current_node.get('latestAttemptId'),
                     'errorCode': exc.code, 'message': current_node['detail']})
                 return False
+            model_recovery.record_resolution(current, decision)
             self._record_decision(rt, current, node_id, decision, 'model')
             action = decision['action']
             if action == 'retry':
-                if current_node['attempt'] >= current['maxAttemptsPerNode']:
+                if task_budget.exhausted(current, 'maxAttemptsPerNode', current_node['attempt']):
                     current['status'], current['engineState'] = 'attention', 'budget_exhausted'
                     current_node.update(status='attention', engineState='budget_exhausted',
                                         detail='当前步骤尝试次数已达上限；' + decision['reason'])
@@ -2742,6 +3885,8 @@ class Controller(ManualSteps):
                         current_node['parameters'].pop('amplitudes', None)
                     current_node.setdefault('parameterOverrides', {}).update(changes)
                     current_node['parameters'].update(changes)
+                    smart_sampling.commit_retry(current, current_node, sampling_plan_controller)
+                    smart_rabi_window.commit_retry(current_node, window_authorization)
                     current_node['engineState'], current_node['status'] = 'retry_queued', 'pending'
                     current_node['detail'] = decision['reason']
                     current['status'], current['engineState'] = 'queued', 'queued'
@@ -2785,7 +3930,7 @@ class Controller(ManualSteps):
                     and k not in ('__proto__', 'prototype', 'constructor', 'fileContents', 'rawData', 'rawText')}
         return None
 
-    def _chat_observations(self, workflow, budget, db=None):
+    def _chat_observations(self, workflow, budget, db=None, operation_facts=None):
         """Bounded registered evidence metadata; never open an acquisition file."""
         if not workflow:
             return [], 0
@@ -2823,6 +3968,11 @@ class Controller(ManualSteps):
                             'parameters': {k: v for k, v in result.get('parameters', {}).items() if k in parameter_keys},
                             'provenance': {k: v for k, v in result.get('provenance', {}).items() if k in provenance_keys},
                             'summaryOnly': True, 'rawFileRead': False}
+                        facts = (operation_facts or {}).get((result.get('provenance') or {}).get('operationId'))
+                        if facts:
+                            summary['parameterEvidence'] = facts['parameterEvidence']
+                            summary['acquiredAtBeijing'] = facts.get('acquiredAtBeijing')
+                            summary['displayTimeZone'] = 'Asia/Shanghai (UTC+08:00)'
                         summary = self._chat_summary_value(summary)
                         size = len(dumps(summary))
                         if size > 12000 or used + size > budget or len(observations) >= 128:
@@ -2877,7 +4027,9 @@ class Controller(ManualSteps):
                     'result': {k: (selected_node.get('result') or {}).get(k) for k in
                         ('dataKind', 'metrics', 'quality', 'acquiredAt', 'partial', 'verificationPending', 'stale')}})
             observation_budget = max(0, min(60000, 170000 - len(dumps(context)) - len(message)))
-            context['observations'], omitted = self._chat_observations(wf, observation_budget, db)
+            operation_facts = {operation['operationId']: operation
+                for node in context.get('acquisitionState', {}).get('nodes', []) for operation in node['operations']}
+            context['observations'], omitted = self._chat_observations(wf, observation_budget, db, operation_facts)
             context['observationSummary'] = {'provided': len(context['observations']), 'omitted': omitted,
                                              'source': 'registered_workflow_evidence_metadata', 'rawFileRead': False}
             request = bound_chat_observations({'message': message, 'sessionId': model_session_id, 'context': context})
@@ -2889,15 +4041,21 @@ class Controller(ManualSteps):
         brain_address = urllib.parse.urlsplit(self.brain_url)
         agent_port = brain_address.port or (443 if brain_address.scheme == 'https' else 80)
         return {'status': 'ok', 'version': '0.2.0', 'projectId': 'qcal-local-f8-platform', 'projectRoot': str(self.root.resolve()), 'agentPort': agent_port, 'agent': self._brain('/health', timeout=3),
+                'stabilityError': self._stability_error,
                 'hardware': {**self.adapter.preflight(), 'ownership': self.hardware_ownership()}, 'capabilities': self.adapter.capabilities()}
 
     def hardware_ownership(self, refresh=False):
         if not self._physical_adapter:
             return {'verified': True, 'owners': [], 'reason': 'Explicit test adapter; no physical endpoint'}
         if refresh or self._ownership_cache is None or time.time() - self._ownership_cache.get('checkedAt', 0) > 15:
-            value = self.adapter.hardware_ownership(refresh=refresh)
-            if not isinstance(value, dict) or value.get('verified') is not True or not isinstance(value.get('owners'), list):
-                value = {'verified': False, 'owners': [], 'reason': '物理执行器独占状态无法确认'}
+            try:
+                value = self.adapter.hardware_ownership(refresh=refresh)
+            except Exception:
+                value = {'verified': False, 'owners': [], 'check':{'schema':'qcal-socket-check/1','status':'adapter_error'}}
+            if not isinstance(value, dict):value={}
+            if value.get('verified') is not True or not isinstance(value.get('owners'), list):
+                value = {**value, 'verified': False, 'owners':value.get('owners') if isinstance(value.get('owners'),list) else []}
+            value.setdefault('checkedAt',time.time())
             self._ownership_cache = value
         return self._ownership_cache
 
@@ -2914,6 +4072,14 @@ class Controller(ManualSteps):
         # workflow quality with new attempts or events in the same report.
         with read_chat_snapshot(self.store.path) as db:
             wf = self.get(workflow_id, types.SimpleNamespace(db=db))
+            if (wf.get('smartRun') or {}).get('schema') == 'q11-full-same-gate/1':
+                from scripts.export_report_snapshot import _read_report, attach_smart_children
+                stamp, root = now(), self.root / 'data'
+                report = _read_report(db, workflow_id, root, stamp)
+                attach_smart_children(db, report, root, stamp)
+                report['events'] = [{**dict(row), 'payload': json.loads(row['payload'])} for row in db.execute(
+                    'SELECT * FROM events WHERE run_id=? ORDER BY seq', (workflow_id,))]
+                return report
             nodes = []
             for node in wf['nodes']:
                 attempts = [json.loads(row[0]) for row in db.execute(

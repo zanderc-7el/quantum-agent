@@ -1,7 +1,8 @@
 """Pure projections of authenticated prior failures; never grants execution.
 
 The controller supplies DB-bound receipts and files it has independently checked
-against the artifact registry and their on-disk SHA256. This module does no I/O.
+against the artifact registry and their on-disk SHA256. Only the explicit binding
+loader reads fixed audited source files; projections themselves perform no I/O.
 Historical references deliberately contain no current-evidence IDs. Missing,
 partial, exceptional or unaudited records fail closed and remain in the archive.
 """
@@ -10,7 +11,7 @@ import hashlib
 import json
 import math
 
-from .common import digest, dumps, number
+from .common import APIError, checked_path, digest, dumps, file_hash, number
 from .decision_context import build_decision_context
 
 IMPLEMENTATION = 'adapters.arclight.ArcLightAdapter'
@@ -19,6 +20,10 @@ PROFILE_FILES = {
     'arclight-private-f8-q11-v1': ('adapters/arclight_profile.json', '33094da60d34cb36355af6054fb412185b411980ebb3a802ef2177acfd6c7114'),
     'arclight-private-f8-q11-v2': ('adapters/arclight_profile_v2.json', '2a77d880ac6cfa5fdc93115653faffbd8e6a7d58311a7f6da1e34f6deb033f14'),
 }
+V3_ID = 'arclight-private-f8-q11-v3'
+V3_PROFILE = ('adapters/arclight_profile_v3.json', 'dc3b91cdb75a1c21f622f142d61d56e63cb80336088725e8000916d6b808ecfa')
+V3_MANIFEST = ('adapters/arclight_analysis_v3/source_manifest.json', '96b3cf7cb560120f7a5f5babe01a637a99c680ac8b528a2ce26c43f3d2d83cfc')
+V3_ANALYSIS = 'adapters/arclight_analysis_v3/platform_analysis.py'
 MAX_CASES, MAX_CANDIDATES, MAX_CONTEXT_BYTES = 6, 64, 32768
 ENTRY_FILES = {'run_single_qubit.py', 'bootstrap.py', 'cavity_runtime.py', 'native_single_qubit_specs.py',
                'native_allxy_spec.py', 'paired_rb_support.py', 'repeated_iq_acquisition.py', 'validated_short_half_compat.py'}
@@ -52,7 +57,53 @@ def audited_bindings(implementation, profile_bytes, manifest_bytes):
         fingerprint = digest({'profile': frozen, 'sourceManifestSha256': MANIFEST_SHA})
         execution_hash = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
         output[identity] = {'fingerprint': fingerprint, 'profile': profile, 'manifest': manifest,
+                            'profileFileSha256': PROFILE_FILES[identity][1], 'sourceManifestSha256': MANIFEST_SHA,
+                            'analysisSourcePath': 'adapters/arclight_runtime/platform_analysis.py',
+                            'sourceFiles': deepcopy(json.loads(manifest_bytes)),
                             'executionProfileHashes': [execution_hash({**profile, 'enabled': flag}) for flag in (False, True)]}
+    return output
+
+
+def load_audited_bindings(root, implementation):
+    """Read fixed version identities; invalid/missing v3 never disables v1/v2.
+
+    V3 is independently pinned, not relabelled as v2. The acquisition/core entry
+    sources are unchanged; only its separate wrapper and analysis are selected.
+    Full sourceFiles are exposed for callers that recheck the entire closure.
+    """
+    if implementation != IMPLEMENTATION:
+        return {}
+    root = checked_path(root)
+    profiles = {identity: checked_path(root/name, parent=root).read_bytes()
+                for identity, (name, _) in PROFILE_FILES.items()}
+    old_manifest = checked_path(root/'adapters/arclight_runtime/source_manifest.json', parent=root).read_bytes()
+    output = audited_bindings(implementation, profiles, old_manifest)
+    if not output:
+        return output
+    try:
+        profile_data = checked_path(root/V3_PROFILE[0], parent=root).read_bytes()
+        manifest_data = checked_path(root/V3_MANIFEST[0], parent=root).read_bytes()
+        if (hashlib.sha256(profile_data).hexdigest() != V3_PROFILE[1]
+                or hashlib.sha256(manifest_data).hexdigest() != V3_MANIFEST[1]):
+            return output
+        profile, entries = json.loads(profile_data), json.loads(manifest_data)
+        files = {entry['path']:entry['sha256'] for entry in entries}
+        if (profile.get('id') != V3_ID or profile.get('sourceManifest') != V3_MANIFEST[0]
+                or profile.get('analysisSource') != V3_ANALYSIS
+                or profile['runnerSha256'] != files.get(profile['runner'])
+                or file_hash(checked_path(root/profile['runner'], parent=root)) != profile['runnerSha256']
+                or file_hash(checked_path(root/V3_ANALYSIS, parent=root)) != files[V3_ANALYSIS]):
+            return output
+        manifest = deepcopy(output['arclight-private-f8-q11-v2']['manifest'])
+        manifest['platform_analysis.py'] = files[V3_ANALYSIS]
+        frozen = {k:v for k,v in profile.items() if k not in ('enabled','connectionConfirmedAt')}
+        execution_hash = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        output[V3_ID] = {'fingerprint':digest({'profile':frozen,'sourceManifestSha256':V3_MANIFEST[1]}),
+            'profile':profile,'manifest':manifest,'profileFileSha256':V3_PROFILE[1],
+            'sourceManifestSha256':V3_MANIFEST[1],'sourceFiles':entries,'analysisSourcePath':V3_ANALYSIS,
+            'executionProfileHashes':[execution_hash({**profile,'enabled':flag}) for flag in (False,True)]}
+    except (OSError, ValueError, KeyError, TypeError, APIError):
+        pass
     return output
 
 
@@ -224,7 +275,10 @@ def project_failure_case(record, current_workflow, current_node, bindings):
             'resource': current_node['resourceId'], 'procedure': attempt['procedureId'],
             'finishedAt': attempt['endedAt'], 'failedStage': 'independent_verification' if len(operations) == 2 else 'selection',
             'sourceAdapter': workflow['adapterId'], 'sourceProfileFingerprint': workflow['adapterProfileHash'],
-            'sourceManifestSha256': MANIFEST_SHA, 'crossProfileCompatibility': 'audited_v1_v2_only_id_and_acquisition_cap_differ',
+            'sourceManifestSha256': binding['sourceManifestSha256'],
+            'crossProfileCompatibility': ('audited_v1_v2_only_id_and_acquisition_cap_differ'
+                if V3_ID not in (workflow['adapterId'],current_workflow['adapterId'])
+                else 'audited_same_physical_profile_with_separate_frozen_analysis_versions'),
             'parameters': deepcopy(result['parameters']), 'parameterVersions': deepcopy(attempt.get('parameterVersions', {})),
             'failureClass': 'native_analysis_failed' if native_failed else 'controller_gate_failed',
             'nativeAccepted': native.get('accepted'),

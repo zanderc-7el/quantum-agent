@@ -7,7 +7,7 @@ import hashlib
 import json
 
 from .common import APIError, checked_path, now
-from .prior_failure_context import IMPLEMENTATION, MANIFEST_SHA, PROFILE_FILES, audited_bindings
+from .prior_failure_context import IMPLEMENTATION, PROFILE_FILES, V3_ID, load_audited_bindings
 
 SEED_FILE = 'knowledge/working_point_q11_seed_v1.json'
 SEED_SHA = 'c3bee40407ea8783f3eeb2baaf172e830cf171dda220ab3acdb4e79ccb7941d0'
@@ -29,14 +29,11 @@ def build_working_point_seed(adapter):
     implementation = type(adapter).__module__ + '.' + type(adapter).__qualname__
     profile = adapter.profile
     if (implementation != IMPLEMENTATION or getattr(adapter, 'physical_hardware', None) is not True
-            or profile.get('id') not in PROFILE_FILES):
-        raise APIError('WORKING_POINT_ADAPTER_REQUIRED', '复刻工作点仅适用于已审计 Q11 ArcLight v1/v2', 409)
+            or profile.get('id') not in (*PROFILE_FILES, V3_ID)):
+        raise APIError('WORKING_POINT_ADAPTER_REQUIRED', '复刻工作点仅适用于已审计 Q11 ArcLight v1/v2/v3', 409)
     try:
         root = checked_path(adapter.root)
-        profiles = {identity: _read(root / path, sha, 65536)
-                    for identity, (path, sha) in PROFILE_FILES.items()}
-        manifest = _read(root / 'adapters/arclight_runtime/source_manifest.json', MANIFEST_SHA, 1024 * 1024)
-        bindings = audited_bindings(implementation, profiles, manifest)
+        bindings = load_audited_bindings(root, implementation)
         binding = bindings.get(profile['id'])
         frozen = lambda value: {k: v for k, v in value.items() if k not in ('enabled', 'connectionConfirmedAt')}
         if not binding or frozen(profile) != frozen(binding['profile']):
@@ -71,7 +68,7 @@ def build_working_point_seed(adapter):
         result = deepcopy(seed)
         result.update(checkedAt=now(), seedMetadataSha256=SEED_SHA, currentAdapter={
             'implementation': implementation, 'profileId': profile['id'],
-            'profileFileSha256': PROFILE_FILES[profile['id']][1], 'sourceManifestSha256': MANIFEST_SHA})
+            'profileFileSha256': binding['profileFileSha256'], 'sourceManifestSha256': binding['sourceManifestSha256']})
         return result
     except APIError:
         raise

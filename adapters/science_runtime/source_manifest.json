@@ -1,0 +1,26 @@
+[
+  {
+    "path": "adapters/science_runtime/__init__.py",
+    "sha256": "4a87aa360694bb634bb1812e5bc7a18012a0ddbeb604ed38739cd96de867f191"
+  },
+  {
+    "path": "adapters/science_runtime/compile_client.py",
+    "sha256": "b30ed58497d87c6c03d71daf64c7ed3dcaa6cf7f6a8e135cecb19631bc8ebe56"
+  },
+  {
+    "path": "adapters/science_runtime/compile_only_worker.py",
+    "sha256": "2099645ee16e8f5eac8f0e001d7af5863e8436e442135b264497a0e02b71e4f6"
+  },
+  {
+    "path": "adapters/science_runtime/extension.py",
+    "sha256": "56f2c03bb953211ec39116a677d7209692553d2afa3bb81e965ba523369573a8"
+  },
+  {
+    "path": "adapters/science_runtime/policy.py",
+    "sha256": "b477ebcf4f59f49a7a4532e4e959d8b00e9e5419ad96bb5aa79bd35e31c2b836"
+  },
+  {
+    "path": "backend/native_preview.py",
+    "sha256": "a2ce3398af02b88f90338795b82a0b07df230837e94e4d2cf937fa82a7d55ae5"
+  }
+]

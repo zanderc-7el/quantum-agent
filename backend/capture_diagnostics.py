@@ -13,7 +13,7 @@ import subprocess
 
 from .chat_acquisition_context import read_chat_snapshot
 from .common import APIError, checked_path, file_hash
-from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, audited_bindings,
+from .prior_failure_context import (CHECKED_JSON_NAMES, load_audited_bindings,
     _validate_effect, javascript_json_units_upper_bound)
 
 VERSION = 'qcal-capture-order-diagnostics/2'
@@ -96,15 +96,14 @@ def resolve_sources(root, db_path, workflow, node, *, implementation_id):
         return unavailable('unsupported_procedure')
     try:
         root = checked_path(root)
-        bindings = audited_bindings(implementation_id,
-            {identity: checked_path(root / name, parent=root).read_bytes() for identity, (name, _) in PROFILE_FILES.items()},
-            checked_path(root / 'adapters/arclight_runtime/source_manifest.json', parent=root).read_bytes())
+        bindings = load_audited_bindings(root, implementation_id)
         binding = bindings.get(workflow.get('adapterId'))
         _require(binding is not None and workflow.get('adapterProfileHash') == binding['fingerprint']
                  and workflow.get('mode') == 'real' and node.get('resourceId') == 'Q11', 'unaudited_binding')
         source_hashes = {}
         for name in ('platform_analysis.py', 'analyze_single_qubit.py'):
-            path = checked_path(root / 'adapters/arclight_runtime' / name, parent=root)
+            path = checked_path(root / (binding['analysisSourcePath'] if name == 'platform_analysis.py'
+                                       else 'adapters/arclight_runtime/' + name), parent=root)
             source_hashes[name] = binding['manifest'][name]
             _require(file_hash(path) == source_hashes[name], 'analysis_source_changed')
         with read_chat_snapshot(db_path) as db:
@@ -157,6 +156,8 @@ def resolve_sources(root, db_path, workflow, node, *, implementation_id):
         return {'status': 'resolved', 'schema': VERSION, 'root': str(root), 'python': binding['profile']['python'],
             'binding': {'runId': workflow['id'], 'nodeId': node['id'], 'revision': workflow['revision'],
                         'sourceAttempt': attempt['id'], 'procedureId': node['procedureId']},
+            'sourceBinding': {'adapterId': workflow['adapterId'], 'adapterProfileHash': binding['fingerprint'],
+                              'sourceManifestSha256': binding['sourceManifestSha256']},
             'sourceHashes': source_hashes, 'operations': sources}
     except (APIError, OSError, sqlite3.Error, ValueError, TypeError, KeyError, AttributeError, IndexError, RuntimeError, StopIteration) as exc:
         # Fixed codes only; never leak file paths, arbitrary raw JSON or errors.

@@ -1,11 +1,16 @@
+import type { BiasDeployment } from './biasRoutes.ts';
+import type { ChipTopologyData, SignalPath } from './configurationDiagrams.ts';
+import { ApiError } from './remoteGateway.ts';
+import type {OwnershipCheck} from './ownershipPresentation.ts';
+import type {RabiFitEvidence} from './qualityPresentation.ts';
 export type Scope = { kind: 'workspace' | 'campaign' | 'workflow'; id?: string };
 export interface ConversationInspection { tool: string; arguments?: Record<string, unknown>; checkedAt?: string; ok: boolean; source?: unknown; summary?: unknown }
 export interface Conversation { id: string; revision: number; scope: Scope; messages: {id: string; role: string; content: string; createdAt: string; analysisMessage?: string; inspections?: ConversationInspection[]}[]; pending?: unknown; proposals?: unknown[]; toolResults?: unknown[]; error?: string }
 export interface Qubit { id: string; label: string; physicalId?: string; busId?: string; frequencyAlias?: string; identityStatus?: string; issues?: unknown[]; issueMessages?: string[]; parameters: Record<string, unknown>; provenance?: unknown }
-export interface Configuration { id: string; revision: number; name: string; status?: string; qubits?: Qubit[]; machine?: string; instrument?: Record<string, unknown>; routes?: Record<string, Record<string, unknown>>; wiringConfirmed?: boolean; issues?: unknown[]; versions?: {id: string; name?: string; qubits?: Qubit[]}[] }
+export interface Configuration extends BiasDeployment { topology?: ChipTopologyData; signalPaths?: SignalPath[]; id: string; revision: number; name: string; status?: string; qubits?: Qubit[]; machine?: string; instrument?: Record<string, unknown>; routes?: Record<string, Record<string, unknown>>; wiringConfirmed?: boolean; issues?: unknown[]; versions?: {id: string; name?: string; qubits?: Qubit[]; topology?: ChipTopologyData}[] }
 export interface ImportRecord { id: string; revision: number; filename?: string; status?: string; draft?: Configuration; issues?: unknown[]; [key: string]: unknown }
 export interface Campaign { id: string; revision: number; name: string; state: string; chipVersionId: string; deploymentVersionId: string; resourceIds: string[]; children: {resourceId: string; workflowId: string; status: string; engineState?: string; currentStep?: string; verifiedCount: number; totalCount: number; error?: unknown}[] }
-export interface Attention { id: string; revision: number; workflowId?: string; campaignId?: string; nodeId?: string; title: string; message: string; recommendation?: string; severity: string; scope: string; state: 'open' | 'deferred' | 'resolved'; actions: {id: string; label: string}[] }
+export interface Attention { id: string; revision: number; workflowId?: string; workflowName?:string; workflowCreatedAt?:string; campaignId?: string; nodeId?: string; title: string; message: string; recommendation?: string; severity: string; scope: string; state: 'open' | 'deferred' | 'resolved'; actions: {id: string; label: string}[]; ownershipCheck?:OwnershipCheck; rabiFitEvidence?:RabiFitEvidence }
 export const operationId = () => crypto.randomUUID();
 export const namespace = (project: string, scope: Scope) => `qcal.workspace.v1:${encodeURIComponent(project)}:${scope.kind}:${encodeURIComponent(scope.id ?? '')}`;
 export function attentionCandidate(items: Attention[], seen: Record<string, number>) { return items.find(i => i.state === 'open' && seen[i.id] !== i.revision); }
@@ -19,19 +24,26 @@ export function uploadBody(filename: string, dataUrl: string) {
   if (!dataUrl.startsWith('data:') || !dataUrl.includes(';base64,') || !contentBase64) throw new Error('文件读取失败');
   return {operationId: operationId(), filename, contentBase64};
 }
-export function createWorkspaceGateway(session: () => Promise<{token: string}>, request: typeof fetch = globalThis.fetch.bind(globalThis)) {
+export function createWorkspaceGateway(session: (refresh?: boolean) => Promise<{token: string}>, request: typeof fetch = globalThis.fetch.bind(globalThis)) {
   const read = async <T>(path: string, init?: RequestInit): Promise<T> => {
     const response = await request(`/api${path}`, {credentials: 'same-origin', ...init});
     const value = await response.json();
-    if (!response.ok) throw new Error(value.error?.message ?? value.message ?? `请求失败 (${response.status})`);
+    if (!response.ok) throw new ApiError(value.error?.message ?? value.message ?? `请求失败 (${response.status})`,response.status,value.error?.code);
     return value as T;
   };
   return {
     get: <T>(path: string) => read<T>(path),
     write: async <T>(path: string, body: unknown, method = 'POST'): Promise<T> => {
       const auth = await session();
-      // No automatic mutation replay after network failure, refresh, or token expiry.
-      return read<T>(path, {method, headers: {'Content-Type': 'application/json', 'X-Qcal-Token': auth.token}, body: JSON.stringify(body)});
+      const frozenBody = JSON.stringify(body);
+      const send = (token:string) => read<T>(path, {method, headers: {'Content-Type': 'application/json', 'X-Qcal-Token': token}, body: frozenBody});
+      try { return await send(auth.token); }
+      catch (error) {
+        // This exact response is emitted by the local server before dispatch.
+        // Lost replies, conflicts and other failures must never replay mutations.
+        if (!(error instanceof ApiError) || error.status !== 401 || error.code !== 'INVALID_SESSION') throw error;
+        return send((await session(true)).token);
+      }
     },
   };
 }

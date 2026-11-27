@@ -9,7 +9,7 @@ import {workspaceReadDefinitions} from './read-tool-definitions.mjs';
 export const TEXT_TOOL_ENVELOPE_VERSION='single-closed-tool-call-text/1';
 export const READONLY_MIRROR_VERSION='identical-readonly-json-dsml-mirror/1';
 const readDefinitions=new Map(workspaceReadDefinitions.map(d=>[d.name,d]));
-const allowedTools=new Set(['list_rules','inspect_observation','validate_proposal','audit_reader_text','list_workspace','list_documents','read_document','create_campaign','campaign_action','analyze_import','start_measurement','workflow_action','search_source','read_source','list_source_files','inspect_runtime','inspect_workflow','inspect_configuration','inspect_report','inspect_report_export','export_report','save_chip_draft','save_deployment_draft','publish_configuration']);
+const allowedTools=new Set(['list_rules','inspect_observation','validate_proposal','audit_reader_text','list_workspace','list_documents','read_document','create_campaign','campaign_action','analyze_import','start_measurement','workflow_action','run_manual_step','search_source','read_source','list_source_files','inspect_runtime','inspect_workflow','inspect_configuration','inspect_report','inspect_report_export','export_report','save_chip_draft','save_deployment_draft','publish_configuration']);
 const failure=()=>({ok:false,error:'Exactly one complete action envelope is required',
   repairPrompt:'每轮仅输出一个完整的 final 或 tool_call JSON；不能串联多个动作。'});
 
@@ -81,12 +81,24 @@ function identicalReadonlyMirror(raw){
     originalPublicTextSha256:createHash('sha256').update(raw).digest('hex'),tool:primary.tool}};
 }
 
-export function parseAgentAction(raw){
+export function parseAgentAction(raw,{allowReadOnlyWorkspaceFinal=false}={}){
   if(typeof raw!=='string')return failure();
   // Require a complete document before invoking the upstream schema parser.
   // Its recovery parser extracts the first JSON object and would otherwise
   // silently discard additional actions. Literal JSON/tags inside strings are
   // already handled correctly by JSON.parse and do not represent extra actions.
+  if(allowReadOnlyWorkspaceFinal && raw.length<=200000){
+    try {
+      const value=uniqueKeyJson(raw.trim());
+      if(record(value) && Object.keys(value).length===2 && typeof value.message==='string'
+          && Array.isArray(value.proposals) && value.proposals.length===0){
+        const canonicalText=JSON.stringify({type:'final',content:JSON.stringify(value)});
+        const parsed=parseLocalAgentAction(canonicalText);
+        if(parsed.ok)return {...parsed,canonicalText,normalization:{formatVersion:'workspace-readonly-final/1',
+          originalPublicTextSha256:createHash('sha256').update(raw).digest('hex')}};
+      }
+    } catch { /* The normal parser handles other action formats below. */ }
+  }
   if(wholeStandardJson(raw))return parseLocalAgentAction(raw);
   if(raw.length>200000)return failure();
   try{const mirrored=identicalReadonlyMirror(raw);if(mirrored)return mirrored;}catch{return failure();}

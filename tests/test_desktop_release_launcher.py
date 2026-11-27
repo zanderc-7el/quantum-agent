@@ -28,11 +28,17 @@ class DesktopReleaseLauncherTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def check(self,release=True):
+    def check(self,release=True,*,legacy_console=False):
         if release:(self.root/'desktop/release.json').write_text(json.dumps(self.release),encoding='utf-8')
         script=str(self.root/'scripts/start-desktop.ps1').replace("'","''")
-        return subprocess.run([POWERSHELL,'-NoProfile','-NonInteractive','-Command',
-            "& '"+script+"' -CheckOnly | ConvertTo-Json -Compress"],capture_output=True,text=True,timeout=10)
+        prefix='[Console]::OutputEncoding=[Text.Encoding]::GetEncoding(936);' if legacy_console else ''
+        prefix+='[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);$OutputEncoding=[Console]::OutputEncoding;'
+        if legacy_console:prefix+='[Console]::Error.WriteLine("时间戳／العربية");'
+        result=subprocess.run([POWERSHELL,'-NoProfile','-NonInteractive','-Command',
+            prefix+"& '"+script+"' -CheckOnly | ConvertTo-Json -Compress"],capture_output=True,timeout=10,
+            creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        result.stdout=result.stdout.decode('utf-8');result.stderr=result.stderr.decode('utf-8')
+        return result
 
     def test_valid_release_check_does_not_launch(self):
         result=self.check();self.assertEqual(result.returncode,0,result.stderr)
@@ -52,6 +58,13 @@ class DesktopReleaseLauncherTests(unittest.TestCase):
                 original=dict(self.release);self.release.update(patch)
                 result=self.check();self.assertNotEqual(result.returncode,0)
                 self.assertNotIn('Started',result.stdout);self.release=original
+
+    def test_failure_diagnostics_are_not_lost_under_legacy_console_encoding(self):
+        self.release['sha256']='bad'
+        result=self.check(legacy_console=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIsInstance(result.stderr,str)
+        self.assertIn('时间戳／العربية',result.stderr)
 
 
 if __name__=='__main__':unittest.main()

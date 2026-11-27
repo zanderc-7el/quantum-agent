@@ -1,0 +1,496 @@
+{
+  "fixtureNote": "TEST_ONLY component fixture, no instrument measurements; generated with pure current backend import_comparison from independent R05 test packet.",
+  "scope": {
+    "workflowId": "TEST_ONLY-r05-external",
+    "resourceId": "TEST_ONLY-Q11"
+  },
+  "documentText": "﻿{\n  \"schema\": \"qcal-external-channel-comparison/1\",\n  \"dataOrigin\": \"test_fixture\",\n  \"scope\": {\n    \"workflowId\": \"TEST_ONLY-r05-external\",\n    \"resourceId\": \"TEST_ONLY-Q11\"\n  },\n  \"context\": {\n    \"channelId\": \"TEST_ONLY-XY-I\",\n    \"measurementPoint\": \"TEST_ONLY-independent-probe-after-line\",\n    \"quantity\": \"voltage\",\n    \"unit\": \"V\",\n    \"conditions\": {\n      \"purpose\": \"TEST_ONLY synthetic desktop acceptance; no physical acquisition\",\n      \"temperatureK\": 295.0,\n      \"terminationOhm\": 50.0,\n      \"sampleIntervalS\": 1e-09,\n      \"probeAttenuation\": 1.0\n    }\n  },\n  \"target\": {\n    \"kind\": \"specified_target\",\n    \"context\": {\n      \"channelId\": \"TEST_ONLY-XY-I\",\n      \"measurementPoint\": \"TEST_ONLY-independent-probe-after-line\",\n      \"quantity\": \"voltage\",\n      \"unit\": \"V\",\n      \"conditions\": {\n        \"purpose\": \"TEST_ONLY synthetic desktop acceptance; no physical acquisition\",\n        \"temperatureK\": 295.0,\n        \"terminationOhm\": 50.0,\n        \"sampleIntervalS\": 1e-09,\n        \"probeAttenuation\": 1.0\n      }\n    },\n    \"windowS\": [\n      0.0,\n      1e-08\n    ],\n    \"timeS\": [\n      0.0,\n      1e-09,\n      2e-09,\n      3.0000000000000004e-09,\n      4e-09,\n      5e-09,\n      6.000000000000001e-09,\n      7.000000000000001e-09,\n      8e-09,\n      9.000000000000001e-09,\n      1e-08\n    ],\n    \"values\": [\n      0,\n      0,\n      0.5,\n      1,\n      1,\n      1,\n      0.5,\n      0,\n      0,\n      0,\n      0\n    ]\n  },\n  \"calibration\": {\n    \"dataOrigin\": \"test_fixture\",\n    \"context\": {\n      \"channelId\": \"TEST_ONLY-XY-I\",\n      \"measurementPoint\": \"TEST_ONLY-independent-probe-after-line\",\n      \"quantity\": \"voltage\",\n      \"unit\": \"V\",\n      \"conditions\": {\n        \"purpose\": \"TEST_ONLY synthetic desktop acceptance; no physical acquisition\",\n        \"temperatureK\": 295.0,\n        \"terminationOhm\": 50.0,\n        \"sampleIntervalS\": 1e-09,\n        \"probeAttenuation\": 1.0\n      }\n    },\n    \"calibrationId\": \"TEST_ONLY-calibration-A\",\n    \"version\": \"TEST_ONLY-v1\",\n    \"acquisitionId\": \"TEST_ONLY-calibration-acquisition-001\",\n    \"acquiredAt\": \"2026-11-26T00:01:00+08:00\",\n    \"validFrom\": \"2026-11-26T00:00:00+08:00\",\n    \"validUntil\": \"2026-11-27T00:00:00+08:00\",\n    \"frequencyHz\": [\n      0,\n      50000000.0,\n      100000000.0,\n      200000000.0,\n      300000000.0\n    ],\n    \"real\": [\n      1,\n      0.67175144212722,\n      0,\n      -0.65,\n      0\n    ],\n    \"imag\": [\n      0,\n      -0.67175144212722,\n      -0.85,\n      0,\n      0.45\n    ],\n    \"unit\": \"ratio\",\n    \"source\": {\n      \"document\": \"TEST_ONLY-source-container.json\",\n      \"provider\": \"TEST_ONLY deterministic fixture generator\",\n      \"sha256\": \"2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f\",\n      \"recordPath\": \"/calibration\"\n    }\n  },\n  \"baseline\": {\n    \"dataOrigin\": \"test_fixture\",\n    \"context\": {\n      \"channelId\": \"TEST_ONLY-XY-I\",\n      \"measurementPoint\": \"TEST_ONLY-independent-probe-after-line\",\n      \"quantity\": \"voltage\",\n      \"unit\": \"V\",\n      \"conditions\": {\n        \"purpose\": \"TEST_ONLY synthetic desktop acceptance; no physical acquisition\",\n        \"temperatureK\": 295.0,\n        \"terminationOhm\": 50.0,\n        \"sampleIntervalS\": 1e-09,\n        \"probeAttenuation\": 1.0\n      }\n    },\n    \"calibrationId\": \"TEST_ONLY-calibration-A\",\n    \"calibrationVersion\": \"TEST_ONLY-v1\",\n    \"acquisitionId\": \"TEST_ONLY-baseline-acquisition-002\",\n    \"acquiredAt\": \"2026-11-26T00:02:00+08:00\",\n    \"windowS\": [\n      0.0,\n      1e-08\n    ],\n    \"timeS\": [\n      0.0,\n      1e-09,\n      2e-09,\n      3.0000000000000004e-09,\n      4e-09,\n      5e-09,\n      6.000000000000001e-09,\n      7.000000000000001e-09,\n      8e-09,\n      9.000000000000001e-09,\n      1e-08\n    ],\n    \"values\": [\n      0.03,\n      -0.08,\n      0.35,\n      0.82,\n      1.18,\n      1.12,\n      0.68,\n      0.15,\n      -0.1,\n      0.04,\n      0.01\n    ],\n    \"source\": {\n      \"document\": \"TEST_ONLY-source-container.json\",\n      \"provider\": \"TEST_ONLY deterministic fixture generator\",\n      \"sha256\": \"2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f\",\n      \"recordPath\": \"/captures/0\"\n    }\n  },\n  \"compensated\": {\n    \"dataOrigin\": \"test_fixture\",\n    \"context\": {\n      \"channelId\": \"TEST_ONLY-XY-I\",\n      \"measurementPoint\": \"TEST_ONLY-independent-probe-after-line\",\n      \"quantity\": \"voltage\",\n      \"unit\": \"V\",\n      \"conditions\": {\n        \"purpose\": \"TEST_ONLY synthetic desktop acceptance; no physical acquisition\",\n        \"temperatureK\": 295.0,\n        \"terminationOhm\": 50.0,\n        \"sampleIntervalS\": 1e-09,\n        \"probeAttenuation\": 1.0\n      }\n    },\n    \"calibrationId\": \"TEST_ONLY-calibration-A\",\n    \"calibrationVersion\": \"TEST_ONLY-v1\",\n    \"acquisitionId\": \"TEST_ONLY-compensated-acquisition-003\",\n    \"acquiredAt\": \"2026-11-26T00:03:00+08:00\",\n    \"windowS\": [\n      0.0,\n      1e-08\n    ],\n    \"timeS\": [\n      0.0,\n      1e-09,\n      2e-09,\n      3.0000000000000004e-09,\n      4e-09,\n      5e-09,\n      6.000000000000001e-09,\n      7.000000000000001e-09,\n      8e-09,\n      9.000000000000001e-09,\n      1e-08\n    ],\n    \"values\": [\n      0.005,\n      -0.01,\n      0.48,\n      0.985,\n      1.025,\n      1.01,\n      0.52,\n      0.02,\n      -0.015,\n      0.006,\n      0.002\n    ],\n    \"source\": {\n      \"document\": \"TEST_ONLY-source-container.json\",\n      \"provider\": \"TEST_ONLY deterministic fixture generator\",\n      \"sha256\": \"2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f\",\n      \"recordPath\": \"/captures/1\"\n    }\n  }\n}\n",
+  "result": {
+    "kind": "predistortion_comparison",
+    "modelVersion": "qcal-channel-observation/1",
+    "dataKind": "provided_data",
+    "dataOrigin": "test_fixture",
+    "source": "external_channel_comparison",
+    "qualification": "test_fixture_not_measurement",
+    "dispatched": false,
+    "acceptedCalibration": false,
+    "physicalAccepted": false,
+    "comparisonCompatible": true,
+    "context": {
+      "channelId": "TEST_ONLY-XY-I",
+      "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+      "quantity": "voltage",
+      "unit": "V",
+      "conditions": {
+        "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+        "temperatureK": 295.0,
+        "terminationOhm": 50.0,
+        "sampleIntervalS": 1e-09,
+        "probeAttenuation": 1.0
+      }
+    },
+    "windowS": [
+      0.0,
+      1e-08
+    ],
+    "axes": {
+      "x": {
+        "name": "Time",
+        "unit": "s",
+        "values": [
+          0.0,
+          1e-09,
+          2e-09,
+          3.0000000000000004e-09,
+          4e-09,
+          5e-09,
+          6.000000000000001e-09,
+          7.000000000000001e-09,
+          8e-09,
+          9.000000000000001e-09,
+          1e-08
+        ]
+      }
+    },
+    "series": [
+      {
+        "id": "target",
+        "label": "指定目标",
+        "values": [
+          0,
+          0,
+          0.5,
+          1,
+          1,
+          1,
+          0.5,
+          0,
+          0,
+          0,
+          0
+        ],
+        "quantity": "voltage",
+        "unit": "V",
+        "source": "target"
+      },
+      {
+        "id": "baseline",
+        "label": "未补偿基线",
+        "values": [
+          0.03,
+          -0.08,
+          0.35,
+          0.82,
+          1.18,
+          1.12,
+          0.68,
+          0.15,
+          -0.1,
+          0.04,
+          0.01
+        ],
+        "quantity": "voltage",
+        "unit": "V",
+        "source": "provided_data"
+      },
+      {
+        "id": "compensated",
+        "label": "补偿后独立采集",
+        "values": [
+          0.005,
+          -0.01,
+          0.48,
+          0.985,
+          1.025,
+          1.01,
+          0.52,
+          0.02,
+          -0.015,
+          0.006,
+          0.002
+        ],
+        "quantity": "voltage",
+        "unit": "V",
+        "source": "provided_data"
+      },
+      {
+        "id": "baseline_error",
+        "label": "基线−目标",
+        "values": [
+          0.03,
+          -0.08,
+          -0.15000000000000002,
+          -0.18000000000000005,
+          0.17999999999999994,
+          0.1200000000000001,
+          0.18000000000000005,
+          0.15,
+          -0.1,
+          0.04,
+          0.01
+        ],
+        "quantity": "voltage",
+        "unit": "V",
+        "source": "provided_data"
+      },
+      {
+        "id": "compensated_error",
+        "label": "补偿后−目标",
+        "values": [
+          0.005,
+          -0.01,
+          -0.020000000000000018,
+          -0.015000000000000013,
+          0.02499999999999991,
+          0.010000000000000009,
+          0.020000000000000018,
+          0.02,
+          -0.015,
+          0.006,
+          0.002
+        ],
+        "quantity": "voltage",
+        "unit": "V",
+        "source": "provided_data"
+      }
+    ],
+    "transfer": {
+      "frequencyHz": [
+        0,
+        50000000.0,
+        100000000.0,
+        200000000.0,
+        300000000.0
+      ],
+      "real": [
+        1,
+        0.67175144212722,
+        0,
+        -0.65,
+        0
+      ],
+      "imag": [
+        0,
+        -0.67175144212722,
+        -0.85,
+        0,
+        0.45
+      ],
+      "unit": "ratio",
+      "magnitude": [
+        1.0,
+        0.9499999999999998,
+        0.85,
+        0.65,
+        0.45
+      ],
+      "phaseRad": [
+        0.0,
+        -0.7853981633974483,
+        -1.5707963267948966,
+        3.141592653589793,
+        1.5707963267948966
+      ],
+      "phaseDefined": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "metrics": {
+      "sampleCount": 11,
+      "baselineRmse": 0.12634728474975776,
+      "baselineMaxAbsError": 0.18000000000000005,
+      "baselineOvershoot": 0.17999999999999994,
+      "baselineUndershoot": 0.1,
+      "compensatedRmse": 0.015195693169746836,
+      "compensatedMaxAbsError": 0.02499999999999991,
+      "compensatedOvershoot": 0.02499999999999991,
+      "compensatedUndershoot": 0.015,
+      "rmseReduction": 0.11115159158001092,
+      "rmseReductionPercent": 87.9730750052577,
+      "rmseReductionPercentUnavailableReason": null
+    },
+    "metricDefinitions": {
+      "error": "response-target",
+      "rmse": "sqrt(mean(error^2))",
+      "overshoot": "max(0,max(response)-max(target))",
+      "undershoot": "max(0,min(target)-min(response))",
+      "rmseReduction": "baselineRmse-compensatedRmse; positive means lower observed error"
+    },
+    "calibrationId": "TEST_ONLY-calibration-A",
+    "calibrationVersion": "TEST_ONLY-v1",
+    "sourceSummary": {
+      "calibration": {
+        "acquisitionId": "TEST_ONLY-calibration-acquisition-001",
+        "acquiredAt": "2026-11-26T00:01:00+08:00",
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/calibration"
+        },
+        "contentSha256": "0d74be609aef926f21b5528590f8b6d29bfa5707cf99e50c0382d50cc483d10f"
+      },
+      "baseline": {
+        "acquisitionId": "TEST_ONLY-baseline-acquisition-002",
+        "acquiredAt": "2026-11-26T00:02:00+08:00",
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/captures/0"
+        },
+        "contentSha256": "a49044a98399573b91b898dbce6b09518725ce4a63f7d9de980196a5fa0c4dac"
+      },
+      "compensated": {
+        "acquisitionId": "TEST_ONLY-compensated-acquisition-003",
+        "acquiredAt": "2026-11-26T00:03:00+08:00",
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/captures/1"
+        },
+        "contentSha256": "77d4327926c7188f763103cf38dc6f7029bb208957a81fecebca0cbc82554176"
+      }
+    },
+    "contextSha256": "e9f30c35a7a9c150430e90a67b747c37a63d22611a23d14306d2c75fd788be14",
+    "documentSha256": "0d0f7d01defcee18c6c2bb7c749e8ebf6575dc9dd328849658d363ef8020462a",
+    "document": {
+      "schema": "qcal-external-channel-comparison/1",
+      "dataOrigin": "test_fixture",
+      "scope": {
+        "workflowId": "TEST_ONLY-r05-external",
+        "resourceId": "TEST_ONLY-Q11"
+      },
+      "context": {
+        "channelId": "TEST_ONLY-XY-I",
+        "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+        "quantity": "voltage",
+        "unit": "V",
+        "conditions": {
+          "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+          "temperatureK": 295.0,
+          "terminationOhm": 50.0,
+          "sampleIntervalS": 1e-09,
+          "probeAttenuation": 1.0
+        }
+      },
+      "target": {
+        "kind": "specified_target",
+        "context": {
+          "channelId": "TEST_ONLY-XY-I",
+          "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+          "quantity": "voltage",
+          "unit": "V",
+          "conditions": {
+            "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+            "temperatureK": 295.0,
+            "terminationOhm": 50.0,
+            "sampleIntervalS": 1e-09,
+            "probeAttenuation": 1.0
+          }
+        },
+        "windowS": [
+          0.0,
+          1e-08
+        ],
+        "timeS": [
+          0.0,
+          1e-09,
+          2e-09,
+          3.0000000000000004e-09,
+          4e-09,
+          5e-09,
+          6.000000000000001e-09,
+          7.000000000000001e-09,
+          8e-09,
+          9.000000000000001e-09,
+          1e-08
+        ],
+        "values": [
+          0,
+          0,
+          0.5,
+          1,
+          1,
+          1,
+          0.5,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "calibration": {
+        "dataOrigin": "test_fixture",
+        "context": {
+          "channelId": "TEST_ONLY-XY-I",
+          "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+          "quantity": "voltage",
+          "unit": "V",
+          "conditions": {
+            "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+            "temperatureK": 295.0,
+            "terminationOhm": 50.0,
+            "sampleIntervalS": 1e-09,
+            "probeAttenuation": 1.0
+          }
+        },
+        "calibrationId": "TEST_ONLY-calibration-A",
+        "version": "TEST_ONLY-v1",
+        "acquisitionId": "TEST_ONLY-calibration-acquisition-001",
+        "acquiredAt": "2026-11-26T00:01:00+08:00",
+        "validFrom": "2026-11-26T00:00:00+08:00",
+        "validUntil": "2026-11-27T00:00:00+08:00",
+        "frequencyHz": [
+          0,
+          50000000.0,
+          100000000.0,
+          200000000.0,
+          300000000.0
+        ],
+        "real": [
+          1,
+          0.67175144212722,
+          0,
+          -0.65,
+          0
+        ],
+        "imag": [
+          0,
+          -0.67175144212722,
+          -0.85,
+          0,
+          0.45
+        ],
+        "unit": "ratio",
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/calibration"
+        }
+      },
+      "baseline": {
+        "dataOrigin": "test_fixture",
+        "context": {
+          "channelId": "TEST_ONLY-XY-I",
+          "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+          "quantity": "voltage",
+          "unit": "V",
+          "conditions": {
+            "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+            "temperatureK": 295.0,
+            "terminationOhm": 50.0,
+            "sampleIntervalS": 1e-09,
+            "probeAttenuation": 1.0
+          }
+        },
+        "calibrationId": "TEST_ONLY-calibration-A",
+        "calibrationVersion": "TEST_ONLY-v1",
+        "acquisitionId": "TEST_ONLY-baseline-acquisition-002",
+        "acquiredAt": "2026-11-26T00:02:00+08:00",
+        "windowS": [
+          0.0,
+          1e-08
+        ],
+        "timeS": [
+          0.0,
+          1e-09,
+          2e-09,
+          3.0000000000000004e-09,
+          4e-09,
+          5e-09,
+          6.000000000000001e-09,
+          7.000000000000001e-09,
+          8e-09,
+          9.000000000000001e-09,
+          1e-08
+        ],
+        "values": [
+          0.03,
+          -0.08,
+          0.35,
+          0.82,
+          1.18,
+          1.12,
+          0.68,
+          0.15,
+          -0.1,
+          0.04,
+          0.01
+        ],
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/captures/0"
+        }
+      },
+      "compensated": {
+        "dataOrigin": "test_fixture",
+        "context": {
+          "channelId": "TEST_ONLY-XY-I",
+          "measurementPoint": "TEST_ONLY-independent-probe-after-line",
+          "quantity": "voltage",
+          "unit": "V",
+          "conditions": {
+            "purpose": "TEST_ONLY synthetic desktop acceptance; no physical acquisition",
+            "temperatureK": 295.0,
+            "terminationOhm": 50.0,
+            "sampleIntervalS": 1e-09,
+            "probeAttenuation": 1.0
+          }
+        },
+        "calibrationId": "TEST_ONLY-calibration-A",
+        "calibrationVersion": "TEST_ONLY-v1",
+        "acquisitionId": "TEST_ONLY-compensated-acquisition-003",
+        "acquiredAt": "2026-11-26T00:03:00+08:00",
+        "windowS": [
+          0.0,
+          1e-08
+        ],
+        "timeS": [
+          0.0,
+          1e-09,
+          2e-09,
+          3.0000000000000004e-09,
+          4e-09,
+          5e-09,
+          6.000000000000001e-09,
+          7.000000000000001e-09,
+          8e-09,
+          9.000000000000001e-09,
+          1e-08
+        ],
+        "values": [
+          0.005,
+          -0.01,
+          0.48,
+          0.985,
+          1.025,
+          1.01,
+          0.52,
+          0.02,
+          -0.015,
+          0.006,
+          0.002
+        ],
+        "source": {
+          "document": "TEST_ONLY-source-container.json",
+          "provider": "TEST_ONLY deterministic fixture generator",
+          "sha256": "2ae09087c35536b653d0d7b15867b222059620848f4ce3f10d0f4c2016ba004f",
+          "recordPath": "/captures/1"
+        }
+      }
+    },
+    "fileName": "TEST_ONLY-external-channel.json",
+    "independence": "distinct declared acquisition IDs, times and container records; not platform-authenticated",
+    "transferUsage": "provenance_only; no inverse filtering, waveform dispatch or spectral coverage claim",
+    "meaning": "外部提供数据的同条件数值比较；来源声明及独立性未被平台实机认证，不构成校准验收或下发许可。"
+  }
+}

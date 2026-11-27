@@ -8,18 +8,19 @@ const count = (value: unknown, zero = false): value is number =>
 export function decisionBudgetRows(value: unknown): { label: string; value: string }[] | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Partial<SelectionVerificationBudgetLookahead>;
+  const unlimited = record.budgetMode === 'accounting_only' && record.remainingShotsAtCheck === null;
   if (record.version !== 'selection-verification-budget/1' || record.reservation !== false
       || record.candidateKnown !== false || record.actualVerificationPlanRechecked !== true
       || !bases.has(record.verificationBasis ?? '')
       || !count(record.selectionShots) || !count(record.verificationShotsUpperBound)
-      || !count(record.jointShots) || !count(record.remainingShotsAtCheck, true)
+      || !count(record.jointShots) || (!unlimited && !count(record.remainingShotsAtCheck, true))
       || record.selectionShots + record.verificationShotsUpperBound !== record.jointShots
-      || record.jointShots > record.remainingShotsAtCheck) return null;
+      || (typeof record.remainingShotsAtCheck === 'number' && record.jointShots > record.remainingShotsAtCheck)) return null;
   const rows: [string, number][] = [
     ['首测', record.selectionShots],
     ['独立复测上限', record.verificationShotsUpperBound],
     ['首测与独立复测合计', record.jointShots],
-    ['核算时剩余额度', record.remainingShotsAtCheck],
   ];
+  if (typeof record.remainingShotsAtCheck === 'number') rows.push(['核算时剩余额度', record.remainingShotsAtCheck]);
   return rows.map(([label, amount]) => ({ label, value: amount.toLocaleString('en-US') }));
 }

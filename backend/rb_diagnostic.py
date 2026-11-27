@@ -8,12 +8,14 @@ import json
 
 from .common import APIError, checked_path, digest, file_hash
 from .capture_diagnostics import _registered_files
-from .prior_failure_context import PROFILE_FILES, CHECKED_JSON_NAMES, audited_bindings, _validate_effect
+from .prior_failure_context import CHECKED_JSON_NAMES, V3_ID, load_audited_bindings, _validate_effect
 from .catalog import PARAMETERS
 from .quality import evaluate
+from .workspace import device_key
 
 VERSION = 'rb-after-cpmg-diagnostic/1'
 PROFILE = 'arclight-private-f8-q11-v2'
+PROFILES = frozenset((PROFILE, V3_ID))
 IMPLEMENTATION = 'adapters.arclight.ArcLightAdapter'
 ALIASES = {'readout_frequency_hz':'readout_hz','readout_amplitude':'readout_amp',
            'drive_frequency_hz':'drive_hz','drive_amplitude':'drive_amp','pi_duration_s':'drive_length_s'}
@@ -38,12 +40,20 @@ def require(condition, code, message):
         raise APIError(code, message, 409)
 
 
-def graph_snapshot(db, workflow):
+def graph_snapshot(db, workflow, profile=None):
     nodes = [{k: deepcopy(n.get(k)) for k in ('id','ownerId','procedureId','resourceId','dependsOn')} for n in workflow['nodes']]
     expected_nodes = [{'id':'Q11:'+name,'ownerId':name.split(':')[0], 'procedureId':procedure,
                        'resourceId':'Q11','dependsOn':['Q11:'+d for d in dependencies]}
                       for name,procedure,dependencies in GRAPH]
     require(nodes == expected_nodes, 'RB_DIAGNOSTIC_GRAPH', '原10项节点、方法、归属或依赖已改变')
+    # Historical v2 registered the original bus name. New v3 tasks use the
+    # controller's endpoint-derived shared device key from the audited profile.
+    if workflow.get('adapterId') == V3_ID:
+        require(profile is not None and profile.get('id') == V3_ID,
+                'RB_DIAGNOSTIC_GRAPH', '缺少本版本已核验的设备路由')
+        resources = [device_key(profile)]
+    else:
+        resources = ['CY8_SHARED_BUS1']
     steps = []
     for node in nodes:
         row = db.execute('SELECT spec FROM steps WHERE id=?', (workflow['id']+'/'+node['id'],)).fetchone()
@@ -54,7 +64,7 @@ def graph_snapshot(db, workflow):
         require(spec.get('id')==workflow['id']+'/'+node['id']
                 and spec.get('reads')==[prefix+ALIASES.get(k,k) for k in reads]
                 and spec.get('writes')==[prefix+ALIASES.get(k,k) for k in writes]
-                and spec.get('resources')==['CY8_SHARED_BUS1']
+                and spec.get('resources')==resources
                 and spec.get('depends_on') == [workflow['id']+'/'+d for d in node['dependsOn']],
                 'RB_DIAGNOSTIC_GRAPH', '原图依赖与不可变步骤契约不一致')
         steps.append(spec)
@@ -115,17 +125,16 @@ def build_proof(root, db, workflow, parameters, versions, *, implementation_id):
     """Must run inside the caller's single SQLite transaction/snapshot."""
     try:
         root=checked_path(root)
-        require(implementation_id==IMPLEMENTATION and workflow.get('adapterId')==PROFILE
+        require(implementation_id==IMPLEMENTATION and workflow.get('adapterId') in PROFILES
                 and workflow.get('mode')=='real' and workflow.get('coverage')=='working_point'
                 and workflow.get('resourceIds')==['Q11'] and len(workflow['nodes'])==10,
-                'RB_DIAGNOSTIC_SCOPE','诊断分支仅适用已审计Q11 ArcLight v2的10项工作点任务')
-        bindings=audited_bindings(implementation_id,{key:(root/name).read_bytes() for key,(name,_) in PROFILE_FILES.items()},
-                                  (root/'adapters/arclight_runtime/source_manifest.json').read_bytes())
-        binding=bindings.get(PROFILE)
+                'RB_DIAGNOSTIC_SCOPE','诊断分支仅适用已审计Q11 ArcLight v2/v3的10项工作点任务')
+        bindings=load_audited_bindings(root, implementation_id)
+        binding=bindings.get(workflow['adapterId'])
         require(binding is not None and workflow.get('adapterProfileHash')==binding['fingerprint'],
                 'RB_DIAGNOSTIC_SCOPE','执行器冻结绑定不一致')
-        for name in binding['manifest']:
-            require(file_hash(root/'adapters/arclight_runtime'/name)==binding['manifest'][name],
+        for entry in binding['sourceFiles']:
+            require(file_hash(checked_path(root/entry['path'], parent=root))==entry['sha256'],
                     'RB_DIAGNOSTIC_SOURCE','冻结分析源码已变化')
         source=next(n for n in workflow['nodes'] if n['procedureId']=='sq_cpmg')
         target=next(n for n in workflow['nodes'] if n['procedureId']=='sq_rb')
@@ -182,11 +191,11 @@ def build_proof(root, db, workflow, parameters, versions, *, implementation_id):
             categories.add(category)
             calibration.append({'nodeId':node['id'],'procedureId':node['procedureId'],'category':category,**proof})
         require(categories=={'rabi','readout'},'RB_DIAGNOSTIC_CALIBRATION','缺少同任务当前Rabi与读出的独立验证来源')
-        result={'policyVersion':VERSION,'workflowId':workflow['id'],'adapterId':PROFILE,
+        result={'policyVersion':VERSION,'workflowId':workflow['id'],'adapterId':workflow['adapterId'],
                 'adapterProfileHash':binding['fingerprint'],'sourceNodeId':source['id'],'sourceAttemptId':source_attempt['id'],
                 'targetNodeId':target['id'],'sourceReceipt':source_receipt,'calibrationReceipts':calibration,
                 'physicalParameters':committed,'physicalParameterVersions':committed_versions,
-                'parameterLedgerSha256':digest(ledger),'graphSha256':digest(graph_snapshot(db,workflow)),
+                'parameterLedgerSha256':digest(ledger),'graphSha256':digest(graph_snapshot(db,workflow,binding['profile'])),
                 'gatesSha256':digest({'gates':workflow['gates'],'gatesVersion':workflow['gatesVersion'],
                                       'supplementalAcceptance':workflow.get('supplementalAcceptance')}),
                 'configuredParametersSha256':digest({n['id']:n.get('parameterOverrides',{}) for n in workflow['nodes']})}

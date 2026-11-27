@@ -28,7 +28,7 @@ export function manualStepControls(workflow: Workflow, selected: ExperimentNode)
   else if (selected.capability !== "available") reason = "此步骤暂不可测量";
   else if (selected.engineState === "verified" || selected.status === "success") reason = "已确认；重新测量需先回退";
   else if (blockedDependencies.length) reason = `先完成：${blockedDependencies.join("、")}`;
-  else if (workflow.maxAttemptsPerNode !== undefined && selected.attempt >= workflow.maxAttemptsPerNode) reason = "本步执行次数已达上限";
+  else if (workflow.maxAttemptsPerNode != null && selected.attempt >= workflow.maxAttemptsPerNode) reason = "本步执行次数已达上限";
   const selectedAwaiting = workflow.currentNodeId === selected.id && workflow.engineState === "awaiting_acceptance" && ["awaiting_acceptance", "verified"].includes(selected.engineState ?? "");
   const adjust = manual && ["attention", "paused"].includes(workflow.status) && selectedAwaiting && !unsafe && !diagnosticBlocked;
   const approve = adjust && freshPassed(selected);
@@ -54,7 +54,7 @@ export function workflowControls(workflow: Workflow) {
   const budgetDecision = budgetUpdated && workflow.policy === "autopilot" && !!current?.result && !current.result.stale && current.result.quality?.status !== "passed";
   const legacyDecisionError = workflow.engineState === "execution_failed" && ["决策引用了当前节点之外的证据", "证据引用必须为编号列表"].includes(current?.detail ?? "") && !!current?.result && !current.result.stale && current.result.quality?.status !== "passed";
   const blocked = states.some(state => ["deciding", "waiting_model", "budget_exhausted", "unsupported_method", "preflight_failed", "resource_busy", "controller_error"].includes(state ?? ""));
-  const attemptsRemain = !current || workflow.maxAttemptsPerNode === undefined || current.attempt < workflow.maxAttemptsPerNode;
+  const attemptsRemain = !current || workflow.maxAttemptsPerNode == null || current.attempt < workflow.maxAttemptsPerNode;
   return {
     terminal, current, reconciliation, hardware,
     start: !manual && !diagnosticLane && workflow.status === "draft",
@@ -64,7 +64,7 @@ export function workflowControls(workflow: Workflow) {
     decide: !diagnosticLane && workflow.mode === "real" && attention && workflow.policy === "autopilot" && !!current?.result && !current.result.stale && (["quality_attention", "waiting_model"].includes(workflow.engineState ?? "") || budgetDecision || legacyDecisionError) && !hardware && !reconciliation,
     approve: !diagnosticLane && (attention || (manual && workflow.status === "paused")) && !budgetUpdated && !hardware && !reconciliation && !blocked && current?.result?.quality?.status === "passed" && !current.result.stale && !current.result.partial && !current.result.verificationPending && (!manual || manualStepControls(workflow, current).approve),
     retry: !manual && !diagnosticLane && attention && !budgetUpdated && !!current && !hardware && !reconciliation && !blocked && attemptsRemain,
-    policy: !diagnosticActive && !awaitingAcceptance(workflow) && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
+    policy: workflow.budget?.mode !== 'accounting_only' && !diagnosticActive && !awaitingAcceptance(workflow) && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
     backtrack: !diagnosticActive && ["attention", "paused"].includes(workflow.status) && !hardware && !reconciliation && workflow.engineState !== "deciding",
     edit: !diagnosticActive && !(manual && awaitingAcceptance(workflow)) && workflow.mode === "real" && ["draft", "paused", "attention"].includes(workflow.status) && !reconciliation && workflow.engineState !== "deciding",
   };

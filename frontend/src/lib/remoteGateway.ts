@@ -4,12 +4,14 @@ import type { User } from "./auth.ts";
 import type { MembershipModelCatalog, MembershipStatus, SendCodeResult } from "./account.ts";
 import type { LiveSeriesPage } from "./liveSeries.ts";
 import type { BudgetValues } from "./budgetEdit.ts";
+import type {ManualPulsePreviewResult} from './manualPulsePreview.ts';
+import type {BiasStartCommand} from '../types.ts';
 
 export interface LocalSession { token: string; actor: Omit<User, "username"> & { username?: string }; }
 export type ConnectionState = "connecting" | "live" | "reconnecting" | "offline";
 export interface ChatReply { sessionId: string; message: string; status: string; model?: string; decisions?: unknown[]; }
 export interface ReportExportRequest { operationId: string; expectedRevision: number; format: "pptx"; appendixCount: 16 | 64; }
-export interface ReportExportJob { id: string; workflowId: string; revision: number; status: "queued" | "processing" | "completed" | "failed" | "interrupted"; createdAt: string; operationId?: string; appendixCount?: 16 | 64; downloadUrl?: string; error?: { code: string; message: string }; }
+export interface ReportExportJob { id: string; workflowId: string; revision: number; requestedRevision?: number; capturedAt?: string; snapshotPolicy?: "latest_committed"; status: "queued" | "processing" | "completed" | "failed" | "interrupted"; createdAt: string; operationId?: string; appendixCount?: 16 | 64; downloadUrl?: string; error?: { code: string; message: string }; }
 export interface ArchiveStatus { schemaVersion: number; storage: string; location: string; local: { recordCount: number; acquisitionCount: number; attemptCount: number; reportCount: number; latestArchivedAt?: string }; cloud: { configured: boolean; state: string; pendingCount: number; syncedCount: number; message: string }; }
 export interface ArchiveItem { id: string; kind: "acquisition" | "attempt" | "report"; workflowId: string; workflowName?: string; nodeLabel?: string; resourceId?: string; mode?: "real" | "replay"; qualityStatus?: string; role?: string; createdAt: string; acquiredAt?: string; artifactCount: number; revision?: number; }
 export interface Health { status: string; agent: unknown; hardware: unknown; version: string; adapter?: AdapterIdentity; capabilities?: unknown; projectId?: string; projectRoot?: string; }
@@ -21,7 +23,7 @@ export class ApiError extends Error {
   }
 }
 export interface RemoteGateway extends WorkflowGateway {
-  session(): Promise<LocalSession>;
+  session(refresh?: boolean): Promise<LocalSession>;
   catalog(): Promise<Catalog>;
   health(): Promise<Health>;
   node(id: string, nodeId: string): Promise<NodeDetail>;
@@ -33,8 +35,10 @@ export interface RemoteGateway extends WorkflowGateway {
   archiveStatus(): Promise<ArchiveStatus>;
   archiveList(workflowId?: string): Promise<{ items: ArchiveItem[]; nextCursor?: string }>;
   chat(message: string, workflowId?: string, sessionId?: string, nodeId?: string): Promise<ChatReply>;
-  command(id: string, action: RemoteAction, targetNodeId?: string): Promise<Workflow>;
-  parameters(id: string, nodeId: string, expectedRevision: number, parameters: Record<string, number>): Promise<Workflow>;
+  command(id: string, action: RemoteAction, targetNodeId?: string, confirmation?: BiasStartCommand): Promise<Workflow>;
+  parameters(id: string, nodeId: string, expectedRevision: number, parameters: Record<string, number | number[]>, clearSpectrumDriveOverrides?:boolean): Promise<Workflow>;
+  pulsePreview(id:string,nodeId:string,expectedRevision:number,parameters:Record<string,number|number[]>,scanIndices?:number[]):Promise<ManualPulsePreviewResult>;
+  executionVersion?(id:string,nodeId:string,expectedRevision:number,executionVersion:'rabi16-v1'|'default',reason:string):Promise<Workflow>;
   budget(id: string, expectedRevision: number, budget: BudgetValues, reason: string): Promise<Workflow>;
   supplementalAcceptance(id: string, expectedRevision: number, reason: string): Promise<Workflow>;
   readoutWithdrawal(id: string, request: ReadoutWithdrawalRequest): Promise<Workflow>;
@@ -82,7 +86,10 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
       })]);
     } finally { if (timer !== undefined) clearTimeout(timer); }
   };
-  const session = () => sessionPromise ??= read<LocalSession>("/session", undefined, options.readTimeoutMs ?? 10000).catch(error => { sessionPromise = undefined; throw error; });
+  const session = (refresh = false) => {
+    if (refresh) sessionPromise = undefined;
+    return sessionPromise ??= read<LocalSession>("/session", undefined, options.readTimeoutMs ?? 10000).catch(error => { sessionPromise = undefined; throw error; });
+  };
   const write = async <T>(path: string, method: string, body: unknown, timeoutMs?: number) => {
     const authPromise = session();
     const auth = await authPromise;
@@ -108,14 +115,16 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
     acceptWorkflow(value);
     return snapshot.workflows.find(item => item.id === id) ?? value;
   };
-  const command = async (id: string, action: RemoteAction, targetNodeId?: string) => {
+  const command = async (id: string, action: RemoteAction, targetNodeId?: string, confirmation?: BiasStartCommand) => {
     const workflow = snapshot.workflows.find(item => item.id === id) ?? await get(id);
+    if (confirmation && (action !== 'run_step' || confirmation.expectedRevision !== workflow.revision)) throw new ApiError('任务已更新，请重新核对本次起始设定',409,'STALE_REVISION');
     const explicitNode = action === "run_step" || (action === "approve" && !!targetNodeId);
     const node = explicitNode ? workflow.nodes.find(item => item.id === targetNodeId) : workflow.nodes.find(item => item.id === workflow.currentNodeId) ?? workflow.nodes.find(item => ["running", "attention"].includes(item.status));
     if (explicitNode && !node) throw new Error("请选择本任务中的步骤");
     const stop = action === "pause" || action === "abort";
     const result = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/actions`, "POST", {
-      action, operationId: crypto.randomUUID(), expectedRevision: workflow.revision ?? 0,
+      action, operationId: confirmation?.operationId ?? crypto.randomUUID(), expectedRevision: confirmation?.expectedRevision ?? workflow.revision ?? 0,
+      ...(confirmation ? {biasStartConfirmation:confirmation.biasStartConfirmation} : {}),
       ...(!stop ? {nodeId: node?.id, attemptId: node?.latestAttemptId, ...(action === "backtrack" && targetNodeId ? { targetNodeId } : {})} : {}),
     }, options.commandTimeoutMs ?? 30000);
     acceptWorkflow(result);
@@ -154,9 +163,18 @@ export function createRemoteGateway(options: { fetch?: typeof fetch; eventSource
     },
     async create(input: CreateWorkflowInput) { const value = await write<Workflow>("/workflows", "POST", input); acceptWorkflow(value); return value; },
     act: command,
-    async parameters(id, nodeId, expectedRevision, parameters) {
-      const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/nodes/${encodeURIComponent(nodeId)}/parameters`, "PATCH", { operationId: crypto.randomUUID(), expectedRevision, parameters });
+    async parameters(id, nodeId, expectedRevision, parameters, clearSpectrumDriveOverrides) {
+      const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/nodes/${encodeURIComponent(nodeId)}/parameters`, "PATCH", { operationId: crypto.randomUUID(), expectedRevision, parameters, ...(clearSpectrumDriveOverrides?{clearSpectrumDriveOverrides:true}:{}) });
       acceptWorkflow(value); return value;
+    },
+    pulsePreview(id,nodeId,expectedRevision,parameters,scanIndices) {
+      return write<ManualPulsePreviewResult>(`/workflows/${encodeURIComponent(id)}/nodes/${encodeURIComponent(nodeId)}/pulse-preview`,
+        'POST',{expectedRevision,parameters,...(scanIndices?{scanIndices}:{})},options.readTimeoutMs??10000);
+    },
+    async executionVersion(id,nodeId,expectedRevision,executionVersion,reason) {
+      const value=await write<Workflow>(`/workflows/${encodeURIComponent(id)}/nodes/${encodeURIComponent(nodeId)}/execution-version`,
+        'POST',{operationId:crypto.randomUUID(),expectedRevision,executionVersion,reason});
+      acceptWorkflow(value);return value;
     },
     async budget(id, expectedRevision, budget, reason) {
       const value = await write<Workflow>(`/workflows/${encodeURIComponent(id)}/budget`, "PATCH", { operationId: crypto.randomUUID(), expectedRevision, budget, reason });

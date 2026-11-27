@@ -1,0 +1,2 @@
+{"rowId": 7, "channel": "XY", "name": "xy_1", "dtype": "<f8", "shape": [332000], "sampleRateHz": 4000000000.0, "startAt": 0, "fill": true, "sha256": "b139e2c95bd565a36f49ac17451704af7afd9c011a491f262f85aeb1ee9a105c", "uploadCommandsCompleted": true, "deviceWaveformReadback": false}
+{"rowId": 7, "channel": "RO", "name": "ro_B1", "dtype": "<c16", "shape": [166000], "sampleRateHz": 2000000000.0, "startAt": 8e-05, "fill": true, "sha256": "502c5da0b83e877fc86a84b048e6e49007cd1a8eec8d50090d5cc0fcfba4f4b2", "uploadCommandsCompleted": true, "deviceWaveformReadback": false}

@@ -30,8 +30,13 @@ $ownedPath = Join-Path $logRoot 'owned-processes.json'
 if (Test-Path -LiteralPath $ownedPath) {
     foreach ($record in @(Get-Content -LiteralPath $ownedPath -Raw | ConvertFrom-Json)) {
         $priorProcess = Get-Process -Id $record.pid -ErrorAction SilentlyContinue
-        $recordedStart = [DateTime]::Parse([string]$record.startedAt).ToUniversalTime()
-        if ($record.startedAt -is [DateTime]) { $recordedStart = $record.startedAt.ToUniversalTime() }
+        if ($record.startedAt -is [DateTimeOffset]) {
+            $recordedStart = $record.startedAt.UtcDateTime
+        } elseif ($record.startedAt -is [DateTime]) {
+            $recordedStart = $record.startedAt.ToUniversalTime()
+        } else {
+            $recordedStart = [DateTimeOffset]::Parse([string]$record.startedAt, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal).UtcDateTime
+        }
         if ($priorProcess -and $priorProcess.StartTime.ToUniversalTime().Ticks -eq $recordedStart.Ticks) { $owned += $record }
     }
 }
@@ -67,7 +72,8 @@ if (-not $apiHealth) {
         throw 'Build frontend first: cd frontend; npm ci; npm run build'
     }
     if (Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue) { throw 'Port 8765 is occupied without valid health; no service was replaced.' }
-    $apiProcess = Start-Process -FilePath $pythonPath -ArgumentList @('-B','-X','utf8','-m','backend.server','--agent-port',[string]$agentPort) -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'api.stdout.log') -RedirectStandardError (Join-Path $logRoot 'api.stderr.log')
+    # Match isolated native workers' Windows pipe encoding; API logs/HTTP remain explicit UTF-8.
+    $apiProcess = Start-Process -FilePath $pythonPath -ArgumentList @('-B','-X','utf8=0','-m','backend.server','--agent-port',[string]$agentPort) -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logRoot 'api.stdout.log') -RedirectStandardError (Join-Path $logRoot 'api.stderr.log')
     $owned += @{kind='api';port=8765;agentPort=$agentPort;pid=$apiProcess.Id;startedAt=$apiProcess.StartTime.ToUniversalTime().ToString('o')}
 }
 if ($owned.Count -gt 0) {

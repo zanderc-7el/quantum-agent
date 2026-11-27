@@ -1,0 +1,38 @@
+[
+  {
+    "path": "adapters/science_v3/__init__.py",
+    "sha256": "fa3f3e8f77e25c513320c30bd57be399df99e3bec6605f4b0c6349c6ca53d3f5"
+  },
+  {
+    "path": "adapters/science_v3/analysis.py",
+    "sha256": "20aa91870dca67de3d355fef8ba1c578262b15df5a74a6eb8a99cf565d9862a6"
+  },
+  {
+    "path": "adapters/science_v3/compiler.py",
+    "sha256": "dcb0fbc94aa5c5889e311c2fde2075cd60c2a0e71bc696ed2993f731beffd395"
+  },
+  {
+    "path": "adapters/science_v3/evidence.py",
+    "sha256": "bafb7d820f4f8623c14a643e05133bec626570ed60576f09a92e3b457862ec9f"
+  },
+  {
+    "path": "adapters/science_v3/execute_worker.py",
+    "sha256": "8e540703bc6f9d98b2e2fb24ff9c523bd3712e244446c50097e39810a102c3bb"
+  },
+  {
+    "path": "adapters/science_v3/plans.py",
+    "sha256": "9ba3c30846baa353784b231016c11b8021716c4429668e365974f28d6aaba580"
+  },
+  {
+    "path": "adapters/science_v3/transport.py",
+    "sha256": "50c5bd548a5e40cd3ae7db8ecea1e6dd598c08a89614196f8400fd6a768538a7"
+  },
+  {
+    "path": "adapters/science_v3_adapter.py",
+    "sha256": "e4a95aa9c8ee5ed8d92448f7ed0a56754d333be6cd75417265576810863a58da"
+  },
+  {
+    "path": "adapters/xy_passband.py",
+    "sha256": "1f950d32e2880f17a99db562454ee19038f8fa29aafbc1712210a2c93ad7d391"
+  }
+]

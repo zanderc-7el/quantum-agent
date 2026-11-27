@@ -5,6 +5,8 @@ from decimal import Decimal
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from .common import APIError, checked_path, digest, dumps, ident, now, number
+from .diagram_assets import validate_diagram_image
+from .document_diagrams import docx_design_image
 
 # Compiled OCR dependencies must match the running CPython minor version.
 _DEP_DIR='.document_deps' if sys.version_info[:2]==(3,12) else '.document_deps_py'+str(sys.version_info.major)+str(sys.version_info.minor)
@@ -84,6 +86,10 @@ CREATE TABLE IF NOT EXISTS document_import_operations(id TEXT PRIMARY KEY,reques
    id=ident('import');blocks,issues=self._parse(ext,raw)
    path=checked_path(self.directory/(id+ext),parent=self.directory);path.write_bytes(raw)
    d={'id':id,'revision':1,'filename':filename,'status':'parsed','createdAt':now(),'updatedAt':now(),'sha256':__import__('hashlib').sha256(raw).hexdigest(),'blocks':blocks,'draft':{'name':Path(filename).stem,'qubits':[],'designResources':self._design_resources(blocks)},'issues':issues}
+   if ext=='.docx':
+    image,issue=docx_design_image(raw,filename,id,d['sha256'])
+    if image:d['draft']['topology']={'image':image,'source':image['source'],'nodes':[],'edges':[]}
+    if issue:d['issues'].append(issue)
    d['issues'].extend(issue for resource in d['draft']['designResources'] for issue in resource.get('issues',[]))
    return d
   return self._run('document:create',body,None,work,self._save)
@@ -116,6 +122,16 @@ CREATE TABLE IF NOT EXISTS document_import_operations(id TEXT PRIMARY KEY,reques
       original=original if isinstance(original,dict) else {}
       v['provenance'][field]={**original,'kind':original.get('kind') if original.get('kind') in ('document','inferred','default') else 'inferred','sourceId':id,'location':original.get('location','模型提取，请对照原文核对')}
     safe['qubits'].append(v)
+   # Model extraction cannot replace a manually chosen diagram. Old clients
+   # without topology also preserve it; explicit removal is not re-imported.
+   diagram_source=d['draft'] if analyze or 'topology' not in draft else draft
+   if 'topology' in diagram_source:
+    topology=deepcopy(diagram_source['topology'])
+    if topology is not None:
+     if not isinstance(topology,dict):raise APIError('INVALID_IMPORT_DRAFT','芯片版图配置必须为对象')
+     if 'image' in topology:validate_diagram_image(topology['image'])
+     topology.setdefault('nodes',[]);topology.setdefault('edges',[])
+    safe['topology']=topology
    d.update(draft=safe,revision=d['revision']+1,updatedAt=now())
    return d
   def apply(rt,d):

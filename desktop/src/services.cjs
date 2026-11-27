@@ -187,7 +187,8 @@ class ServiceManager {
 }
 function serviceLaunchConfiguration(def, config, launchId) {
   serviceDefinitions(config.agentPort);
-  const args = def.kind === 'api' ? ['-B', '-X', 'utf8', '-m', 'backend.server', '--root', config.projectRoot, '--port', '8765', '--agent-port', String(config.agentPort)] : [path.join(config.projectRoot, 'agent/src/server.mjs')];
+  // Isolated native Python uses the Windows locale for pipes. API logs/HTTP explicitly use UTF-8.
+  const args = def.kind === 'api' ? ['-B', '-X', 'utf8=0', '-m', 'backend.server', '--root', config.projectRoot, '--port', '8765', '--agent-port', String(config.agentPort)] : [path.join(config.projectRoot, 'agent/src/server.mjs')];
   const env = {...process.env, QCAL_AGENT_PORT: String(config.agentPort), PYTHONUTF8: '1', QCAL_DESKTOP_LAUNCH_ID: launchId};
   delete env.ELECTRON_RUN_AS_NODE;
   return {args, env};

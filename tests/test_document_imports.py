@@ -6,18 +6,18 @@ from backend.common import APIError
 try: from backend.document_imports import DocumentImports
 except ImportError: DocumentImports=None
 
+def _local_fixture(test, name):
+ path=Path(__file__).parent/'fixtures'/name
+ if not path.is_file():test.skipTest('Private local fixture not included in the source export')
+ return path
+
 def docx_bytes():
  b=io.BytesIO()
  with zipfile.ZipFile(b,'w') as z:
-  z.writestr('[Content_Types].xml','<Types/>')
-  z.writestr('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Q3 readout 7.1 GHz drive 4.8 GHz</w:t></w:r></w:p></w:body></w:document>')
+  # Replays must resend identical request bytes even across ZIP's 2-second clock tick.
+  z.writestr(zipfile.ZipInfo('[Content_Types].xml'),'<Types/>')
+  z.writestr(zipfile.ZipInfo('word/document.xml'),'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Q3 readout 7.1 GHz drive 4.8 GHz</w:t></w:r></w:p></w:body></w:document>')
  return b.getvalue()
-def _local_fixture(test, name):
- path=Path(__file__).parent/'fixtures'/name
- if not path.is_file(): test.skipTest('Private local fixture not included in the source export')
- return path
-
-
 class DocumentImportTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.store=Store(self.root/'data/test.db',root=self.root);self.cat=ChipCatalog(self.store,self.root,{})
@@ -278,7 +278,7 @@ class ModelIssueDisplayTests(DocumentImportTests):
 
 class TableStructureTests(DocumentImportTests):
  def test_actual_handover_slide28_rows_repeat_exact_headers_without_shift(self):
-  b=io.BytesIO();xml=_local_fixture(self, 'handover-slide28.xml').read_bytes()
+  b=io.BytesIO();xml=_local_fixture(self,'handover-slide28.xml').read_bytes()
   with zipfile.ZipFile(b,'w') as z:z.writestr('ppt/presentation.xml','<presentation/>');z.writestr('ppt/slides/slide28.xml',xml)
   blocks,_=self.service()._parse('.pptx',b.getvalue())
   rows=[row for row in blocks if row.get('kind')=='table_row'];self.assertTrue(rows,'Actual handover table has been flattened into unrelated paragraphs')
@@ -303,7 +303,7 @@ class TableStructureTests(DocumentImportTests):
 class HistoricalTableSafetyTests(DocumentImportTests):
  def document(self,s):
   b=io.BytesIO()
-  with zipfile.ZipFile(b,'w') as z:z.writestr('ppt/presentation.xml','<presentation/>');z.writestr('ppt/slides/slide28.xml',_local_fixture(self, 'handover-slide28.xml').read_bytes())
+  with zipfile.ZipFile(b,'w') as z:z.writestr('ppt/presentation.xml','<presentation/>');z.writestr('ppt/slides/slide28.xml',_local_fixture(self,'handover-slide28.xml').read_bytes())
   return s.create({'operationId':'table-upload','filename':'table.pptx','contentBase64':base64.b64encode(b.getvalue()).decode()})
  def test_historical_metrics_stay_out_of_parameters_and_readout_definition_requires_choice(self):
   row_id=[None]
@@ -362,7 +362,7 @@ class HistoricalTableSafetyTests(DocumentImportTests):
  def test_explicit_table_fallback_does_not_infer_missing_units_design_values_or_merged_identity(self):
   from copy import deepcopy
   b=io.BytesIO()
-  with zipfile.ZipFile(b,'w') as z:z.writestr('ppt/presentation.xml','<presentation/>');z.writestr('ppt/slides/slide28.xml',_local_fixture(self, 'handover-slide28.xml').read_bytes())
+  with zipfile.ZipFile(b,'w') as z:z.writestr('ppt/presentation.xml','<presentation/>');z.writestr('ppt/slides/slide28.xml',_local_fixture(self,'handover-slide28.xml').read_bytes())
   rows,_=self.service()._parse('.pptx',b.getvalue());q1=next(row for row in rows if row.get('kind')=='table_row' and row['table']['cells'][0]['text']=='Q1')
   for changed in ('unit','design','merged_header','merged_identity','merged_value'):
    row=deepcopy(q1)
@@ -381,7 +381,7 @@ class HistoricalTableSafetyTests(DocumentImportTests):
 
 class GenuineDeliveryTests(DocumentImportTests):
  def test_genuine_delivery_two_header_rows_and_serial_identity_column(self):
-  xml=_local_fixture(self, 'genuine-delivery-document.xml').read_bytes()
+  xml=_local_fixture(self,'genuine-delivery-document.xml').read_bytes()
   rows=self.service()._office_text_blocks(xml,'word/document.xml')
   for i,row in enumerate(rows):row['id']='genuine-'+str(i)
   design=[r for r in rows if r.get('kind')=='table_row' and r['table']['tableIndex']==5]
@@ -415,8 +415,8 @@ class ParserReviewRegressions(DocumentImportTests):
 
 class ActualModelResourceTypingTests(DocumentImportTests):
  def test_real_model_resonator_claims_do_not_become_qubits_and_all_design_values_survive(self):
-  claims=json.loads(_local_fixture(self, 'actual-model-design-resource-claims.json').read_text(encoding='utf-8'))['qubits']
-  s=self.service(lambda *_:{'draft':{'qubits':claims},'issues':[]});xml=_local_fixture(self, 'genuine-delivery-document.xml').read_bytes();raw=io.BytesIO()
+  claims=json.loads(_local_fixture(self,'actual-model-design-resource-claims.json').read_text(encoding='utf-8'))['qubits']
+  s=self.service(lambda *_:{'draft':{'qubits':claims},'issues':[]});xml=_local_fixture(self,'genuine-delivery-document.xml').read_bytes();raw=io.BytesIO()
   with zipfile.ZipFile(raw,'w') as z:z.writestr('word/document.xml',xml)
   d=s.create({'operationId':'real-model-resource-upload','filename':'genuine.docx','contentBase64':base64.b64encode(raw.getvalue()).decode()});result=s.analyze(d['id'],{'operationId':'real-model-resource-analyze','expectedRevision':1})
   qs={q['id']:q for q in result['draft']['qubits']};self.assertEqual(set(qs),{'Q'+str(i) for i in range(1,14)})
@@ -431,10 +431,10 @@ class ActualModelResourceTypingTests(DocumentImportTests):
   registry={'R1':{'id':'R1','kind':'resonator','provenance':{'blockId':'resonator-row'}}}
   self.assertEqual(s._non_qubit_design_reference({'id':'Q99','provenance':{'drive_hz':{'blockId':'resonator-row'}}},registry,{}),'R1')
  def test_free_model_narrative_cannot_contradict_final_design_seed_state_or_flood_user_issues(self):
-  fixture=json.loads(_local_fixture(self, 'actual-model-design-resource-claims.json').read_text(encoding='utf-8'))
+  fixture=json.loads(_local_fixture(self,'actual-model-design-resource-claims.json').read_text(encoding='utf-8'))
   fixture['issues']=['表5为设计仿真参数表，仅含设计值，无实测比特频率/读取频率配置；drive_hz与readout_hz均置null。','表5的设计频率未作为执行参数写入。','芯片名称与currentDraft一致。','物理映射仍有不确定性，请核对来源。']
   s=self.service(lambda *_:{'draft':{'qubits':fixture['qubits']},'issues':fixture['issues']});raw=io.BytesIO()
-  with zipfile.ZipFile(raw,'w') as z:z.writestr('word/document.xml',_local_fixture(self, 'genuine-delivery-document.xml').read_bytes())
+  with zipfile.ZipFile(raw,'w') as z:z.writestr('word/document.xml',_local_fixture(self,'genuine-delivery-document.xml').read_bytes())
   d=s.create({'operationId':'narrative-upload','filename':'genuine.docx','contentBase64':base64.b64encode(raw.getvalue()).decode()});r=s.analyze(d['id'],{'operationId':'narrative-analyze','expectedRevision':1})
   q11=next(q for q in r['draft']['qubits'] if q['id']=='Q11');self.assertEqual(q11['parameters']['drive_hz'],2140000000.0)
   self.assertFalse(any('均置null' in i or '未作为执行参数' in i or 'currentDraft' in i for i in r['issues']))

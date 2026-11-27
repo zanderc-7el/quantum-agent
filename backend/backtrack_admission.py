@@ -4,6 +4,7 @@ This is a lookahead, not an attempt/shot reservation or a quality decision.
 Shot-plan admission remains a separate controller check for physical adapters.
 """
 from .common import APIError
+from . import workflow_budget as task_budget
 
 VERSION = 'backtrack-attempt-admission/1'
 
@@ -16,16 +17,16 @@ def _integer(value, name, minimum):
 
 def admit_backtrack(workflow, target):
     attempts = _integer(target.get('attempt'), 'target.attempt', 0)
-    maximum = _integer(workflow.get('maxAttemptsPerNode'), 'maxAttemptsPerNode', 1)
+    per_node = task_budget.remaining(workflow, 'maxAttemptsPerNode', attempts)
     iterations = _integer(workflow.get('iterations'), 'iterations', 0)
-    total = _integer(workflow.get('maxWorkflowAttempts'), 'maxWorkflowAttempts', 1)
-    if attempts >= maximum:
+    remaining = task_budget.remaining(workflow, 'maxWorkflowAttempts', iterations)
+    if per_node is not None and per_node <= 0:
         raise APIError('ATTEMPT_BUDGET', '回退目标已达到本轮尝试次数上限；未回退或使证据失效', 409)
-    if iterations >= total:
+    if remaining is not None and remaining <= 0:
         raise APIError('WORKFLOW_ATTEMPT_BUDGET', '任务已达到本轮总尝试次数上限；未回退或使证据失效', 409)
     return {'version': VERSION, 'targetNodeId': target['id'],
-            'remainingTargetAttempts': maximum - attempts,
-            'remainingWorkflowAttempts': total - iterations, 'reservation': False}
+            'remainingTargetAttempts': per_node,
+            'remainingWorkflowAttempts': remaining, 'reservation': False}
 
 
 def eligible_backtracks(workflow, ancestor_ids):

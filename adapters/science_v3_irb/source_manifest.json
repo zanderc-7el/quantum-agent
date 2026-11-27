@@ -1,0 +1,58 @@
+[
+  {
+    "path": "adapters/science_v3_irb/__init__.py",
+    "sha256": "fff2cb7da6154c4a1aa10a801001f315ceed76c1429b5b370705d8486ebf5675"
+  },
+  {
+    "path": "adapters/science_v3_irb/adapter.py",
+    "sha256": "ff0a146ca22f23c3fe3e308c13e2a58df14fc6e55b436389d3788962cef72d7e"
+  },
+  {
+    "path": "adapters/science_v3_irb/analysis.py",
+    "sha256": "134544ab7c15d488591bac483b5654ccecc6a5a78afbc56bba46dd9217c9cce0"
+  },
+  {
+    "path": "adapters/science_v3_irb/beta.py",
+    "sha256": "bb694e7ecc11b9d365c85d3aa45fe3f2a4b094cc8e775571be9afc98f054e649"
+  },
+  {
+    "path": "adapters/science_v3_irb/client.py",
+    "sha256": "5798c272c848bc6aa900796bc8ebaaa1da81bace5fafa42c4e8663bc841054e3"
+  },
+  {
+    "path": "adapters/science_v3_irb/compiler.py",
+    "sha256": "f26a666d8f9705782f2962ecfd1fd246bdc962ebef49dae169ab336b2e27f4df"
+  },
+  {
+    "path": "adapters/science_v3_irb/execute_worker.py",
+    "sha256": "a2eb3198e113491e78299e4fb7f63f45a94b6c57f1c8715c0155a02a9640d693"
+  },
+  {
+    "path": "adapters/science_v3_irb/half_scan.py",
+    "sha256": "684abd1c3a6db354a9013afff3504ea59869ad59a3eab0fac9046d95465d6cc1"
+  },
+  {
+    "path": "adapters/science_v3_irb/plan_worker.py",
+    "sha256": "c6d7319481f0d6bd4ca7ebfe67004197654ed902ac61e3b77f5cc6e98a6533f9"
+  },
+  {
+    "path": "adapters/science_v3_irb/plans.py",
+    "sha256": "185cbb629f4441d468d079c56ef1b6e8b38dc72e37afaaf12816e129ef39bfaa"
+  },
+  {
+    "path": "adapters/science_v3_irb/policy.py",
+    "sha256": "e4699ce68ce7fc1e592c99071c1e8a83b3fceb07b63f450827643a7e915358da"
+  },
+  {
+    "path": "adapters/science_v3_irb/runtime_contract.py",
+    "sha256": "550b22379b6c3b4daa944db0d61a55633a3464aa3a06480de4736b1b6296e04c"
+  },
+  {
+    "path": "adapters/science_v3_irb/sequences.py",
+    "sha256": "fcce031e4b746ae6c4c2ac822e32e4ad1a5e987799c3f0111c9a924b9805e696"
+  },
+  {
+    "path": "adapters/science_v3_irb/timing.py",
+    "sha256": "26adb95d1fb4e47b0c10e1c2aa6cc30e3d586c653b5bf84258118bf1225b92c8"
+  }
+]

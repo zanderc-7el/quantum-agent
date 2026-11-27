@@ -20,6 +20,21 @@ const detail = { node, attempts: [], decisions: [], rules: [], parameterBounds: 
     readout_width_s: 2e-6, points: 61, shots: 2000, start_s: 0, stop_s: 8e-6, amp_start: .05, amp_stop: .98 },
 } as NodeDetail;
 
+test('IRB integer arrays remain bounded arrays through current-node editing', () => {
+  const input = {...detail, parameters: {rb_lengths:[1,4,16,64,128]}, parameterBounds: {
+    rb_lengths: {type:'integerArray',min:1,max:512,minItems:5,maxItems:12,strictlyIncreasing:true},
+  }} as NodeDetail;
+  const draft=createManualParameterDraft(input,{...node,editableParameterKeys:['rb_lengths']},7);
+  assert.equal(draft.values.rb_lengths,'1, 4, 16, 64, 128');
+  draft.values.rb_lengths='1, 8, 32, 128, 256';
+  assert.deepEqual(validateManualParameterDraft(draft,7),{rb_lengths:[1,8,32,128,256]});
+  for(const value of ['32','1,4,4,64,128','1,4,16.5,64,128','1,4,16,64,513','1,4,16,64,true','[1,4,16,64,128]']){
+    draft.values.rb_lengths=value;assert.throws(()=>validateManualParameterDraft(draft,7));
+  }
+  draft.values.rb_lengths='1,4,16,64,128';
+  assert.throws(()=>validateManualParameterDraft(draft,7),/至少修改/);
+});
+
 test('human units round-trip to exact API units and convert bounds consistently', () => {
   const fields = buildManualParameterFields(bounds);
   for (const [key, unit, input, base, min, max] of [

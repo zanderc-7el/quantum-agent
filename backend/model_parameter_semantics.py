@@ -20,7 +20,8 @@ import math
 
 SUPPORTED_IDENTITY = ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v1')
 SUPPORTED_IDENTITIES = frozenset((SUPPORTED_IDENTITY,
-    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v2')))
+    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v2'),
+    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v3')))
 SAMPLING = frozenset(('shots', 'capture_repeats', 'acquisitions_per_point'))
 METHOD_KNOBS = {
     'ro_resonator_survey': {'readout_hz', 'span_hz', 'points'},

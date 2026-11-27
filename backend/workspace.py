@@ -4,8 +4,11 @@ import json
 import re
 from .common import APIError, digest, dumps, ident, now
 from .stopped_receipts import stopped_summary
+from .ownership_diagnostics import latest_refusal, checked_evidence, message as ownership_message
+from .rabi_attention import rabi_fit_evidence
 
 
+AUTOMATIC_PLANNING_STATES = frozenset(('decision_queued', 'deciding'))
 DEVICE_STATES = {'needs_reconciliation', 'device_disconnected', 'ownership_unknown'}
 
 
@@ -426,6 +429,9 @@ class Workspace:
         scope = conv['scope']
         if body.get('intent') != 'execute' or scope['kind'] == 'workflow':
             return {'status':'proposed'}
+        if tool == 'run_manual_step':
+            from .workspace_manual import execute
+            return execute(self,args,body,conv)
         if tool == 'export_report':
             from .workspace_reports import execute_export
             return execute_export(self,args,body,conv,index)
@@ -572,9 +578,10 @@ class Workspace:
         if body.get('intent')=='auto':
             from .workspace_actions import command_action, explicit_mutation
             from .workspace_reports import report_requested
+            from .workspace_manual import request_text
             importing=bool(re.search(r'读取|分析|整理|保存.*草稿|导入',message) and not re.search(r'怎么|如何|为什么|如果|是否|[?？]',message))
             configuring=explicit_mutation(message,r'保存|修改|填写|更新|配置|发布|创建|新建|建立|安排|导出|生成|export')
-            body={**body,'intent':'execute' if command_action(message) or importing or configuring or report_requested(message) else 'discuss'}
+            body={**body,'intent':'execute' if command_action(message) or importing or configuring or report_requested(message) or request_text(message) else 'discuss'}
         with self.store.transaction() as rt:
             old, fingerprint = self._command(rt, body, 'message:'+id)
             if old is not None:
@@ -603,7 +610,8 @@ class Workspace:
         try:
             self._scope(conv['scope'])
             from .workspace_actions import direct_proposal
-            direct=direct_proposal(self,body,conv['scope'])
+            from .workspace_manual import direct_proposal as direct_manual_step
+            direct=direct_manual_step(self,body,conv['scope']) or direct_proposal(self,body,conv['scope'])
             if direct:
                 reply={'message':'','proposals':[direct]}
             elif conv['scope']['kind']=='workflow':
@@ -687,10 +695,15 @@ class Workspace:
         return conv
 
     def _sync_attention(self, rt):
+        from .model_recovery import has_scheduled_backoff
         active = set()
-        for wf in self.store.workflows(rt):
+        scheduled_backoffs = set()
+        workflows = self.store.workflows(rt)
+        for wf in workflows:
             shared_fault = bool(wf.get('sharedDeviceFault') and device_fault_blocks(wf))
-            if wf['status'] != 'attention' and not shared_fault:
+            if not shared_fault and (wf['status'] != 'attention' or wf['engineState'] in AUTOMATIC_PLANNING_STATES):
+                # A completed acquisition can be waiting for the scheduler or its model.
+                # The sync below resolves obsolete modal rows without changing the workflow.
                 continue
             if (wf.get('policy')=='strict' and wf['engineState'] in ('awaiting_acceptance','manual_ready')
                     and not wf.get('sharedDeviceFault')):
@@ -698,6 +711,9 @@ class Workspace:
             node = next((n for n in wf['nodes'] if n['id']==wf.get('currentNodeId')), {})
             signature = digest([wf['id'],node.get('id'),node.get('latestAttemptId'),
                                 'shared_device_fault' if shared_fault else wf['engineState']])
+            if not shared_fault and wf['engineState']=='waiting_model' and has_scheduled_backoff(self.c,rt,wf,workflows):
+                scheduled_backoffs.add(signature)
+                continue
             active.add(signature)
             row = rt.db.execute('SELECT payload FROM platform_attention WHERE signature=?',(signature,)).fetchone()
             prior = json.loads(row[0]) if row else None
@@ -709,8 +725,22 @@ class Workspace:
                     "SELECT result FROM platform_effects WHERE workflow_id=? AND attempt_id=? AND state IN ('cancelled','failed_after_shutdown')",
                     (wf['id'], node['latestAttemptId']))]
                 summary = stopped_summary(receipts, selection_retained=bool((node.get('result') or {}).get('selectionResult')))
-            same_revision = prior and prior['workflowRevision']==wf['revision']
+            ownership_check = None
+            confirmation = None
+            if diagnostic_state in ('waiting_hardware','execution_failed','needs_reconciliation'):
+                ownership_check = checked_evidence(node.get('ownershipCheck') if node else wf.get('ownershipCheck'))
+                confirmation = latest_refusal(rt,wf,node)
+                if confirmation and (not ownership_check or confirmation['checkedAt']>=ownership_check.get('checkedAt','')):
+                    ownership_check=confirmation
+            fit_evidence = rabi_fit_evidence(node) if diagnostic_state=='quality_attention' else None
+            same_revision = prior and prior.get('resolutionReason')!='model_recovery_scheduled' and prior['workflowRevision']==wf['revision'] and prior.get('ownershipCheck')==ownership_check and prior.get('rabiFitEvidence')==fit_evidence
             if same_revision and prior.get('executionSummary') == summary:
+                # Display-only enrichment of old attention rows must not reopen
+                # deferred items or invalidate their current action revision.
+                identity={'workflowName':wf.get('name'),'workflowCreatedAt':wf.get('createdAt')}
+                if any(prior.get(k)!=v for k,v in identity.items()):
+                    prior.update(identity)
+                    rt.db.execute('UPDATE platform_attention SET payload=? WHERE id=?',(dumps(prior),prior['id']))
                 continue
             connection_failed = bool(summary and summary['reason'] == 'connection_failed')
             options = ([('reconcile','核查执行回执')] if state=='needs_reconciliation' else
@@ -734,10 +764,13 @@ class Workspace:
                 recommendation = '先核对机箱网络、设备地址与占用，确认连接后再决定是否重测。'
             item = {'id': prior['id'] if prior else ident('attention'), 'revision':prior['revision']+1 if prior else 1,
                 'workflowId':wf['id'],'campaignId':wf.get('campaignId'),'nodeId':node.get('id'),
+                'workflowName':wf.get('name'),'workflowCreatedAt':wf.get('createdAt'),
                 'attemptId':node.get('latestAttemptId'),'workflowRevision':wf['revision'],
                 'resourceId':node.get('resourceId',wf.get('target')),
                 'title':wf['target']+' · '+node.get('label','设备准备'),
-                'message':summary['message'] if summary else node.get('detail') or (wf.get('events') or [{}])[-1].get('message','需要处理'),
+                'message':summary['message'] if summary else ownership_message(confirmation) if confirmation and confirmation['stage']=='confirmation' and ownership_check==confirmation else node.get('detail') or (wf.get('events') or [{}])[-1].get('message','需要处理'),
+                **({'ownershipCheck':ownership_check} if ownership_check else {}),
+                **({'rabiFitEvidence':fit_evidence} if fit_evidence else {}),
                 **({'executionSummary':summary} if summary else {}),
                 'recommendation':recommendation, 'actions':[{'id':a,'label':b} for a,b in options],
                 'state':prior['state'] if same_revision else 'open',
@@ -749,6 +782,8 @@ class Workspace:
             item = json.loads(row['payload'])
             if row['signature'] not in active and item['state']!='resolved':
                 item.update(state='resolved',revision=item['revision']+1,resolvedAt=now())
+                if row['signature'] in scheduled_backoffs:
+                    item['resolutionReason']='model_recovery_scheduled'
                 rt.db.execute('UPDATE platform_attention SET payload=? WHERE id=?',(dumps(item),item['id']))
 
     def attention_items(self):
@@ -766,6 +801,16 @@ class Workspace:
             if not row:
                 raise APIError('NOT_FOUND','待处理事项不存在',404)
             item=json.loads(row[0])
+            if (item['state']=='resolved' and item.get('scope')=='resource'
+                    and (item.get('engineState') in AUTOMATIC_PLANNING_STATES
+                         or item.get('engineState')=='waiting_model' and item.get('resolutionReason')=='model_recovery_scheduled')
+                    and (body.get('action')=='defer' or body.get('action') in {a['id'] for a in item.get('actions',[])})
+                    and type(body.get('expectedRevision')) is int
+                    and 0 < body['expectedRevision'] <= item['revision']):
+                # An already-open client may still send one of the old planning
+                # buttons. Acknowledge closure; none of them is a workflow command.
+                self._remember(rt,body,fingerprint,item)
+                return item
             self._revision(item,body)
             if item['state']=='resolved':
                 raise APIError('ATTENTION_RESOLVED','该事项已经处理',409)

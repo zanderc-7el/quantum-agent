@@ -37,6 +37,9 @@ class ManualSteps:
                 raise APIError('PREREQUISITES_MISSING', '前置步骤必须是当前工作点已验收的真机结果', 409)
 
     def _queue_manual_step(self, rt, wf, payload):
+        if wf.get('smartParent'):
+            from .smart_science import assert_authorized
+            assert_authorized(self, wf, rt=rt)
         if not is_manual(wf):
             raise APIError('MANUAL_POLICY_REQUIRED', '逐步测量仅适用于人工逐步真机任务', 409)
         self._manual_idle(rt, wf)
@@ -52,6 +55,8 @@ class ManualSteps:
             raise APIError('UNSUPPORTED_METHOD', '当前步骤尚未接入执行器', 409)
         admit_backtrack(wf, node)
         self._assert_adapter_binding(wf)
+        from .flux_execution import manual_confirmation
+        bias_confirmation = manual_confirmation(self.profile, wf, node, payload)
         parameters, versions = self._parameters(rt, wf, node)
         marker = self._readout_revalidation(rt, wf, node, parameters, versions)
         parameters = self._readout_revalidation_parameters(node, parameters, marker)
@@ -62,12 +67,17 @@ class ManualSteps:
             wf.setdefault('manualStepHistory', []).append(deepcopy(previous))
         wf['manualStep'] = {'operationId': payload['operationId'], 'targetNodeId': node['id'],
             'state': 'queued', 'requestedRevision': wf['revision'], 'createdAt': now()}
+        if bias_confirmation is not None:
+            wf['manualStep']['biasStartConfirmation'] = bias_confirmation
         wf.update(status='queued', engineState='manual_step_queued', currentNodeId=node['id'],
                   cancelRequested=None, approved=False, workflowComplete=False)
         if wf.get('configurationBinding'):
             wf.update(hardwareConfirmed=True, hardwareConfirmedAt=now())
 
     def _assert_manual_dispatch(self, wf, node_id, attempt_id=None):
+        if wf.get('smartParent'):
+            from .smart_science import assert_authorized
+            assert_authorized(self, wf)
         permit = wf.get('manualStep') or {}
         if not permit or permit.get('state') not in ('queued', 'running'):
             raise APIError('MANUAL_STEP_REQUIRED', '请明确选择步骤并发出一次逐步测量许可', 409)
@@ -102,7 +112,10 @@ class ManualSteps:
                     marker.update(state='finished', finishedAt=now())
                     self.store.save(rt, current, 'manual_step_closed', {'message': '本次逐步许可已结束；下一次测量须明确运行本步'})
 
-    def _approve_manual_step(self, rt, wf, payload):
+    def _approve_manual_step(self, rt, wf, payload, *, _smart_parent=None):
+        if _smart_parent is not None:
+            from .smart_science import assert_authorized
+            assert_authorized(self, wf, _smart_parent, rt)
         self._manual_idle(rt, wf)
         node = self._node(wf, payload.get('nodeId'))
         if node['id'] != wf.get('currentNodeId'):
@@ -121,6 +134,14 @@ class ManualSteps:
             raise APIError('CURRENT_EVIDENCE_REQUIRED', '当前结果缺少匹配的独立复测尝试记录', 409)
         if payload.get('attemptId') and payload['attemptId'] != attempt['id']:
             raise APIError('STALE_ATTEMPT', '该操作对应的尝试已不是当前尝试', 409)
+        if attempt.get('executionBinding'):
+            from .attempt_execution import validate_request
+            for operation in (attempt['operationId'],attempt['verificationOperationId']):
+                effect=rt.db.execute('SELECT request,state FROM platform_effects WHERE workflow_id=? AND attempt_id=? AND operation_id=?',
+                    (wf['id'],attempt['id'],operation)).fetchone()
+                if effect is None or effect['state']!='completed':
+                    raise APIError('CURRENT_EVIDENCE_REQUIRED','本次版本缺少已完成的首测或独立复测',409)
+                validate_request(self,rt,json.loads(effect['request']))
         for evidence in (result.get('selectionResult', {}), result):
             for artifact in evidence.get('artifacts', []):
                 self._artifact(rt, artifact)
@@ -131,8 +152,12 @@ class ManualSteps:
         deferred = attempt['state'] == 'awaiting_acceptance'
         accepted_result = deepcopy(result)
         accepted_at = now()
-        node.update(status='success', engineState='verified', mainProcedureComplete=True,
-                    humanAcceptedAttemptId=attempt['id'], humanAcceptedAt=accepted_at)
+        node.update(status='success', engineState='verified', mainProcedureComplete=True)
+        if _smart_parent is None:
+            node.update(humanAcceptedAttemptId=attempt['id'], humanAcceptedAt=accepted_at)
+        else:
+            node.update(agentAcceptedAttemptId=attempt['id'], agentAcceptedAt=accepted_at,
+                        agentAcceptedByParentId=_smart_parent)
         rebuild = self._commit_candidate(rt, wf, node, result.get('candidateParameters', {}),
                                          attempt.get('parameterVersions', {})) if deferred else None
         if deferred and node['procedureId'] == 'sq_rb' and self._physical_adapter and callable(getattr(self.adapter, 'publish_calibration', None)):
@@ -144,7 +169,11 @@ class ManualSteps:
             result['artifacts'].append(self._artifact(rt, calibration))
             accepted_result['artifacts'] = deepcopy(result['artifacts'])
             node['calibrationVersion'] = calibration['calibrationVersion']
-        attempt.update(state='verified', humanAcceptedAt=accepted_at, result=accepted_result)
+        attempt.update(state='verified', result=accepted_result)
+        if _smart_parent is None:
+            attempt['humanAcceptedAt'] = accepted_at
+        else:
+            attempt.update(agentAcceptedAt=accepted_at, agentAcceptedByParentId=_smart_parent)
         self.store.attempt(rt, wf['id'], attempt)
         if deferred:
             previous = [json.loads(row[0]) for row in rt.db.execute(
@@ -168,7 +197,7 @@ class ManualSteps:
             wf.update(status='completed', engineState='verified', progress=100)
             wf['resultSummary'] = {'verifiedNodes': passed, 'totalNodes': len(wf['nodes']),
                 'coverage': wf.get('coverage', 'main'), 'recordCount': len(wf['processedRecordIds']),
-                'workflowComplete': True, 'meaning': '本轮所选测项全部独立验证并经人工确认'}
-        self._record_decision(rt, wf, node['id'], {'action': 'approve', 'reason': '操作员确认当前独立复测结果',
+                'workflowComplete': True, 'meaning': '本轮所选测项全部独立验证并经人工确认' if _smart_parent is None else '本步独立复测通过，由已授权智能父任务确认'}
+        self._record_decision(rt, wf, node['id'], {'action': 'approve', 'reason': '操作员确认当前独立复测结果' if _smart_parent is None else '智能父任务确认当前独立复测结果',
             'evidenceIds': [a['id'] for a in result.get('artifacts', [])],
-            'attemptId': attempt['id'], 'rebuildTargetNodeId': rebuild}, 'operator')
+            'attemptId': attempt['id'], 'rebuildTargetNodeId': rebuild}, 'operator' if _smart_parent is None else 'authorized_agent')

@@ -405,7 +405,7 @@
   },
   {
     "path": "adapters/arclight.py",
-    "sha256": "8c82b670148893be09ed497f03178be49ae9225343d3781d105be643d5342a09"
+    "sha256": "653e39e873b759dd0919c40600ab2e665364d2dfc9b578ba46f118a9f2f405b7"
   },
   {
     "path": "adapters/f8.py",

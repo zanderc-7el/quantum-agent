@@ -1,0 +1,62 @@
+[
+  {
+    "path": "adapters/science_flux/__init__.py",
+    "sha256": "b44cadd2a3095436ee70ad6d54e6757180e700a6016a9e0ffa9971ed16fd2979"
+  },
+  {
+    "path": "adapters/science_flux/analysis.py",
+    "sha256": "5a417728a9948c919d61700e90aaafaae510d96b739f9f9b42e5a6b4ece5c398"
+  },
+  {
+    "path": "adapters/science_flux/bias_session.py",
+    "sha256": "457704babb034378c36902b2d0438771443fce4a9df17e39602b3146a64a88fc"
+  },
+  {
+    "path": "adapters/science_flux/command_contracts.py",
+    "sha256": "3a5caae25764aa198f9933845d713eaf426eecee5f1d61af0330347bbccff8a4"
+  },
+  {
+    "path": "adapters/science_flux/command_lease.py",
+    "sha256": "cf38e4b29a16e2a18b9e5f5fa42687d9685479dfe6788d52594ea55460829b0d"
+  },
+  {
+    "path": "adapters/science_flux/command_session.py",
+    "sha256": "9bf394272b47dc76473ea37eed74384741dd37ce14179fe9165ca66ccf294bdb"
+  },
+  {
+    "path": "adapters/science_flux/compiler.py",
+    "sha256": "a9fd49eade74c0b1bb096e6e3a1e2b0a4ef8c8f945a64ed2178cc39907aa0e19"
+  },
+  {
+    "path": "adapters/science_flux/contracts.py",
+    "sha256": "91ba15e18af599c81c193fc08cc885dd41d378d421650afdf3cf4462762d534e"
+  },
+  {
+    "path": "adapters/science_flux/evidence.py",
+    "sha256": "1e9b7c193035e971936d29c2001094d9480961c7d057098876fb632efbe454d6"
+  },
+  {
+    "path": "adapters/science_flux/execute_worker.py",
+    "sha256": "3164fabaaf801302c34a1a89c00d9de438bd67e65ef17b3196d68fd4f4cb6639"
+  },
+  {
+    "path": "adapters/science_flux/lf_transport.py",
+    "sha256": "8eb2b12bab88cb4cfea96c101bb078c1f4b8bbdd6b0441a2b291d2b025c7f0e3"
+  },
+  {
+    "path": "adapters/science_flux/plans.py",
+    "sha256": "a15d88f88cba6f5b6e6207474072d77073f865b91ae456732c5bb9936975ee1a"
+  },
+  {
+    "path": "adapters/science_flux/policy.py",
+    "sha256": "1f5781c96d96b9e262897c7fae22e7df291b775158ab2eb5eb001bd1afdebcc7"
+  },
+  {
+    "path": "adapters/science_flux/transport.py",
+    "sha256": "598ebc50d4e9e44eb447fbc46a4bd0e4c7138f0e464e49340aaa1c0c64d2678b"
+  },
+  {
+    "path": "adapters/science_flux_adapter.py",
+    "sha256": "978a49e18fee590815896ece42d2f79ac08489de9d8dd23e599703b431ab8610"
+  }
+]

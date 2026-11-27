@@ -78,7 +78,7 @@ class ReportsTest(unittest.TestCase):
 class FailedAttemptPresentationTests(unittest.TestCase):
  def snapshot(self):
   path=ROOT/'tests/fixtures/failed-attempt-report-snapshot.json'
-  if not path.is_file(): self.skipTest('Private local fixture not included in the source export')
+  if not path.is_file():self.skipTest('Private local fixture not included in the source export')
   return json.loads(path.read_text(encoding='utf-8'))
  def test_actual_failure_shows_bound_attempt_and_scan_count_while_all_old_figures_survive(self):
   report=self.snapshot();before=copy.deepcopy(report);model=reader_model(report)

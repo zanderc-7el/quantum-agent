@@ -15,13 +15,17 @@ export function reportDownloadUrl(job?: ReportExportJob) {
   return job?.status === "completed" ? `/api/report-exports/${encodeURIComponent(job.id)}/file` : undefined;
 }
 
+export function reportSnapshotTime(job: ReportExportJob) {
+  return job.capturedAt && Number.isFinite(Date.parse(job.capturedAt)) ? job.capturedAt : job.createdAt;
+}
+
 export function recoverExportSession(current: ExportSession | undefined, jobs: ReportExportJob[], workflowId: string): ExportSession | undefined {
   // An unanswered POST must retain its original operation ID for reconciliation.
   if (current && !current.job) return current;
   const candidates = jobs.flatMap(job => {
     if (!Number.isFinite(Date.parse(job.createdAt))) return [];
     const session = parseExportSession(JSON.stringify({ workflowId, job, request: {
-      operationId: job.operationId, expectedRevision: job.revision, format: "pptx", appendixCount: job.appendixCount,
+      operationId: job.operationId, expectedRevision: job.requestedRevision ?? job.revision, format: "pptx", appendixCount: job.appendixCount,
     } }), workflowId);
     return session ? [session] : [];
   }).sort((a, b) => Date.parse(b.job!.createdAt) - Date.parse(a.job!.createdAt));

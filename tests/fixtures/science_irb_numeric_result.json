@@ -1,0 +1,1280 @@
+{
+  "adcRandomSeed": 72,
+  "campaignSha256": "216f6793e9fe4a17e978ff775b6bef693546b3d8fa016f0dae45f76a3e1ea3d1",
+  "description": "Synthetic ADC, native sequence/analysis, parser contract only; missing authentic operations and artifact bytes",
+  "expectedDecay": {
+    "interleaved": 0.94,
+    "reference": 0.97
+  },
+  "fixtureOnly": true,
+  "hardwareConnected": false,
+  "physicalAccepted": false,
+  "qualityOutcomes": [
+    {
+      "fidelityPublished": false,
+      "independent": false,
+      "qualityStatus": "unverified",
+      "reasons": [
+        "需要独立采集复测"
+      ]
+    },
+    {
+      "fidelityPublished": true,
+      "independent": true,
+      "qualityStatus": "passed",
+      "reasons": []
+    }
+  ],
+  "result": {
+    "acquiredAt": "explicit synthetic fixture only",
+    "analysisQuality": {
+      "accepted": true,
+      "reasons": [],
+      "scope": "Conditional independent DRAG X/2 interleaved RB; no process-tomography/leakage claim"
+    },
+    "artifacts": [
+      {
+        "name": "raw_pre.npz"
+      },
+      {
+        "name": "raw_rb.npz"
+      },
+      {
+        "name": "raw_irb.npz"
+      },
+      {
+        "name": "raw_post.npz"
+      },
+      {
+        "name": "raw_scan.npz"
+      }
+    ],
+    "candidateParameters": {},
+    "dataKind": "real",
+    "metrics": {
+      "clifford_fidelity": 0.9849961695624907,
+      "gate_fidelity": 0.9846237354114111,
+      "independent_sequences_per_length": 20,
+      "r_squared": 0.9999995035237783,
+      "rb_captures": 2,
+      "reference_drift_fraction": 0.0004218647950221169,
+      "reference_drift_upper_diagnostic": 0.01321228154799484
+    },
+    "parameters": {
+      "acquisitions_per_point": 2,
+      "anharmonicity_hz": -200000000.0,
+      "capture_repeats": 2,
+      "drag_lambda1": 0.2,
+      "drive_amp": 0.3,
+      "drive_hz": 4860000000.0,
+      "drive_length_s": 2e-08,
+      "order_seed": 20261126,
+      "pulse_length_s": 2e-08,
+      "pulse_phase_rad": 0.0,
+      "pulse_shape": "Gaussian",
+      "pulse_sigma_s": 4e-09,
+      "rb_bootstrap_replicates": 100,
+      "rb_captures": 2,
+      "rb_lengths": [
+        1,
+        4,
+        16,
+        64,
+        128
+      ],
+      "rb_master_seed": 20261126,
+      "rb_sequences": 20,
+      "rb_target": "X/2",
+      "readout_amp": 0.4,
+      "readout_hz": 7010000000.0,
+      "readout_width_s": 2e-06,
+      "reference_captures": 4,
+      "shape_pi_amp": 0.3,
+      "shots": 100,
+      "xy_attenuation_db": 3.75,
+      "xy_delay_s": 1e-07,
+      "xy_filter_mhz": 4700
+    },
+    "provenance": {
+      "campaignPolicy": "native_science_v3_drag_xhalf_paired_irb_prepost_v1",
+      "freshAcquisition": true,
+      "scienceDependencies": {
+        "closureSha256": "ddcede9f6ff2fe3e089d2cb66f11ae66cef9197bd951495fb38e7bf3f9aa7bb3",
+        "edges": [
+          {
+            "fromRecordId": "fixture-drag",
+            "role": "pi01",
+            "toRecordId": "pi"
+          },
+          {
+            "fromRecordId": "fixture-drag",
+            "role": "rabi_amplitude",
+            "toRecordId": "pi"
+          },
+          {
+            "fromRecordId": "fixture-drag",
+            "role": "half01",
+            "toRecordId": "half"
+          },
+          {
+            "fromRecordId": "fixture-drag",
+            "role": "rabi_time",
+            "toRecordId": "fixture-source"
+          }
+        ],
+        "inputs": {},
+        "kind": "measurement",
+        "nodes": [
+          {
+            "procedureId": "sq_drag_half_scan",
+            "recordId": "fixture-drag",
+            "targetPulseIdentity": {
+              "identity": {
+                "amplitude": 0.15,
+                "anharmonicityHz": -200000000.0,
+                "bufferS": 2e-09,
+                "durationS": 2e-08,
+                "frequencyHz": 4860000000.0,
+                "lambda1": 0.2,
+                "phaseRad": 0.0,
+                "policy": "native_science_v3_fixed_duration_drag_segmented_carrier_v1",
+                "readoutContextHash": "3a2664037fbf44cffd6f13f196895121a02d8c9f27b4f50ea9edf37b0d37433f",
+                "rotationRad": 1.5707963267948966,
+                "shape": "Gaussian",
+                "sigmaS": 4e-09,
+                "transition": "target01",
+                "xySampleRateHz": 4000000000.0
+              },
+              "sha256": "20f4cf5c9d20bb266ed2f16879f4d3d91a718a247f9634a5f12ef885f80afe50"
+            }
+          },
+          {
+            "procedureId": "sq_shape_rabi_amplitude",
+            "recordId": "pi"
+          },
+          {
+            "procedureId": "sq_shape_half_verify",
+            "recordId": "half"
+          },
+          {
+            "adapterProfileHash": "old-source",
+            "operations": [
+              {
+                "adapterRequestSha256": "11b0ba0a076018d04d2ff9828c2204f1a797e003788ed598fd2ebb6bebf45cbe",
+                "operationId": "source-attempt/measure",
+                "rawArtifacts": [
+                  {
+                    "id": "selection",
+                    "sha256": "af40c62ac6979af712ef28e01bfba95a37cee162eb31872c869aeb94c94b93ab"
+                  }
+                ],
+                "resultContentSha256": "caeb883291e3cbd2a7ef7c215945203d538b481e50ba786030c2b1629e867f3e",
+                "stage": "selection"
+              },
+              {
+                "adapterRequestSha256": "a54aa05b7958df236a31ce74b14daea932c94b22e691d18d079519c90f88b8c4",
+                "operationId": "source-attempt/verify",
+                "rawArtifacts": [
+                  {
+                    "id": "verification",
+                    "sha256": "6498007bd5311199173c23309e27d205a0cc3d03aa0341dc498797d29705e3cd"
+                  }
+                ],
+                "resultContentSha256": "c3bbfcc943360a4ee59267e28f1c4e7168305af1d611ebb409e4c30073b252a8",
+                "stage": "verification"
+              }
+            ],
+            "parameterVersions": {
+              "readout_hz": 2
+            },
+            "parameters": {
+              "acquisitions_per_point": 2,
+              "anharmonicity_hz": -200000000.0,
+              "drag_lambda1": 0.2,
+              "drive_amp": 0.2,
+              "drive_hz": 4860000000.0,
+              "drive_length_s": 2e-08,
+              "pulse_length_s": 2e-08,
+              "pulse_shape": "Gaussian",
+              "pulse_sigma_s": 4e-09,
+              "readout_amp": 0.4,
+              "readout_hz": 7010000000.0,
+              "readout_width_s": 2e-06,
+              "shape_pi_amp": 0.3,
+              "shots": 100,
+              "xy_attenuation_db": 3.75,
+              "xy_delay_s": 1e-07,
+              "xy_filter_mhz": 4700
+            },
+            "procedureId": "sq_rabi_time",
+            "recordId": "fixture-source",
+            "resolvedOutputs": {
+              "candidateParameters": {
+                "drive_length_s": 2e-08
+              }
+            },
+            "scope": {
+              "chipVersionId": "chip1",
+              "deploymentVersionId": "dep1",
+              "resourceId": "Q11",
+              "workflowId": "source"
+            },
+            "sourceRoles": [
+              "rabi_time"
+            ]
+          }
+        ],
+        "policyVersion": "fixture-only",
+        "rootReferences": [
+          {
+            "recordId": "fixture-drag",
+            "role": "drag"
+          },
+          {
+            "recordId": "pi",
+            "role": "pi01"
+          },
+          {
+            "recordId": "half",
+            "role": "half01"
+          }
+        ],
+        "schema": "qcal-science-dependencies/1",
+        "scope": {}
+      },
+      "scienceIRB": {
+        "irb": {
+          "F_X_half_conditional": 0.9846237354114111,
+          "F_X_half_unvalidated": 0.9846237354114111,
+          "F_clifford": 0.9849961695624907,
+          "F_clifford_unvalidated": 0.9849961695624907,
+          "assumptions": [
+            "A single exponential adequately describes both sequence ensembles.",
+            "State preparation, measurement, and recovery error are stable and absorbed by A and B.",
+            "Clifford noise has small average gate dependence; the ratio is a conditional gate-fidelity estimate, not full process tomography.",
+            "Leakage, drift, temporal correlations, and coherent gate-dependent error can invalidate the simple ratio model.",
+            "Bootstrap intervals condition on the chosen calibration, pulse implementation, lengths, and acquired captures; they exclude model systematic error and calibration uncertainty."
+          ],
+          "bootstrap": {
+            "conditional_on": "fixed independent IQ calibration, acquired captures, pulse implementation and single-exponential model",
+            "confidence": 0.95,
+            "failures": 0,
+            "intervals_unclipped": {
+              "F_X_half_conditional": [
+                0.9845113221871262,
+                0.984752351705249
+              ],
+              "F_clifford": [
+                0.9848506086899609,
+                0.9851335050046816
+              ],
+              "p_irb": [
+                0.9397874717232613,
+                0.940517417790215
+              ],
+              "p_ratio": [
+                0.9690226443742526,
+                0.969504703410498
+              ],
+              "p_ref": [
+                0.9697012173799219,
+                0.9702670100093629
+              ]
+            },
+            "method": "paired seed bootstrap stratified by length; captures averaged within seed",
+            "ratio_outside_physical_range_fraction": 0.0,
+            "requested": 100,
+            "rng_seed": 20261126,
+            "successful": 100,
+            "systematic_model_error_included": false
+          },
+          "captures_per_sequence": 2,
+          "curves": {
+            "interleaved_mean": [
+              0.9221232421416564,
+              0.8510085319482549,
+              0.6668993331205015,
+              0.5079879799943411,
+              0.49959478134178326
+            ],
+            "interleaved_seed_sem": [
+              0.00049132553754473,
+              0.0005294769519820939,
+              0.00047173975054018777,
+              0.0004886888365243188,
+              0.0005159134142168575
+            ],
+            "reference_mean": [
+              0.9359194162488947,
+              0.8980551109099686,
+              0.7759136763633097,
+              0.5635125345339922,
+              0.5086625532077711
+            ],
+            "reference_seed_sem": [
+              0.000516003619945238,
+              0.0004995664695527466,
+              0.0005364518216770661,
+              0.0005122522824122416,
+              0.0004808460333384555
+            ]
+          },
+          "formula": {
+            "F_X_half_conditional": "(1+p_irb/p_ref)/2",
+            "F_clifford": "(1+p_ref)/2"
+          },
+          "interleaved_fit": {
+            "A": 0.4498009359784969,
+            "B": 0.4993652855810442,
+            "fitted_contrast": 0.42271891729766414,
+            "fitted_values": [
+              0.9222513126652393,
+              0.8507899814145843,
+              0.6669629823587451,
+              0.5080351263173426,
+              0.49953239536757515
+            ],
+            "identifiable": true,
+            "jacobian_condition": 5.076040934234559,
+            "p": 0.9401626214144017,
+            "parameter_standard_errors": {
+              "A": 0.0005920049093454774,
+              "B": 0.00038890813184448334,
+              "p": 0.00021833321534454268
+            },
+            "reasons": [],
+            "reduced_chi_square": 0.1402281681202656
+          },
+          "interleaved_projected_points": [
+            0.5029138890227319,
+            0.5004033415681272,
+            0.9187600022173347,
+            0.6693514924892963,
+            0.6653026673675461,
+            0.8480444492619599,
+            0.5077386516092014,
+            0.9187810285982438,
+            0.6638072825309896,
+            0.6665958506254156,
+            0.8488215785207354,
+            0.854052894213987,
+            0.9237106411995821,
+            0.8551015178454373,
+            0.8517108714296129,
+            0.4972373816013138,
+            0.506143571659453,
+            0.5064618422404803,
+            0.8546205852586131,
+            0.502082355252149,
+            0.509737499563854,
+            0.5005493906848637,
+            0.9248992677437373,
+            0.5070272008789259,
+            0.9253971154181113,
+            0.5088529238430629,
+            0.8487182167961456,
+            0.9242595336229973,
+            0.9190853323225479,
+            0.8472747470015666,
+            0.663813554438961,
+            0.5050990454797237,
+            0.664371463281675,
+            0.6695440003660986,
+            0.498519987395147,
+            0.5056109815005391,
+            0.9191590998751507,
+            0.6651878845286776,
+            0.6642770336477161,
+            0.4960326812401232,
+            0.5050491529439761,
+            0.49790690864014336,
+            0.6698330425659089,
+            0.4974127197602386,
+            0.6663415715085962,
+            0.8511225366873855,
+            0.5100796062602468,
+            0.5030563949979363,
+            0.8493757770301326,
+            0.8540770921402596,
+            0.5069732599554054,
+            0.6685207617433281,
+            0.9229351398293181,
+            0.9213341886763476,
+            0.8536084928701342,
+            0.848245273624173,
+            0.5024028468063823,
+            0.5059458659751338,
+            0.9214386431484314,
+            0.6634959464499387,
+            0.5016347628772869,
+            0.5109264733648583,
+            0.5055815891722717,
+            0.8473727579940835,
+            0.4999553948798586,
+            0.924498273578394,
+            0.9240949921878202,
+            0.6664614722950073,
+            0.9198698712679089,
+            0.5088120565827795,
+            0.9198444236636596,
+            0.6679005046137236,
+            0.5003488922347155,
+            0.4972109115727482,
+            0.9259612085512086,
+            0.8517645789273095,
+            0.9191747062716287,
+            0.9222821945873502,
+            0.502422243265739,
+            0.508836227593992,
+            0.9222407809456529,
+            0.9226512526065422,
+            0.4984639374574799,
+            0.4968312646628937,
+            0.8496644071050596,
+            0.8523367188261557,
+            0.849437966121775,
+            0.5099528533730175,
+            0.6677512021349465,
+            0.5110643178890095,
+            0.8524739789113002,
+            0.6694963095730365,
+            0.668392392633379,
+            0.5093628482618627,
+            0.6673281683957777,
+            0.502725309658684,
+            0.6691206297560194,
+            0.49571786689652275,
+            0.8527092192585196,
+            0.5119913638886371,
+            0.49555726851508775,
+            0.49717842113418625,
+            0.5022928269099872,
+            0.5105229882333605,
+            0.6644641151101608,
+            0.5016118620847477,
+            0.9250201000119811,
+            0.510808027607482,
+            0.4991239032121852,
+            0.49949634176411717,
+            0.49734023816054923,
+            0.6648624238992658,
+            0.6643077053821191,
+            0.5109314363222203,
+            0.512230920689727,
+            0.9234962249007255,
+            0.5002904061354846,
+            0.6637250204113941,
+            0.5072639128085076,
+            0.8481730873173231,
+            0.9207629797212393,
+            0.665279242444719,
+            0.920701828697335,
+            0.8495567212641365,
+            0.5069159757842399,
+            0.505895200300408,
+            0.8487390542496485,
+            0.5014205020318386,
+            0.5055154214102103,
+            0.8543713207448582,
+            0.9244505910410566,
+            0.8525278766193145,
+            0.6684160671236147,
+            0.9243721070830184,
+            0.6692466770195072,
+            0.5086773342003421,
+            0.5094786293126341,
+            0.9204438585374338,
+            0.5059307720592197,
+            0.669077505441631,
+            0.5101727440603132,
+            0.5042764662262875,
+            0.9221478041086214,
+            0.5065678401360858,
+            0.8534424192031571,
+            0.8507642256863005,
+            0.6687214834053841,
+            0.9194318848456268,
+            0.9214203079424027,
+            0.8465453662271804,
+            0.5024313469172664,
+            0.9226803522394258,
+            0.4973410325346221,
+            0.8534203701880093,
+            0.5062238562453784,
+            0.6666779499015137,
+            0.6696536060059063,
+            0.9228144453310823,
+            0.8516389499785744,
+            0.6667337735103158,
+            0.5012692609502509,
+            0.5049176798812334,
+            0.849507669587724,
+            0.5037020412400339,
+            0.8539922021648506,
+            0.9263290591746661,
+            0.9226153267208175,
+            0.9203928589636716,
+            0.8522440921471858,
+            0.6642221049814189,
+            0.9220554337389506,
+            0.8531684215505754,
+            0.4988741839199911,
+            0.8485512835689938,
+            0.9194736096273063,
+            0.5091443712879122,
+            0.5087171992713723,
+            0.49967798078596837,
+            0.49778669598245445,
+            0.6661904330357051,
+            0.6704201524273846,
+            0.666178415819807,
+            0.8504549474813545,
+            0.4990769859164177,
+            0.506009317623284,
+            0.6681335313095347,
+            0.9244817523932101,
+            0.6687457659301965,
+            0.9187143099753503,
+            0.4981513206048388,
+            0.8498774697666859,
+            0.6650109115872013,
+            0.852396057055507,
+            0.49626822652882163,
+            0.501071927867398,
+            0.6690132091272396,
+            0.9227471543003679,
+            0.5080717742769936,
+            0.8484260444524429,
+            0.852010038852026
+          ],
+          "lengths": [
+            1,
+            4,
+            16,
+            64,
+            128
+          ],
+          "p_ratio_unclipped": 0.9692474708228224,
+          "projection": {
+            "direction": [
+              0.9997529501485748,
+              -0.022226980659134005
+            ],
+            "excited_iq": [
+              0.9997020451086187,
+              0.0009428780243785104
+            ],
+            "ground_iq": [
+              -0.0005798570439715672,
+              -0.00032227525931538006
+            ],
+            "independent_reference": true,
+            "normalization": "ground=1, excited=0 for paired analysis; no clipping",
+            "reference_raw_sha256": "8c62809e85e9fb9de76b54d133feec13bb6903fa53a5f9e6d7ce6ecc0f4f5371",
+            "reference_uncertainty_in_RB_bootstrap": false,
+            "source": "explicit synthetic review fixture",
+            "training_captures": [
+              0,
+              1
+            ],
+            "validation_captures": [
+              2,
+              3
+            ]
+          },
+          "random_sequences_per_length": {
+            "1": 20,
+            "128": 20,
+            "16": 20,
+            "4": 20,
+            "64": 20
+          },
+          "reasons": [],
+          "reference_fit": {
+            "A": 0.45002404480633623,
+            "B": 0.49952543703351987,
+            "fitted_contrast": 0.4274086111339621,
+            "fitted_values": [
+              0.9360453129177033,
+              0.8979159023315022,
+              0.7759194218453628,
+              0.5635589299586756,
+              0.5086367017837412
+            ],
+            "identifiable": true,
+            "jacobian_condition": 10.365837376745331,
+            "p": 0.9699923391249814,
+            "parameter_standard_errors": {
+              "A": 0.000611101751829511,
+              "B": 0.0005767961233396522,
+              "p": 0.00014607597590934182
+            },
+            "reasons": [],
+            "reduced_chi_square": 0.07419361373675534
+          },
+          "reference_projected_points": [
+            0.5108069399537969,
+            0.5092389411523044,
+            0.9333996299673004,
+            0.7788281280211294,
+            0.7721976464821116,
+            0.8971241301093115,
+            0.5625637885991442,
+            0.933401783898176,
+            0.7725010068474828,
+            0.7750022749297082,
+            0.8961717797131624,
+            0.9010459684640781,
+            0.937370803824156,
+            0.9000018219658074,
+            0.8998729266067782,
+            0.5063896209700255,
+            0.56036046569828,
+            0.5626805753275488,
+            0.9006019735527724,
+            0.5092505863425407,
+            0.566667920262655,
+            0.5105695652614053,
+            0.9396989417679229,
+            0.5626628706285637,
+            0.9391633536240854,
+            0.563530677935461,
+            0.8956100679030203,
+            0.9373214349597305,
+            0.9343456519361119,
+            0.8945352989903027,
+            0.7728324655825998,
+            0.5607866372059919,
+            0.773261681638102,
+            0.7783147358679776,
+            0.5076216711371879,
+            0.5616107637099529,
+            0.9332788912797109,
+            0.7725014960074013,
+            0.7743476265556323,
+            0.5058658971097015,
+            0.5606366506214847,
+            0.5065418264298827,
+            0.7797924895592402,
+            0.5067314015216872,
+            0.7746539198365968,
+            0.8981972265204936,
+            0.5644295683454901,
+            0.5108353420051256,
+            0.8955507173239541,
+            0.8991908982129028,
+            0.5619380850984166,
+            0.7786709416684431,
+            0.9371137532771449,
+            0.9358069860395657,
+            0.9003016111756974,
+            0.8955348301999971,
+            0.5113935723509537,
+            0.5598939803456384,
+            0.9361645742075898,
+            0.7718211359823246,
+            0.5121507089390944,
+            0.5664167414567642,
+            0.5618814554895909,
+            0.8954311889468952,
+            0.5095029586943866,
+            0.9376957734443861,
+            0.9387927973614342,
+            0.775540078285809,
+            0.9322295675850135,
+            0.5638499370062524,
+            0.9336243189113588,
+            0.7753260950962381,
+            0.5077142712149108,
+            0.5078121991351734,
+            0.9397520706792062,
+            0.8992314890700963,
+            0.9332224277907225,
+            0.9336734897262998,
+            0.5111527177097596,
+            0.564322079706628,
+            0.9346143493316444,
+            0.9366095416606829,
+            0.5063211366774124,
+            0.5055394930343436,
+            0.8976954278957444,
+            0.8993689173049305,
+            0.8966993777836451,
+            0.5666399863907867,
+            0.7775686427269126,
+            0.5664816152975042,
+            0.8996824876022061,
+            0.7781290494942583,
+            0.7769410100295777,
+            0.566032786270261,
+            0.7771424696905197,
+            0.5114537520368396,
+            0.7793096267116435,
+            0.5051724191618427,
+            0.9008697851869623,
+            0.5669493012837569,
+            0.5069124360206381,
+            0.5061456176449763,
+            0.5111860692872346,
+            0.5648996540391433,
+            0.7740955979425074,
+            0.5129199460921735,
+            0.9402043131027585,
+            0.5668408566044262,
+            0.5087054689888487,
+            0.5085278768471689,
+            0.5062126920441974,
+            0.7730275290710115,
+            0.7724882238089738,
+            0.5658427939009747,
+            0.566034363004132,
+            0.9358220762255676,
+            0.5096079241658591,
+            0.7737973604995806,
+            0.5633427657150877,
+            0.8943622500255216,
+            0.9325947130906519,
+            0.7758901457948805,
+            0.9342328766188659,
+            0.8951685368977024,
+            0.5621391154395098,
+            0.5598331755418254,
+            0.8959447287774666,
+            0.5119761165904809,
+            0.5609158373388431,
+            0.899060950038525,
+            0.9382313773232371,
+            0.8993240622460497,
+            0.7775591892203548,
+            0.9377739090216242,
+            0.7790469834164004,
+            0.5649835814522176,
+            0.5659587656249078,
+            0.9342034733714846,
+            0.5605303163708805,
+            0.7788461737381032,
+            0.5661810060876229,
+            0.5606750004480481,
+            0.9386112281118203,
+            0.5644105965841072,
+            0.9013767368404433,
+            0.897591057201825,
+            0.7771803706432738,
+            0.9337913070765143,
+            0.9354167794640692,
+            0.8951533148311007,
+            0.5105847065268825,
+            0.937887968028644,
+            0.5080420860045063,
+            0.901720895221158,
+            0.5616547535228774,
+            0.7743645979033222,
+            0.7786638584589325,
+            0.9370455201273973,
+            0.8991519550050842,
+            0.7746938475674054,
+            0.5112576318701544,
+            0.5615700331625196,
+            0.8949801084419343,
+            0.5106442570057579,
+            0.9004427590737815,
+            0.9400970531420149,
+            0.9357558776207854,
+            0.9335690789866662,
+            0.8998102543329156,
+            0.772832755123303,
+            0.9359283206105937,
+            0.9000136811824749,
+            0.5075709763929525,
+            0.8944705466921824,
+            0.9341256433881912,
+            0.5656046211514266,
+            0.5650209766600811,
+            0.5078899287934842,
+            0.5060835611520766,
+            0.7762799205085577,
+            0.77853745360478,
+            0.776966140621144,
+            0.8974987172816283,
+            0.5094739363595638,
+            0.5605010190833923,
+            0.7776744814807399,
+            0.9370898889721434,
+            0.7788066190671771,
+            0.9328479221437476,
+            0.5075457611170344,
+            0.8966474272365001,
+            0.7743523737573234,
+            0.900529726647596,
+            0.5049747744068175,
+            0.5081753401616644,
+            0.7767609112909094,
+            0.9342671822567754,
+            0.5632262629474931,
+            0.8970338366212792,
+            0.8992049672748177
+          ],
+          "reportable": true,
+          "schema": "arclight_paired_rb_analysis_v1",
+          "sources": [
+            {
+              "doi": "10.1103/PhysRevLett.109.080505",
+              "title": "Magesan et al., PRL 109, 080505 (2012), Eq. (2), (4), (5)",
+              "url": "https://arxiv.org/pdf/1203.4550"
+            },
+            {
+              "title": "Qiskit Experiments InterleavedRBAnalysis: model and parameter definitions",
+              "url": "https://qiskit-community.github.io/qiskit-experiments/stubs/qiskit_experiments.library.randomized_benchmarking.InterleavedRBAnalysis.html"
+            }
+          ],
+          "status": "conditional_estimate",
+          "target_gate": "X/2"
+        },
+        "rabiLineage": {
+          "amplitudeRecordId": "pi",
+          "half01RecordId": "half",
+          "pi01RecordId": "pi",
+          "rotationCalibration": "Exact shaped pi01 and half01 sources, not DC time rotation",
+          "schema": "science-v3-rabi-lineage/1",
+          "sha256": "b56ad6dcc4ac227c41da7d583e147bb90db4c8cd5ccd8121662fa57c0a503ec3",
+          "time": {
+            "calibratesShapedRotation": false,
+            "fitOperations": [
+              {
+                "continuousDurationS": 2.01e-08,
+                "fitRepeats": [
+                  {
+                    "continuousDurationS": 2.01e-08,
+                    "durationStandardErrorS": 8.080200000000002e-12,
+                    "frequencyHz": 24875621.89054726,
+                    "frequencyStandardErrorHz": 10000.0
+                  },
+                  {
+                    "continuousDurationS": 2.01e-08,
+                    "durationStandardErrorS": 8.888220000000001e-12,
+                    "frequencyHz": 24875621.89054726,
+                    "frequencyStandardErrorHz": 11000.0
+                  }
+                ],
+                "frequencyHz": 24875621.89054726,
+                "nativeReceiptSha256": "adaae51574ba67d3cfee4d9ba5ad5b0567caeb10544e92bec70a29d7bc05d5dd",
+                "operationId": "source-attempt/measure",
+                "relativeStandardErrorUpper": 0.00044220000000000007,
+                "sourceDriveAmplitude": 0.2,
+                "stage": "selection",
+                "uncertaintyScope": "Native per-repeat model standard errors; not a confidence interval or shaped-rotation calibration"
+              },
+              {
+                "continuousDurationS": 2.012e-08,
+                "fitRepeats": [
+                  {
+                    "continuousDurationS": 2.012e-08,
+                    "durationStandardErrorS": 8.096288000000001e-12,
+                    "frequencyHz": 24850894.632206757,
+                    "frequencyStandardErrorHz": 10000.0
+                  },
+                  {
+                    "continuousDurationS": 2.012e-08,
+                    "durationStandardErrorS": 8.905916800000001e-12,
+                    "frequencyHz": 24850894.632206757,
+                    "frequencyStandardErrorHz": 11000.0
+                  }
+                ],
+                "frequencyHz": 24850894.632206757,
+                "nativeReceiptSha256": "e6bb52c61b1bed70ddb9c60ee925e060bc01a91ecd3e11cad454e159ae32550e",
+                "operationId": "source-attempt/verify",
+                "relativeStandardErrorUpper": 0.00044264000000000006,
+                "sourceDriveAmplitude": 0.2,
+                "stage": "verification",
+                "uncertaintyScope": "Native per-repeat model standard errors; not a confidence interval or shaped-rotation calibration"
+              }
+            ],
+            "maximumQuantizationErrorS": 1.25e-10,
+            "policy": "dc_time_workpoint_to_shaped_window_nearest_250ps_v1",
+            "quantizationErrorS": -1.000000000000009e-10,
+            "rounding": "nearest sample, ties to even",
+            "sampleQuantumS": 2.5e-10,
+            "scope": "DC working-point and time-window support only",
+            "sha256": "e97159e17da8aa794e02fd67df760fc4f1eb399eef474518a8f222264cce39ab",
+            "sourceCommittedDurationS": 2e-08,
+            "sourceCommittedQuantumS": 5e-10,
+            "sourceContinuousDurationS": 2.01e-08,
+            "sourceProcedureId": "sq_rabi_time",
+            "sourceRecordId": "fixture-source",
+            "targetDurationS": 2e-08
+          }
+        },
+        "reference": {
+          "post": {
+            "accepted": true,
+            "changes": {
+              "contrast": {
+                "absolute95UpperDiagnostic": 0.01321228154799484,
+                "postMinusPreFraction": -0.0004218647950221169,
+                "semFraction": 0.0010066276294571483
+              },
+              "excited": {
+                "absolute95UpperDiagnostic": 0.008714662416801345,
+                "postMinusPreFraction": -0.00026562778396299613,
+                "semFraction": 0.000664953446624692
+              },
+              "ground": {
+                "absolute95UpperDiagnostic": 0.00926380008691273,
+                "postMinusPreFraction": 0.00015647158453683884,
+                "semFraction": 0.0007167622977494794
+              }
+            },
+            "policy": "fixed PRE scale, no POST refit, maximum upper diagnostic <= 0.1",
+            "post": {
+              "captures": [
+                {
+                  "capture": 0,
+                  "contrast": 0.9998431654181834,
+                  "contrastSem": 0.0010288290588449686,
+                  "contrastSnr": 971.8263270486093,
+                  "excited": 1.0001887507156817,
+                  "excitedSem": 0.0006794992990094267,
+                  "ground": 0.0003455852974982923,
+                  "groundSem": 0.0007725088575346703
+                },
+                {
+                  "capture": 1,
+                  "contrast": 0.9992340896109289,
+                  "contrastSem": 0.0012547117933963854,
+                  "contrastSnr": 796.3853491056279,
+                  "excited": 1.000063557202064,
+                  "excitedSem": 0.0010096377146660562,
+                  "ground": 0.0008294675911351359,
+                  "groundSem": 0.0007449385005568425
+                },
+                {
+                  "capture": 2,
+                  "contrast": 1.0022231195569293,
+                  "contrastSem": 0.0010229464276339984,
+                  "contrastSnr": 979.7415509578536,
+                  "excited": 1.0015691800188358,
+                  "excitedSem": 0.0007648803189755654,
+                  "ground": -0.0006539395380934887,
+                  "groundSem": 0.0006792477393801149
+                },
+                {
+                  "capture": 3,
+                  "contrast": 0.9992353858260524,
+                  "contrastSem": 0.0009489059439610249,
+                  "contrastSnr": 1053.039442091528,
+                  "excited": 0.99951806840497,
+                  "excitedSem": 0.0006585343332781777,
+                  "ground": 0.000282682578917604,
+                  "groundSem": 0.0006831947177623885
+                }
+              ],
+              "statistics": {
+                "contrast": {
+                  "captureCount": 4,
+                  "ci95Conditional": [
+                    0.9978712022409966,
+                    1.0023966779650506
+                  ],
+                  "mean": 1.0001339401030236,
+                  "sem": 0.0007110058253835494,
+                  "values": [
+                    0.9998431654181834,
+                    0.9992340896109289,
+                    1.0022231195569293,
+                    0.9992353858260524
+                  ]
+                },
+                "excited": {
+                  "captureCount": 4,
+                  "ci95Conditional": [
+                    0.9989459759258436,
+                    1.0017238022449322
+                  ],
+                  "mean": 1.0003348890853878,
+                  "sem": 0.0004364294087973458,
+                  "values": [
+                    1.0001887507156817,
+                    1.000063557202064,
+                    1.0015691800188358,
+                    0.99951806840497
+                  ]
+                },
+                "ground": {
+                  "captureCount": 4,
+                  "ci95Conditional": [
+                    -0.0009464530642616211,
+                    0.0013483510289903928
+                  ],
+                  "mean": 0.0002009489823643859,
+                  "sem": 0.00036054089733454864,
+                  "values": [
+                    0.0003455852974982923,
+                    0.0008294675911351359,
+                    -0.0006539395380934887,
+                    0.000282682578917604
+                  ]
+                }
+              }
+            },
+            "reference_drift_fraction": 0.0004218647950221169,
+            "reference_drift_upper_diagnostic": 0.01321228154799484,
+            "uncertaintyScope": "Conditional independent capture means; t critical uses minimum PRE/POST degrees of freedom"
+          },
+          "pre": {
+            "accepted": true,
+            "heldOut": {
+              "captures": [
+                {
+                  "capture": 2,
+                  "contrast": 1.000902180351651,
+                  "contrastSem": 0.0009864397543263548,
+                  "contrastSnr": 1014.6612359871613,
+                  "excited": 1.0003271753422833,
+                  "excitedSem": 0.0007094283272578562,
+                  "ground": -0.0005750050093676144,
+                  "groundSem": 0.0006854012236635993
+                },
+                {
+                  "capture": 3,
+                  "contrast": 1.0002098985913956,
+                  "contrastSem": 0.0010307885047981724,
+                  "contrastSnr": 970.3347427096463,
+                  "excited": 1.0008738583964183,
+                  "excitedSem": 0.0007095641463205037,
+                  "ground": 0.0006639598050227085,
+                  "groundSem": 0.0007476922253711796
+                }
+              ],
+              "statistics": {
+                "contrast": {
+                  "captureCount": 2,
+                  "ci95Conditional": [
+                    0.9914918112979622,
+                    1.0096202676450847
+                  ],
+                  "mean": 1.0005560394715234,
+                  "sem": 0.0007133702283070642,
+                  "values": [
+                    1.000902180351651,
+                    1.0002098985913956
+                  ]
+                },
+                "excited": {
+                  "captureCount": 2,
+                  "ci95Conditional": [
+                    0.9942259460652381,
+                    1.0069750876734636
+                  ],
+                  "mean": 1.0006005168693508,
+                  "sem": 0.0005016896025580521,
+                  "values": [
+                    1.0003271753422833,
+                    1.0008738583964183
+                  ]
+                },
+                "ground": {
+                  "captureCount": 2,
+                  "ci95Conditional": [
+                    -0.007826792898452515,
+                    0.007915747694107607
+                  ],
+                  "mean": 4.447739782754707e-05,
+                  "sem": 0.0006194824071951615,
+                  "values": [
+                    -0.0005750050093676144,
+                    0.0006639598050227085
+                  ]
+                }
+              }
+            },
+            "projection": {
+              "direction": [
+                0.9997529501485748,
+                -0.022226980659134005
+              ],
+              "excited_iq": [
+                0.9997020451086187,
+                0.0009428780243785104
+              ],
+              "ground_iq": [
+                -0.0005798570439715672,
+                -0.00032227525931538006
+              ],
+              "independent_reference": true,
+              "normalization": "ground=1, excited=0 for paired analysis; no clipping",
+              "reference_raw_sha256": "8c62809e85e9fb9de76b54d133feec13bb6903fa53a5f9e6d7ce6ecc0f4f5371",
+              "reference_uncertainty_in_RB_bootstrap": false,
+              "source": "explicit synthetic review fixture",
+              "training_captures": [
+                0,
+                1
+              ],
+              "validation_captures": [
+                2,
+                3
+              ]
+            },
+            "rawSha256": "8c62809e85e9fb9de76b54d133feec13bb6903fa53a5f9e6d7ce6ecc0f4f5371",
+            "rowsSha256": "dd36d6abe2ba4e5655e6688f91b9eaa8ba4f05e25b8f511ea8449df584f8d7a5",
+            "schema": "science-v3-irb-frozen-pre/1",
+            "scope": "Independent prepared-state reference, not gate fidelity",
+            "sha256": "76caca6192b09088274cd8969e7c6e954e6c2ff3c6a5046770a29479ea422791"
+          }
+        }
+      }
+    },
+    "series": [
+      {
+        "name": "reference measured",
+        "quantity": "iq_projection",
+        "standardError": [
+          0.000516003619945238,
+          0.0004995664695527466,
+          0.0005364518216770661,
+          0.0005122522824122416,
+          0.0004808460333384555
+        ],
+        "x": [
+          1,
+          4,
+          16,
+          64,
+          128
+        ],
+        "xUnit": "Cliffords",
+        "y": [
+          0.9359194162488947,
+          0.8980551109099686,
+          0.7759136763633097,
+          0.5635125345339922,
+          0.5086625532077711
+        ],
+        "yUnit": "fixed PRE prepared-reference projection"
+      },
+      {
+        "name": "reference exponential fit",
+        "quantity": "iq_projection",
+        "x": [
+          1,
+          4,
+          16,
+          64,
+          128
+        ],
+        "xUnit": "Cliffords",
+        "y": [
+          0.9360453129177033,
+          0.8979159023315022,
+          0.7759194218453628,
+          0.5635589299586756,
+          0.5086367017837412
+        ],
+        "yUnit": "fixed PRE prepared-reference projection"
+      },
+      {
+        "name": "interleaved measured",
+        "quantity": "iq_projection",
+        "standardError": [
+          0.00049132553754473,
+          0.0005294769519820939,
+          0.00047173975054018777,
+          0.0004886888365243188,
+          0.0005159134142168575
+        ],
+        "x": [
+          1,
+          4,
+          16,
+          64,
+          128
+        ],
+        "xUnit": "Cliffords",
+        "y": [
+          0.9221232421416564,
+          0.8510085319482549,
+          0.6668993331205015,
+          0.5079879799943411,
+          0.49959478134178326
+        ],
+        "yUnit": "fixed PRE prepared-reference projection"
+      },
+      {
+        "name": "interleaved exponential fit",
+        "quantity": "iq_projection",
+        "x": [
+          1,
+          4,
+          16,
+          64,
+          128
+        ],
+        "xUnit": "Cliffords",
+        "y": [
+          0.9222513126652393,
+          0.8507899814145843,
+          0.6669629823587451,
+          0.5080351263173426,
+          0.49953239536757515
+        ],
+        "yUnit": "fixed PRE prepared-reference projection"
+      }
+    ],
+    "targetPulseIdentity": {
+      "identity": {
+        "amplitude": 0.15,
+        "anharmonicityHz": -200000000.0,
+        "bufferS": 2e-09,
+        "durationS": 2e-08,
+        "frequencyHz": 4860000000.0,
+        "lambda1": 0.2,
+        "phaseRad": 0.0,
+        "policy": "native_science_v3_fixed_duration_drag_segmented_carrier_v1",
+        "readoutContextHash": "3a2664037fbf44cffd6f13f196895121a02d8c9f27b4f50ea9edf37b0d37433f",
+        "rotationRad": 1.5707963267948966,
+        "shape": "Gaussian",
+        "sigmaS": 4e-09,
+        "transition": "target01",
+        "xySampleRateHz": 4000000000.0
+      },
+      "sha256": "20f4cf5c9d20bb266ed2f16879f4d3d91a718a247f9634a5f12ef885f80afe50"
+    }
+  },
+  "rows": 416,
+  "runtime": {
+    "actual": {
+      "numpy": "2.5.2",
+      "python": "3.12.10",
+      "scipy": "1.18.1"
+    },
+    "expected": {
+      "numpy": "2.5.2",
+      "python": "3.12.10",
+      "scipy": "1.18.1"
+    },
+    "installedByThisChange": false,
+    "policy": "existing_native_numeric_runtime/1",
+    "pythonExecutable": "D:\\豆包\\量子\\arclight_单比特全流程_20261117\\runtime\\Scripts\\python.exe"
+  },
+  "sources": {
+    "adapters/arclight_configurable_runtime/source_manifest.json": {
+      "fileCount": 108,
+      "sha256": "62a0870c30edec3432613f645c4de7e063e1132ba510b71f7a71fd431ed83f2a"
+    },
+    "adapters/arclight_runtime/source_manifest.json": {
+      "fileCount": 99,
+      "sha256": "1531ee2cd78774e6c6a5e089be54c3f35a98d8c0fdf03aa0547169106527a322"
+    },
+    "adapters/science_runtime/source_manifest.json": {
+      "fileCount": 6,
+      "sha256": "7ad82b2b016481fde5bbec5d1e5f87276f254b863ac82bd5d5fbcaf0c740cb41"
+    },
+    "adapters/science_v3/source_manifest.json": {
+      "fileCount": 8,
+      "sha256": "16e986e45cb0a227ae2314d474767a9f55a81838cb78544f982fb65ef30af62c"
+    },
+    "adapters/science_v3_irb/source_manifest.json": {
+      "fileCount": 13,
+      "sha256": "7e8e00b7788de65ae9fe9988325ee08e2ffc947f8981adc57861630ea74f76e9"
+    }
+  }
+}

@@ -1,10 +1,11 @@
 import type { RemoteAction, Workflow } from '../types.ts';
 import { isManualWorkflow, manualStepControls, precedingDependencies, workflowControls } from './workflowControls.ts';
 
-export interface ManualCreationAttempt { name: string; resourceId: string; knownIds: string[] }
+export interface ManualCreationAttempt { name: string; resourceId: string; knownIds: string[]; procedureId?: string }
 export function manualCreationMatches(workflows: Workflow[], attempt: ManualCreationAttempt): Workflow[] {
   return workflows.filter(workflow => isManualWorkflow(workflow) && !attempt.knownIds.includes(workflow.id)
     && workflow.name === attempt.name && workflow.experiment === 'single' && workflow.coverage === 'full'
+    && (!attempt.procedureId || workflow.manualExperiment?.procedureId === attempt.procedureId)
     && (workflow.resourceIds?.length === 1 ? workflow.resourceIds[0] === attempt.resourceId : !workflow.resourceIds?.length && workflow.target === attempt.resourceId));
 }
 

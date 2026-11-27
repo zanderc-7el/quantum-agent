@@ -1245,7 +1245,7 @@ export default function ChatReport({
             </div>
             <div className="cr-panel-title">
               <h2>实验分析报告</h2>
-
+              
             </div>
             <span className="cr-report-version">v1.1</span>
             <button

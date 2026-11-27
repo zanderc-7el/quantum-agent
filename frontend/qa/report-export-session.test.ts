@@ -57,3 +57,15 @@ test("recovering report history only reads the selected workflow", async () => {
   assert.deepEqual(await gateway.reportExports("wf-1"), []);
   assert.deepEqual(calls, [{ url: "/api/workflows/wf-1/report-exports", method: "GET" }]);
 });
+
+test("running export recovery preserves observed revision and displays the frozen capture time", () => {
+  const job = { id: "report-running", workflowId: "wf-1", revision: 14, requestedRevision: 9,
+    status: "queued", createdAt: "2026-11-26T03:34:12Z", capturedAt: "2026-11-26T03:34:11Z",
+    snapshotPolicy: "latest_committed", operationId: "op-1", appendixCount: 16 } as const;
+  const recovered = exportSessions.recoverExportSession(undefined, [job], "wf-1");
+  assert.equal(recovered?.request.expectedRevision, 9);
+  assert.equal(recovered?.job?.revision, 14);
+  assert.equal(typeof exportSessions.reportSnapshotTime, "function");
+  assert.equal(exportSessions.reportSnapshotTime(job), job.capturedAt);
+  assert.equal(exportSessions.reportSnapshotTime({ ...job, capturedAt: undefined }), job.createdAt);
+});

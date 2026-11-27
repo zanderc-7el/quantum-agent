@@ -20,6 +20,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from .common import APIError, ROOT, checked_path, dumps
 from .controller import Controller
+from .process_text import api_error_payload, configure_api_streams
 
 def configured_agent_port(root, override=None):
     local = checked_path(checked_path(root) / 'config' / 'runtime.local.json', parent=checked_path(root))
@@ -41,6 +42,19 @@ class Server(ThreadingHTTPServer):
     # Keep Unix restart behavior, but require exclusive ownership on Windows.
     allow_reuse_address = not hasattr(socket, 'SO_EXCLUSIVEADDRUSE')
 
+    def handle_error(self, request, client_address):
+        # A desktop reload can close an idle keep-alive socket between requests.
+        import sys
+        _, error, trace = sys.exc_info()
+        if isinstance(error, (ConnectionResetError, ConnectionAbortedError)):
+            while trace and trace.tb_next:
+                frame, following = trace.tb_frame, trace.tb_next.tb_frame
+                if (frame.f_globals.get('__name__') == 'http.server' and frame.f_code.co_name == 'handle_one_request'
+                        and following.f_globals.get('__name__') == 'socket' and following.f_code.co_name == 'readinto'):
+                    return
+                trace = trace.tb_next
+        super().handle_error(request, client_address)
+
     def server_bind(self):
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
@@ -53,6 +67,10 @@ class Server(ThreadingHTTPServer):
         self.live_series_lock = threading.Lock()
         self.report_exports = None
         self.report_exports_lock = threading.Lock()
+        self.science_service = None
+        self.science_lock = threading.Lock()
+        self.native_preview_service = None
+        self.native_preview_lock = threading.Lock()
         super().__init__(address, Handler)
         self.allowed_hosts = {f'127.0.0.1:{self.server_address[1]}', f'localhost:{self.server_address[1]}'}
 
@@ -71,6 +89,20 @@ class Handler(BaseHTTPRequestHandler):
             if self.server.report_exports is None:
                 self.server.report_exports = self.controller.report_exports
             return self.server.report_exports
+
+    def _science(self):
+        with self.server.science_lock:
+            if self.server.science_service is None:
+                from .science_service import ScienceService
+                self.server.science_service = ScienceService(self.controller)
+            return self.server.science_service
+
+    def _native_preview(self):
+        with self.server.native_preview_lock:
+            if self.server.native_preview_service is None:
+                from .native_preview import NativePreviewService
+                self.server.native_preview_service = NativePreviewService(self.controller)
+            return self.server.native_preview_service
 
     def log_message(self, fmt, *args):
         # Never print bodies, model prompts, credentials or the local session token.
@@ -193,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
     def _error(self, exc):
         try:
             if isinstance(exc, APIError):
-                self._send({'error': {'code': exc.code, 'message': exc.message}}, exc.status)
+                self._send({'error': api_error_payload(exc)}, exc.status)
             else:
                 self.close_connection = True
                 self._send({'error': {'code': 'INTERNAL_ERROR', 'message': str(exc)}}, 500)
@@ -210,10 +242,37 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send({'token': self.server.session_token, 'actor': {'id': 'local-operator', 'displayName': '现场操作员', 'role': 'leader'}})
             if path == '/api/health':
                 return self._send(self.controller.health())
+            if path.startswith('/api/science/'):
+                return self._send(self._science().get(path[len('/api/science'):], query))
+            if path == '/api/stability':
+                return self._send({'schedules': self.controller.stability.list()})
+            if path == '/api/stability/report':
+                from .stability_reports import snapshot, render_html
+                report = snapshot(self.controller.store.path, query)
+                if query.get('format') == ['html']:
+                    headers = {'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'"}
+                    if query.get('download') == ['1']:
+                        headers['Content-Disposition'] = 'attachment; filename="stability-report.html"'
+                    return self._send(render_html(report), content_type='text/html; charset=utf-8', headers=headers)
+                return self._send(report)
+            match = re.fullmatch(r'/api/stability/schedules/([^/]+)', path)
+            if match:
+                return self._send(self.controller.stability.get(match[1]))
             match = re.fullmatch(r'/api/account/(status|models)', path)
             if match:
                 return self._send(self.controller.account(match[1]))
             if path == '/api/catalog':
+                if 'executionProfile' in query:
+                    if query.get('executionProfile') not in (['science-v3'],['science-v3-irb'],['science-flux'],['science-shape-repeat5']) or any(len(values) != 1 for values in query.values()):
+                        raise APIError('UNKNOWN_ADAPTER', '请选择唯一的科学执行配置')
+                    result = self.controller.science_catalog(
+                        chip_version_id=query.get('chipVersionId', [None])[0],
+                        deployment_version_id=query.get('deploymentVersionId', [None])[0],
+                        resource_id=query.get('resourceId', [None])[0],
+                        **({'execution_profile':query['executionProfile'][0]} if query['executionProfile']!=['science-v3'] else {}),
+                        **({'source_workflow_id':query['sourceWorkflowId'][0]} if 'sourceWorkflowId' in query else {}),
+                        **({'bias_deployment_version_id':query['biasDeploymentVersionId'][0]} if 'biasDeploymentVersionId' in query else {}))
+                    return self._send(result)
                 result = self.controller.catalog.describe(self.controller.adapter.capabilities(), self.controller._bounds())
                 result['configuredResources'] = self.controller.workspace.chips.resources()
                 return self._send(result)
@@ -266,6 +325,16 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r'/api/workflows/([^/]+)', path)
             if match:
                 return self._send(self.controller.present_workflows([self.controller.get(match[1])])[0])
+            match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/historical-evidence', path)
+            if match:
+                from .historical_measurements import search
+                if set(query)-{'revision','limit'} or len(query.get('revision',[]))!=1 or any(len(v)!=1 for v in query.values()):
+                    raise APIError('BAD_HISTORY_QUERY', '历史查询须绑定当前决策版本')
+                try:
+                    revision, limit = int(query['revision'][0]), int(query.get('limit',['2'])[0])
+                except ValueError:
+                    raise APIError('BAD_HISTORY_QUERY', '历史查询版本或条数无效')
+                return self._send(search(self.controller.root, self.controller.store.path, match[1], match[2], revision, limit))
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)', path)
             if match:
                 return self._send(self.controller.present_detail(match[1], self.controller.detail(match[1], match[2])))
@@ -405,8 +474,20 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r'/api/account/(send-code|login|connect|logout|test)', path)
             if match and method == 'POST':
                 return self._send(self.controller.account(match[1], body))
+            if path == '/api/workflows/smart-start' and method == 'POST':
+                from .smart_q11_launch import launch
+                return self._send(self.controller.present_workflows([launch(self.controller, body)])[0], 201)
             if path == '/api/workflows' and method == 'POST':
                 return self._send(self.controller.present_workflows([self.controller.create(body)])[0], 201)
+            if path.startswith('/api/science/'):
+                return self._send(self._science().write(path[len('/api/science'):], body, method))
+            if path == '/api/native-preview' and method == 'POST':
+                return self._send(self._native_preview().preview(body))
+            if path == '/api/stability/schedules' and method == 'POST':
+                return self._send(self.controller.stability.create(body), 201)
+            match = re.fullmatch(r'/api/stability/schedules/([^/]+)/actions', path)
+            if match and method == 'POST':
+                return self._send(self.controller.stability.action(match[1], body))
             if path == '/api/chat' and method == 'POST':
                 return self._send(self.controller.chat(body))
             match = re.fullmatch(r'/api/workflows/([^/]+)/report-exports', path)
@@ -446,6 +527,12 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r'/api/workflows/([^/]+)/supplemental-acceptance', path)
             if match and method == 'POST':
                 return self._send(self.controller.present_workflows([self.controller.install_supplemental_acceptance(match[1], body)])[0])
+            match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/pulse-preview', path)
+            if match and method == 'POST':
+                return self._send(self.controller.pulse_preview(match[1], match[2], body))
+            match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/execution-version', path)
+            if match and method == 'POST':
+                return self._send(self.controller.present_workflows([self.controller.select_execution_version(match[1], match[2], body)])[0])
             match = re.fullmatch(r'/api/workflows/([^/]+)/nodes/([^/]+)/parameters', path)
             if match and method == 'PATCH':
                 return self._send(self.controller.present_workflows([self.controller.set_parameters(match[1], match[2], body)])[0])
@@ -456,6 +543,7 @@ class Handler(BaseHTTPRequestHandler):
             self._error(exc)
 
 def main():
+    configure_api_streams()
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--root', type=Path, default=ROOT)

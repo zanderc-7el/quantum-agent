@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 from .common import APIError, digest, dumps, ident, now, number
+from .science_configuration import validate_science_configuration,validate_deployment_xy_passbands
 
 class ChipCatalog:
  def __init__(self,store,root,base_profile,brain=None):
@@ -23,7 +24,9 @@ CREATE TABLE IF NOT EXISTS config_operations(id TEXT PRIMARY KEY,request_hash TE
      rt.db.execute('INSERT INTO config_entities VALUES(?,?,?)',(value['id'],'deployment',dumps(value)))
  def _operation(self,action,body,fn):
   if not isinstance(body,dict) or not isinstance(body.get('operationId'),str) or not body['operationId'].strip():raise APIError('OPERATION_ID_REQUIRED','缺少操作编号 operationId')
-  key=body['operationId']; h=digest({'action':action,'body':body})
+  key=body['operationId']
+  try:h=digest({'action':action,'body':body})
+  except (ValueError,TypeError):raise APIError('INVALID_CONFIGURATION_JSON','配置包含无法保存的数值或类型')
   with self.store.transaction() as rt:
    row=rt.db.execute('SELECT request_hash,response FROM config_operations WHERE id=?',(key,)).fetchone()
    if row:
@@ -68,6 +71,9 @@ CREATE TABLE IF NOT EXISTS config_operations(id TEXT PRIMARY KEY,request_hash TE
   else:
    if not isinstance(value.get('routes',{}),dict) or not isinstance(value.get('instrument',{}),dict):raise APIError('INVALID_DEPLOYMENT','接线映射和仪器配置必须为对象')
    value['wiringConfirmed']=value.get('wiringConfirmed') is True
+   from .bias_route_drafts import prepare_bias_route_drafts
+   prepare_bias_route_drafts(value)
+  validate_science_configuration(kind,value)
   return value
  @staticmethod
  def _issue_message(issue):
@@ -102,6 +108,7 @@ CREATE TABLE IF NOT EXISTS config_operations(id TEXT PRIMARY KEY,request_hash TE
   def work(rt):
    current=self._get(kind,id,rt)
    if 'entityId' in current or body.get('expectedRevision')!=current['revision']:raise APIError('REVISION_CONFLICT','草稿已更新，或正在尝试修改已发布版本',409)
+   if kind=='deployment':validate_deployment_xy_passbands(current)
    value={k:deepcopy(v) for k,v in current.items() if k!='versions'};value.update(id=ident(kind+'v'),entityId=id,publishedAt=now());value['digest']=digest(value)
    rt.db.execute('INSERT INTO config_versions VALUES(?,?,?,?)',(value['id'],id,kind,dumps(value)));return value
   return self._operation('publish:'+kind+':'+id,body,work)
@@ -128,5 +135,13 @@ CREATE TABLE IF NOT EXISTS config_operations(id TEXT PRIMARY KEY,request_hash TE
    message={'INVALID_RESOURCE_BINDING':'比特初始化参数或设备接线无效，请核对物理通道、逻辑通道和采样率','INVALID_PARAMETER':'初始化参数不符合设备允许范围或脉冲策略','PARAMETER_OUT_OF_RANGE':'比特初始化参数超出当前设备允许范围'}.get(e.code,'所选配置未通过设备校验，请核对初始化参数与接线')
    raise APIError(e.code,message,409) from e
   profile['machine']=dep.get('machine',dep['name'])
+  # Bias authorization never comes from a legacy base profile. Only the selected
+  # published deployment can freeze an explicit route into this binding.
+  profile.pop('biasRoutes',None)
+  if 'biasRoutes' in dep:
+   validate_science_configuration('deployment',dep)
+   profile['biasRoutes']={resource:deepcopy(dep['biasRoutes'][resource]) for resource in resourceIds if resource in dep['biasRoutes']}
   value={'chipVersionId':chipVersionId,'deploymentVersionId':deploymentVersionId,'resources':selected,'profile':profile,'source':{'chipDigest':chip['digest'],'deploymentDigest':dep['digest']}}
   value['digest']=digest(value);return value
+
+

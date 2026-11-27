@@ -1,0 +1,289 @@
+[
+  {
+    "file": "D:\\豆包\\量子\\quantum-control-platform\\reports\\upgrade-1125\\r19-empirical-drag-1126\\test-only-baseband-row\\preflight_0007.npz",
+    "sha256": "6c885bcbe1e33e711f32a7948da965c86aa822a1d7f7e6dce8b10c376b682394",
+    "waves": {
+      "xy_1": {
+        "name": "xy_1",
+        "dtype": "<f8",
+        "shape": [
+          332000
+        ],
+        "sampleRateHz": 4000000000.0,
+        "startAt": 0,
+        "fill": true,
+        "sha256": "b139e2c95bd565a36f49ac17451704af7afd9c011a491f262f85aeb1ee9a105c"
+      },
+      "ro_B1": {
+        "name": "ro_B1",
+        "dtype": "<c16",
+        "shape": [
+          166000
+        ],
+        "sampleRateHz": 2000000000.0,
+        "startAt": 8e-05,
+        "fill": true,
+        "sha256": "502c5da0b83e877fc86a84b048e6e49007cd1a8eec8d50090d5cc0fcfba4f4b2"
+      }
+    },
+    "segments": [
+      {
+        "id": "xy0",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318272,
+        "endSample": 318360,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 0.0,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy0_i",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy0_q",
+          "sha256": "d7b75e3363aa7a44aaf52714febb9fa7b13c1f2582eda1812bebb57c1c81e503",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "xy1",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318360,
+        "endSample": 318448,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 1.5707963267948966,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy1_i",
+          "sha256": "908ee17ebbe2b95965b71c29bd452f97c24aa6b2558941a0e6ff2291611a7a78",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy1_q",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "xy2",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318448,
+        "endSample": 318536,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 0.0,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy2_i",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy2_q",
+          "sha256": "d7b75e3363aa7a44aaf52714febb9fa7b13c1f2582eda1812bebb57c1c81e503",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "xy3",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318536,
+        "endSample": 318624,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 1.5707963267948966,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy3_i",
+          "sha256": "908ee17ebbe2b95965b71c29bd452f97c24aa6b2558941a0e6ff2291611a7a78",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy3_q",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "xy4",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318624,
+        "endSample": 318712,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 0.0,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy4_i",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy4_q",
+          "sha256": "d7b75e3363aa7a44aaf52714febb9fa7b13c1f2582eda1812bebb57c1c81e503",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "xy5",
+        "label": "target01",
+        "channel": "xy",
+        "startSample": 318712,
+        "endSample": 318800,
+        "sampleCount": 88,
+        "sampleRateHz": 4000000000.0,
+        "envelopeDurationNs": 20.0,
+        "bufferNs": 2.0,
+        "shape": "Gaussian",
+        "shapeParameters": {
+          "sigma": 4e-09
+        },
+        "phaseRad": 1.5707963267948966,
+        "frequencyHz": 4860000000.0,
+        "betaSeconds": 2e-10,
+        "source": "native_DrivePulse_and_Sequence_single_carrier",
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "derivativeMultiplierUnit": "s",
+        "basebandI": {
+          "array": "xy5_i",
+          "sha256": "908ee17ebbe2b95965b71c29bd452f97c24aa6b2558941a0e6ff2291611a7a78",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "basebandQ": {
+          "array": "xy5_q",
+          "sha256": "b8d853e652ea08ec9050bdd2e7ca1e18681c5165022e9c13d39aea04f992c0ef",
+          "dtype": "<f8",
+          "samples": 88
+        },
+        "peakNormalized": 0.15,
+        "maximumSampleSlopePerSecond": 31018514.6157574,
+        "slopeScope": "Native discrete baseband slope; not a certified hardware slew limit"
+      },
+      {
+        "id": "ro0",
+        "label": null,
+        "channel": "readout",
+        "startSample": 160000,
+        "endSample": 160400,
+        "sampleCount": 400,
+        "sampleRateHz": 2000000000.0,
+        "envelopeDurationNs": 200.0,
+        "bufferNs": 0.0,
+        "shape": "DC",
+        "shapeParameters": {},
+        "phaseRad": 0.0,
+        "frequencyHz": 10000000.0,
+        "betaSeconds": 0,
+        "source": "native_DrivePulse_and_Sequence_single_carrier"
+      },
+      {
+        "id": "ro1",
+        "label": null,
+        "channel": "readout",
+        "startSample": 160400,
+        "endSample": 164000,
+        "sampleCount": 3600,
+        "sampleRateHz": 2000000000.0,
+        "envelopeDurationNs": 1800.0,
+        "bufferNs": 0.0,
+        "shape": "DC",
+        "shapeParameters": {},
+        "phaseRad": 0.0,
+        "frequencyHz": 10000000.0,
+        "betaSeconds": 0,
+        "source": "native_DrivePulse_and_Sequence_single_carrier"
+      }
+    ],
+    "rowId": 7
+  }
+]

@@ -144,7 +144,7 @@ export default function WorkspaceSettings({
     <>
       <span className="eyebrow">WORKSPACE SETTINGS</span>
       <h2 id="modal-title">{isLeader ? "工作空间管理" : "个人设置与数据"}</h2>
-
+      
       <div className="ws-layout">
         <nav className="ws-tabs" aria-label="设置分类">
           {(
@@ -174,7 +174,7 @@ export default function WorkspaceSettings({
           {tab === "personal" && (
             <>
               <h3>界面外观</h3>
-
+              
               <div className="ws-theme-options">
                 {(["dark", "light"] as const).map((theme) => (
                   <button

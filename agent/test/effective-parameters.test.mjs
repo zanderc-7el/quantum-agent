@@ -90,3 +90,17 @@ test('workspace observation and prompt distinguish current effective configurati
   assert.equal(observation.data.currentEffectiveParameters.parameters.readout_hz,effective.readout_hz);
  }finally{store.close();}
 });
+
+test('spectroscopy separates the ON pulse, stored gate length, shots per block and independently repeated captures',async()=>{
+ const params={...effective,spectroscopy_width_s:8e-6,drive_length_s:320e-9,shots:2000,acquisitions_per_point:8,capture_repeats:2};
+ const {tools}=fixture({[nodeRoute]:{node,attempts:[],parameters:params}});
+ const record=await tools.execute('inspect_workflow',{workflowId:'wf-one'},scope);
+ const timing=record.data.currentEffectiveParameters.spectroscopySettings;
+ assert.equal(timing.onPulseDurationUs,8);
+ assert.equal(timing.shotsPerBlock,2000);
+ assert.equal(timing.blocksPerOnOrOffPoint,8);
+ assert.equal(timing.shotsPerOnOrOffPoint,16000);
+ assert.equal(timing.captures,2);
+ const without=await fixture().tools.execute('inspect_workflow',{workflowId:'wf-one'},scope);
+ assert.equal(without.data.currentEffectiveParameters.spectroscopySettings,undefined);
+});

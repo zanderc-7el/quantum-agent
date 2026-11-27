@@ -117,14 +117,14 @@ class CaptureDiagnosticsTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def fixture(self, procedure='sq_echo', independent=False, null_captures=()):
+    def fixture(self, procedure='sq_echo', independent=False, null_captures=(), identity='arclight-private-f8-q11-v2'):
         self.db_path = self.root / 'fixture.sqlite'
         db = sqlite3.connect(self.db_path)
         db.executescript('DROP TABLE IF EXISTS platform_workflows; DROP TABLE IF EXISTS platform_attempts; DROP TABLE IF EXISTS platform_effects; DROP TABLE IF EXISTS platform_artifacts;'
             'CREATE TABLE platform_workflows(id TEXT, payload TEXT); CREATE TABLE platform_attempts(id TEXT,workflow_id TEXT,node_id TEXT,payload TEXT);'
             'CREATE TABLE platform_effects(operation_id TEXT,workflow_id TEXT,attempt_id TEXT,state TEXT,request TEXT,result TEXT);'
             'CREATE TABLE platform_artifacts(id TEXT PRIMARY KEY,path TEXT,sha256 TEXT,payload TEXT);')
-        binding = self.bindings['arclight-private-f8-q11-v2']
+        binding = self.bindings[identity]
         numeric, raw_bytes = deepcopy(self.fixtures[procedure])
         for index in null_captures:
             numeric['analysis']['groups'][0]['repeats'][index].update(fit=None,
@@ -136,7 +136,7 @@ class CaptureDiagnosticsTests(unittest.TestCase):
         versions = {k: 0 for k in parameters}
         parameters.update(numeric['parameters'])
         node = {'id': 'Q11:offline:' + procedure, 'procedureId': procedure, 'resourceId': 'Q11', 'latestAttemptId': 'synthetic-attempt'}
-        workflow = {'id': 'synthetic-workflow', 'revision': 17, 'mode': 'real', 'adapterId': 'arclight-private-f8-q11-v2',
+        workflow = {'id': 'synthetic-workflow', 'revision': 17, 'mode': 'real', 'adapterId': identity,
             'adapterProfileHash': binding['fingerprint'], 'nodes': [node]}
         attempt = {'id': 'synthetic-attempt', 'nodeId': node['id'], 'procedureId': procedure, 'state': 'attention',
             'mode': 'real', 'endedAt': 'SYNTHETIC TEST ONLY', 'parameterVersions': versions,

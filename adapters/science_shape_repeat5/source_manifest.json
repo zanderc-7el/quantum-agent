@@ -1,0 +1,38 @@
+[
+  {
+    "path": "adapters/science_shape_repeat5/__init__.py",
+    "sha256": "29855a8e158784a7d04cc03b52dcb2f0387f3fca287c5b02b661c086c3f4e638"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/adapter.py",
+    "sha256": "7a3e0a1ee13864aec04a4ea26b320bb1d8edce2ce428515a9846db8f6a689c7b"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/analysis.py",
+    "sha256": "f5dddf28870656495b7e6712aba3ea10e66adbf6b5ab2804f1cb9d78365bcfb6"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/compiler.py",
+    "sha256": "984b6c54559ace5b045fb66b91e5f2c365d612dd26418b98d2a94814423dd530"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/evidence.py",
+    "sha256": "a4221381d447f97d8892d463cb9961468aca584d23079f1752fea48cb1e7307b"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/execute_worker.py",
+    "sha256": "61bbfd6fcd86e45c9386206be6342194512a26d9c08e2daf8d52df3d71b5dcb0"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/plans.py",
+    "sha256": "40e8135a7ec7ea5459dee7294feda73d9c4ef75daee088f340a4e2a8f5f9af66"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/policy.py",
+    "sha256": "578fea85fab84835b87fb90bb4e6841414509a0b9f16abc41e140982176d1152"
+  },
+  {
+    "path": "adapters/science_shape_repeat5/timing.py",
+    "sha256": "a9b0217f28cfaa17ac51ebb000086fa532a078ae7d77129259444b395d18a80d"
+  }
+]

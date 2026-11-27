@@ -70,10 +70,10 @@ class ReportExportService:
         if set(body) - {'operationId', 'expectedRevision', 'format', 'appendixCount'}:
             raise APIError('INVALID_REPORT', '报告请求含不支持的字段')
         op = body.get('operationId')
-        revision = body.get('expectedRevision')
+        observed_revision = body.get('expectedRevision')
         appendix = body.get('appendixCount', 16)
-        if not isinstance(op, str) or not op.strip() or len(op) > 160 or type(revision) is not int or revision < 0 or type(appendix) is not int or appendix not in (16, 64) or body.get('format') != 'pptx':
-            raise APIError('INVALID_REPORT', '请提供操作编号、当前任务版本及PPT格式')
+        if not isinstance(op, str) or not op.strip() or len(op) > 160 or type(observed_revision) is not int or observed_revision < 0 or type(appendix) is not int or appendix not in (16, 64) or body.get('format') != 'pptx':
+            raise APIError('INVALID_REPORT', '请提供操作编号、已查看的任务版本及PPT格式')
         request_hash = hashlib.sha256(dumps({'workflowId': workflow_id, **body}).encode()).hexdigest()
         with self._lock, self._db() as db:
             prior = db.execute('SELECT request_hash,payload FROM platform_report_exports WHERE operation_id=?', (op,)).fetchone()
@@ -84,20 +84,31 @@ class ReportExportService:
             row = db.execute('SELECT payload FROM platform_workflows WHERE id=?', (workflow_id,)).fetchone()
             if row is None:
                 raise APIError('NOT_FOUND', '任务不存在', 404)
-            wf = json.loads(row[0])
-            if wf.get('revision') != revision:
-                raise APIError('REVISION_CONFLICT', '实验状态已更新，请刷新后重新导出', 409)
+            for entry in db.execute('SELECT payload FROM platform_report_exports'):
+                active = json.loads(entry[0])
+                if active['workflowId'] == workflow_id and active['status'] in ('queued', 'processing'):
+                    raise APIError('REPORT_EXPORT_ACTIVE', '该任务已有报告正在生成，请等待当前导出完成', 409)
+            # This report-only request reads the latest committed state. Progress
+            # may advance after the browser's observation; it is not a control
+            # command and never changes workflow state or measurement authority.
+            # snapshot() reads workflow, attempts and artifacts in one SQLite
+            # transaction. Its actual revision is the sole report identity.
+            frozen = snapshot(self.db_path, workflow_id, self.root / 'data')
+            revision = frozen['workflow']['revision']
+            if type(revision) is not int or revision < observed_revision:
+                raise APIError('REVISION_CONFLICT', '请求版本晚于当前实验记录，请刷新后重新导出', 409)
+            captured_at = frozen['generatedAt']
+            frozen['exportRequest'] = {'operationId': op, 'observedRevision': observed_revision,
+                'capturedRevision': revision, 'capturedAt': captured_at, 'snapshotPolicy': 'latest_committed'}
             job_id = 'report-' + uuid.uuid4().hex
             directory = checked_path(self.output_root / job_id, parent=self.output_root)
             directory.mkdir()
             # Freeze synchronously before acknowledging: later acquisition progress cannot change this report.
-            frozen = snapshot(self.db_path, workflow_id, self.root / 'data')
-            if frozen['workflow']['revision'] != revision:
-                raise APIError('REVISION_CONFLICT', '冻结时实验状态发生变化，请重新导出', 409)
             payload = json.dumps(frozen, ensure_ascii=False, indent=2).encode('utf-8')
             (directory / 'report.json').write_bytes(payload)
             job = {'id': job_id, 'workflowId': workflow_id, 'revision': revision, 'operationId': op,
                    'status': 'queued', 'createdAt': now(), 'format': 'pptx', 'appendixCount': appendix,
+                   'requestedRevision': observed_revision, 'capturedAt': captured_at, 'snapshotPolicy': 'latest_committed',
                    'snapshotSha256': hashlib.sha256(payload).hexdigest(), 'directory': str(directory.relative_to(self.root))}
             db.execute('INSERT INTO platform_report_exports VALUES(?,?,?,?)', (job_id, op, request_hash, dumps(job)))
         self.executor.submit(self._execute, job)
@@ -155,13 +166,13 @@ class ReportExportService:
             node = str(candidate) if candidate.is_file() else shutil.which('node')
         env = {**os.environ, 'RUNTIME_NODE_MODULES': str(checked_path(modules)), 'PYTHONIOENCODING': 'utf-8'}
         command = [str(node), str(self.root / 'scripts/export_reader_pptx.mjs'), '--snapshot', str(directory / 'report.json'),
-                   '--reader', str(directory / 'reader.json'), '--template', str(self.root / 'scripts/report_assets/quantum_red_six_plot_template.pptx'),
+                   '--snapshot-sha256', job['snapshotSha256'], '--reader', str(directory / 'reader.json'), '--template', str(self.root / 'scripts/report_assets/quantum_red_six_plot_template.pptx'),
                    '--build-dir', str(directory / 'build'), '--appendix-count', str(job['appendixCount'])]
         with (directory / 'generation.log').open('wb') as log:
             subprocess.run(command, cwd=self.root, env=env, stdout=log, stderr=subprocess.STDOUT,
                            timeout=1800, check=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             subprocess.run([sys.executable, '-B', '-X', 'utf8', str(self.root / 'scripts/validate_reader_pptx.py'),
-                            '--build-dir', str(directory / 'build')], cwd=self.root, env=env, stdout=log, stderr=subprocess.STDOUT,
+                            '--build-dir', str(directory / 'build'), '--snapshot-sha256', job['snapshotSha256']], cwd=self.root, env=env, stdout=log, stderr=subprocess.STDOUT,
                            timeout=120, check=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         return directory / 'build/report.pptx'
 

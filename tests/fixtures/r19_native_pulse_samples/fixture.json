@@ -1,0 +1,78 @@
+{
+  "fixtureOnly": true,
+  "dataKind": "test_fixture",
+  "physicalAccepted": false,
+  "hardwareConnected": false,
+  "realUploadOccurred": false,
+  "description": "Actual native compile_row/archive_row and NativeTransport code; TEST FAKE driver receives upload calls, synthetic ADC; no device connection. Receipt uploadCommandsCompleted is the injected test driver call result only. Never register as measured evidence.",
+  "sourceManifestSha256": "504771ef9bd10b2951c1e999456f39da9bad05213f423032acd1e7b7c489e5e4",
+  "rowId": 7,
+  "opened": {
+    "idn": "EXPLICIT TEST FAKE",
+    "adcSampleRateHz": 2800000000.0,
+    "route": {
+      "xyLogical": [
+        6,
+        0
+      ],
+      "readoutLogical": [
+        14,
+        0
+      ],
+      "adcLogical": [
+        15,
+        0
+      ],
+      "adcPhysical": [
+        0,
+        0
+      ],
+      "adcSampleRateHz": 2800000000.0
+    },
+    "xyFilterMHz": 4700.0,
+    "operationId": "TEST_ONLY-r19-native-baseband-row",
+    "resourceId": "Q11",
+    "address": "TEST FAKE",
+    "dcPolicy": "preserve_existing_dc"
+  },
+  "closed": {
+    "cleanup": {
+      "fake": {
+        "ok": true
+      }
+    },
+    "first_cleanup": {
+      "fake": {
+        "ok": true
+      }
+    },
+    "cleanup_history": [],
+    "driver_close_result": {
+      "ok": true
+    },
+    "shutdown_errors": {},
+    "hardware_connected": false,
+    "shutdown_ok": true
+  },
+  "uploadedTestChannels": [
+    [
+      "xy_1",
+      "XY"
+    ],
+    [
+      "ro_B1",
+      "RO"
+    ]
+  ],
+  "files": {
+    "compiled_plan.json": "47a41da8dc8966ba9bcc758609df8201a9f0e8bcaa1719da5f7fff18cd8d860f",
+    "generate_fixture.py": "1cc475e49c48975a59ad452274daf951f65f92f3252194d8419df48a1df4508c",
+    "plan.json": "45826d7a579118be45e3f45318a6e6dd8bd15581909dab1144dd8ef4539f409e",
+    "point_0007.npz": "f4ca72502a5a2ec59e7073633aad16c9b13c3360485202256a51fa072270cab6",
+    "point_0007_acquisition_blocks.json": "0feac842dc1a07947426792205bbccfacce588cc2493f870c56b253de05613cb",
+    "point_0007_block_000.npz": "0706d59a076c7e5d278bc01c8fff5a42515b1e33d431e8b92eb80f18b7f9f6f5",
+    "point_0007_block_001.npz": "d0dbff9290fe8d5c18063e7ef0d6f6b7cd986e1674a34dace1da32e2ffd6381f",
+    "preflight_0007.npz": "6c885bcbe1e33e711f32a7948da965c86aa822a1d7f7e6dce8b10c376b682394",
+    "uploads.jsonl": "de360a2241fc3cca5a4d17da32de32595a9554bded60ecb51974183c43bbca77"
+  }
+}

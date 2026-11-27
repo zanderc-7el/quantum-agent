@@ -77,6 +77,11 @@ export interface ExperimentNode {
   editableParameterKeys?: string[];
 }
 export interface Workflow {
+  workflowComplete?: boolean;
+  biasStartRequirements?: Record<string, BiasStartRequirement>;
+  manualExperiment?: { procedureId: string; nodeId: string; parameters?: Record<string, unknown> };
+  chipVersionId?: string;
+  deploymentVersionId?: string;
   /** Task-scoped handoff authorization; not a live device connection receipt. */
   hardwareConfirmed?: boolean;
   /** Backend acquisition-attempt timestamps; elapsed includes pauses and model waits. */
@@ -93,14 +98,16 @@ export interface Workflow {
   resourceIds?: string[];
   currentNodeId?: string;
   resultSummary?: unknown;
-  maxAttemptsPerNode?: number;
-  maxWorkflowAttempts?: number;
+  maxAttemptsPerNode?: number | null;
+  maxWorkflowAttempts?: number | null;
   supplementalAcceptance?: { policyVersion: string; policyHash: string; installedAt: string; reason: string; applicableProcedures: string[] };
   readoutRevalidations?: Record<string, ReadoutRevalidation>;
   rbDiagnostic?: RbDiagnosticMarker;
   lastReadoutWithdrawal?: ReadoutWithdrawal;
-  maxTotalShots?: number;
+  maxTotalShots?: number | null;
   reservedShots?: number;
+  budget?: { mode?: "accounting_only"; [key: string]: unknown };
+  shotAccounting?: { confirmedShots: number; operations: number; unresolvedOperations: number; unattributedReservedShots: number; reservedShots: number; attempts: number; scienceChildren: number };
   adapterId?: string;
   adapter?: AdapterIdentity;
   /** Original source ID used to make workspace imports idempotent. */
@@ -131,7 +138,20 @@ export interface Workflow {
   }[];
   approved: boolean;
 }
+export interface BiasStartRequirement {resourceId:string;nodeId:string;lineId:string;routeSha256:string;startSettingV:number;endSettingV:number;unit:'V'}
+export interface BiasStartCommand {operationId:string;expectedRevision:number;biasStartConfirmation:{confirmed:true;routeSha256:string;startSettingV:number;endSettingV:number}}
+export interface BiasStartIntent {workflowId:string;nodeId:string;operationId:string;expectedRevision:number;requirement:BiasStartRequirement}
 export interface CreateWorkflowInput {
+  operationId?: string;
+  manualProcedureId?: string;
+  manualParameters?: Record<string, number | string | number[]>;
+  executionProfile?: 'science-v3' | 'science-v3-irb' | 'science-shape-repeat5' | 'science-flux';
+  manualWorkingPointId?: string;
+  sourceWorkflowId?: string;
+  biasDeploymentVersionId?: string;
+  manualScienceReferences?: {role: string; recordId: string}[];
+  chipVersionId?: string;
+  deploymentVersionId?: string;
   mode?: "replay" | "real";
   coverage?: WorkflowCoverage;
   resourceIds?: string[];
@@ -178,7 +198,7 @@ export interface Rule {
 export interface Attempt { id: string; nodeId: string; number: number; state: string; startedAt: string; endedAt?: string; parameters: Record<string, unknown>; parameterVersions: Record<string, number>; result?: MeasurementResult; error?: unknown; operationId: string; mode: string; procedureId?: string; }
 export interface SelectionVerificationBudgetLookahead {
   version: "selection-verification-budget/1";
-  selectionShots: number; verificationShotsUpperBound: number; jointShots: number; remainingShotsAtCheck: number;
+  selectionShots: number; verificationShotsUpperBound: number; jointShots: number; remainingShotsAtCheck: number | null; budgetMode?: "accounting_only";
   verificationBasis: "same_sampling_counts_after_calibration_only" | "arclight_single_setting_same_shots_captures_blocks";
   reservation: false; candidateKnown: false; actualVerificationPlanRechecked: true;
 }
@@ -201,10 +221,15 @@ export interface RbDiagnosticRequest {
   policyVersion: "rb-after-cpmg-diagnostic/1"; sourceProofSha256: string;
 }
 export interface Decision { budgetLookahead?: SelectionVerificationBudgetLookahead; id: string; nodeId: string; attemptId?: string; createdAt: string; source: "rule" | "model" | "operator"; action: string; reason: string; evidenceIds: string[]; ruleId?: string; parameterChanges?: Record<string, unknown>; targetNodeId?: string; invalidatedNodes?: string[]; status?: string; }
-export interface NodeDetail { node: ExperimentNode; attempts: Attempt[]; decisions: Decision[]; rules: Rule[]; parameterBounds?: ParameterBounds; parameters?: Record<string, unknown>; }
+export interface NodeDetail {executionVersionOptions?:{id:'rabi16-v1';label:string}[];attemptExecutionVersion?:{executionVersion:string;label:string;state:string;nextAttemptNumber:number;adapterId:string;adapterProfileHash:string;authorizationId:string;scope:string}|null;workflowRevision?:number;parameterVersions?:Record<string,number>; node: ExperimentNode; attempts: Attempt[]; decisions: Decision[]; rules: Rule[]; parameterBounds?: ParameterBounds; parameters?: Record<string, unknown>; executionDefaults?: Record<string, unknown>; executionDefaultsSource?: string; resolvedExecutionPlan?: {status:'ready'|'unavailable';source:string;parameters?:Record<string,unknown>;estimatedTotalShots?:number;totalRows?:number;adapterProfileHash?:string;scope?:unknown;reason?:string;code?:string}; }
 export interface Resource { id: string; label: string; engineKey?: string; [key: string]: unknown; }
 export interface AdapterIdentity { id?: string; name?: string }
-export interface ParameterBound { min: number; max: number; unit?: string; label?: string; integer?: boolean; enum?: number[] }
+export interface ParameterBound { min: number; max: number; unit?: string; label?: string; integer?: boolean; enum?: number[]; type?:string;minItems?:number;maxItems?:number;strictlyIncreasing?:boolean }
+export interface ScienceParameterBound { min?: number; max?: number; unit?: string; label?: string; integer?: boolean; enum?: (number | string)[]; default?: number | string | number[]; type?: string; minItems?:number;maxItems?:number;strictlyIncreasing?:boolean;unique?:boolean;required?:boolean; }
+export interface ObservedResourceBinding { sourceWorkflowId: string; resourceId: string; sha256: string; physicalDesignId: null; identityClaim: string; }
+export interface ScienceExecutionScope { chipVersionId?: string | null; deploymentVersionId?: string | null; sourceWorkflowId?: string; biasDeploymentVersionId?:string; resourceId: string; }
+export interface ScienceExecutionMethod { procedureId: string; label: string; capability: string; reason?: string; executionProfile?: string; scienceSourceRoles: string[]; scienceSourceRolesByMode?: Record<string, string[]>; parameterKeysByMode?: Record<string, string[]>; scienceSourceMethods?: Record<string, string[]>; parameterBounds: Record<string, ScienceParameterBound>; parameterDefaults?: Record<string, number | string | number[]>; }
+export interface ScienceExecutionCatalog { executionProfile: string; configurationBinding: ScienceExecutionScope & {adapterProfileHash?: string;observedResourceBinding?:ObservedResourceBinding;identityLabel?:string}; observedResourceBinding?:ObservedResourceBinding; manualMethods: ScienceExecutionMethod[]; preflight?: {staticReady?: boolean; reason?: string;missingFields?:Record<string,string[]>}; capabilities?: {procedures?: Record<string, {available?: boolean; reason?: string; status?: string}>}; adapter?: AdapterIdentity; }
 export type ParameterBounds = Record<string, ParameterBound>;
 export interface Catalog { blueprint: { version: string; nodes: ExperimentNode[]; edges: NonNullable<Workflow["edges"]> }; resources: Resource[]; rules: Rule[]; capabilities: unknown; adapter?: AdapterIdentity; parameterBounds?: ParameterBounds; coverage?: { realDefault?: WorkflowCoverage; main?: string; full?: string; working_point?: string }; workingPointCoverage?: WorkingPointCoverage; stages?: { id: string; label: string; capability?: string; reason?: string; requiresHardwareConfirmation?: boolean; blueprintVersion?: string; adapter?: AdapterIdentity }[]; }
 export type RemoteAction = WorkflowAction | "run_step" | "backtrack" | "confirm_hardware" | "reconcile" | "decide";

@@ -256,6 +256,26 @@ def execute(ws,proposal,body,conv,index):
                     and w.get('adapterProfileHash')==scoped.adapter_profile_hash]
             if active:
                 outcomes.append(receipt(active[0],'start'));continue
+            if (not binding and targets == ['Q11'] and policy == 'autopilot'
+                    and getattr(scoped,'_physical_adapter',False)
+                    and scoped.adapter_id == 'arclight-private-f8-q11-v3'):
+                from .smart_q11_launch import launch, PROFILE, START_SCOPE
+                from .common import digest
+                recorded = next((w for w in reversed(prior) if w.get('resourceIds') == [target]
+                    and w.get('mode') == 'real' and w.get('hardwareConfirmed') is True
+                    and w.get('adapterId') == PROFILE and w.get('adapterProfileHash') == scoped.adapter_profile_hash
+                    and not w.get('configurationBinding')),None)
+                if recorded:
+                    started = launch(scoped, {'operationId':'smart-chat/'+digest([prefix,target]),'name':'八号机 Q11 · 单比特测控',
+                        'resourceId':target,'scope':START_SCOPE,'adapterId':PROFILE,'stationConfirmed':True},
+                        _rt=rt,_confirmed_source=recorded['id'])
+                    outcome = receipt(started,'start')
+                    outcome.update(resourceId=target,newTask=True)
+                    outcomes.append(outcome)
+                    continue
+                outcomes.append({'status':'blocked','resourceId':target,'code':'SMART_HANDOVER_REQUIRED',
+                                 'message':'八号机 Q11 尚无当前配置的接线确认。请在新建工作流中确认接线并开始实测。'})
+                continue
             wf=scoped.create({'name':'八号机 '+target+' · 单比特测控','mode':'real','resourceIds':[target],
                               'coverage':'full','policy':policy},_rt=rt,_binding=binding)
             if policy=='strict':

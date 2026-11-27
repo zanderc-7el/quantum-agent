@@ -3,21 +3,23 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import * as reportModel from '../scripts/report_pptx_model.mjs';
+import {presentationSummary} from '../scripts/report_reader_layout.mjs';
 
-const fixturePath=new URL('./fixtures/reader-unmeasured-nodes.json',import.meta.url);
-const fixture=fs.existsSync(fixturePath)?JSON.parse(fs.readFileSync(fixturePath,'utf8')):null;
+const fixtureUrl=new URL('./fixtures/reader-unmeasured-nodes.json',import.meta.url);
+const fixture=fs.existsSync(fixtureUrl)?JSON.parse(fs.readFileSync(fixtureUrl,'utf8')):null;
+const privateFixtureOptions={skip:!fixture&&'Private regression fixture excluded from source release'};
 const exporter=fs.readFileSync(new URL('../scripts/export_reader_pptx.mjs',import.meta.url),'utf8');
 // Exercise the actual result-page loop without loading PowerPoint or changing a snapshot.
 function resultPages(model,report){
- const start=exporter.indexOf('for(const n of '),end=exporter.indexOf('\nif(allFigures.length)',start);
+ const start=exporter.indexOf('for(const n of '),end=exporter.indexOf('\nfor(const detail of diagnosticPages',start);
  assert.ok(start>0&&end>start);
  const pages=[];
- vm.runInNewContext('let s;'+exporter.slice(start,end),{model,report,readerResultNodes:reportModel.readerResultNodes,
+ vm.runInNewContext('let s;'+exporter.slice(start,end),{model,report,readerResultNodes:reportModel.readerResultNodes,presentationSummary,
   page:(title,section)=>{const page={title,section,images:[]};pages.push(page);return page;},
   text:()=>{},picture:(page,figure)=>page.images.push(figure.artifactId)});
  return pages;
 }
-test('actual 18-page snapshot keeps ten unmeasured nodes in summary and emits only three result pages',{skip:fixture?false:'Private local fixture not included in the source export'},()=>{
+test('actual 18-page snapshot keeps ten unmeasured nodes in summary and emits only three result pages',privateFixtureOptions,()=>{
  const {model,report}=fixture,before=JSON.stringify(fixture);
  const originalResultPages=model.nodes.reduce((n,row)=>n+Math.max(1,Math.ceil(row.figures.length/6)),0);
  const allFigures=model.nodes.flatMap(n=>n.history.flatMap(a=>a.stages.flatMap(s=>s.figures)));

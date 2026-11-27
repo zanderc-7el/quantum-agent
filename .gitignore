@@ -48,3 +48,14 @@ venv/
 /tests/fixtures/handover-slide28.xml
 /tests/fixtures/reader-unmeasured-nodes.json
 /.document_deps*/
+
+# Local history and deterministic test-only compiled fixtures
+/tests/fixtures/chat-cavity-roles.json
+/tests/fixtures/report-rabi-workpoint.json
+/tests/fixtures/stability_actual_operation_projection.json
+/agent/test/fixtures/workspace-s21-evidence.json
+/agent/test/fixtures/workspace-s21-final-control-chars.json
+/frontend/qa/fixtures/bloch-historical-records.json
+/frontend/qa/fixtures/science-historical-six-records.json
+!/tests/fixtures/r19_native_pulse_samples/preflight_0007.npz
+!/tests/fixtures/r19_native_pulse_samples/uploads.jsonl

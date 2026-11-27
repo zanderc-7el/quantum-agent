@@ -28,6 +28,9 @@ const labels: Record<string, string> = {
   shots: '单次采样次数', capture_repeats: '采集重复次数', acquisitions_per_point: '每点采集块数',
   rotation_hz: '旋转频率', pi_pulses: 'π 脉冲数', rb_sequences: 'RB 序列数',
   rb_master_seed: 'RB 随机种子', rb_bootstrap_replicates: 'RB 重采样次数', order_seed: '扫描顺序种子',
+  rb_lengths:'RB 序列长度',rb_captures:'RB 独立采集次数',reference_captures:'基准采集次数',
+  pulse_length_s:'门脉冲时长',pulse_sigma_s:'高斯脉冲宽度',shape_pi_amp:'波形 π 脉冲幅度',
+  pulse_phase_rad:'脉冲相位',drag_lambda1:'DRAG 系数',lambda_start:'DRAG 系数起点',lambda_stop:'DRAG 系数终点',
 };
 const scan = new Set(['span_hz', 'points', 'start_s', 'stop_s', 'start_hz', 'stop_hz', 'amp_start', 'amp_stop']);
 const counts = new Set(['shots', 'capture_repeats', 'acquisitions_per_point', 'points', 'pi_pulses', 'rb_sequences', 'rb_master_seed', 'rb_bootstrap_replicates', 'order_seed']);
@@ -65,7 +68,7 @@ function shift(value: number, exponent: number): number {
   return Number(`${mantissa}e${Number(power) + exponent}`);
 }
 
-function presentation(key: string, rule: ParameterBound): { unit: string; exponent: number } {
+function presentation(key: string, rule: Pick<ParameterBound, 'unit'>): { unit: string; exponent: number } {
   const baseUnit = rule.unit?.trim();
   // Explicit schema units win over the canonical-key fallback. Values already in
   // MHz or ns must not receive a second conversion.
@@ -84,9 +87,33 @@ function presentation(key: string, rule: ParameterBound): { unit: string; expone
   return { unit: key === 'points' ? '点' : counts.has(key) && !key.endsWith('seed') ? '次' : '', exponent: 0 };
 }
 
+/** Read-only inspector. Unrecognised keys and policies remain available in the original JSON. */
+export function readableParameter(key: string, value: unknown, explicitUnit?: string, procedure?: string, hasBlocks = false) {
+  if (key === 'pulse_compatibility') return value === 'f8_validated_short_half_dc_buff2ns_v1'
+    ? { label: '半 π 脉冲策略', value: 'π/2 与 π 同幅，时长减半' } : undefined;
+  if (!Object.hasOwn(labels, key)) return;
+  const label = key === 'shots' ? (hasBlocks ? '每块采样次数' : '采样次数') : labels[key];
+  if (key === 'rb_lengths' && Array.isArray(value) && value.every(Number.isSafeInteger))
+    return { label, value: value.join('、') };
+  if (typeof value !== 'number' || !Number.isFinite(value)) return;
+  const { unit, exponent } = presentation(key, { unit: explicitUnit });
+  let suffix = unit;
+  if (!explicitUnit) {
+    if (key === 'acquisitions_per_point') suffix = '块/点';
+    if (key === 'capture_repeats') suffix = '次';
+    if (key === 'shots' && hasBlocks) suffix = '次/块';
+    if (key === 'points' && procedure === 'sq_spectroscopy') suffix = '个频点';
+  }
+  return { label, value: String(shift(value, -exponent)) + (suffix ? ' ' + suffix : '') };
+}
+
 export function buildManualParameterFields(bounds: ParameterBounds = {}, allowedKeys?: string[]): ManualParameterField[] {
   const allowed = allowedKeys ? new Set(allowedKeys) : undefined;
-  return Object.entries(numericParameterBounds(bounds)).flatMap(([key, sourceRule]) => {
+  const arrays=Object.fromEntries(Object.entries(bounds).filter(([,rule])=>rule.type==='integerArray'
+    &&Number.isSafeInteger(rule.min)&&Number.isSafeInteger(rule.max)
+    &&Number.isSafeInteger(rule.minItems)&&Number.isSafeInteger(rule.maxItems)
+    &&rule.minItems!>=1&&rule.maxItems!>=rule.minItems!&&rule.maxItems!<=256));
+  return Object.entries({...numericParameterBounds(bounds),...arrays}).flatMap(([key, sourceRule]) => {
     if ((allowed && !allowed.has(key)) || sourceRule.min > sourceRule.max) return [];
     const rule = { ...sourceRule, integer: sourceRule.integer || counts.has(key) };
     const { unit, exponent } = presentation(key, rule);
@@ -99,11 +126,22 @@ export function buildManualParameterFields(bounds: ParameterBounds = {}, allowed
 }
 
 export function displayParameterValue(value: unknown, field: ManualParameterField): string {
+  if(field.rule.type==='integerArray')return Array.isArray(value)&&value.every(Number.isSafeInteger)?value.join(', '):'';
   return typeof value === 'number' && Number.isFinite(value) ? String(shift(value, -field.exponent)) : '';
 }
 
-export function parseDisplayParameter(raw: string, field: ManualParameterField): number {
+export function parseDisplayParameter(raw: string, field: ManualParameterField): number | number[] {
   const text = raw.trim();
+  if(field.rule.type==='integerArray'){
+    const parts=text.split(',').map(v=>v.trim());
+    const rule=field.rule;
+    if(parts.length<rule.minItems!||parts.length>rule.maxItems!||parts.some(v=>!/^\d+$/.test(v)))
+      throw new Error(`${field.label}请输入 ${rule.minItems}–${rule.maxItems} 个以逗号分隔的整数`);
+    const values=parts.map(Number);
+    if(values.some((v,i)=>!Number.isSafeInteger(v)||v<rule.min||v>rule.max||(rule.strictlyIncreasing&&i>0&&v<=values[i-1])))
+      throw new Error(`${field.label}每项须在 ${rule.min}–${rule.max} 之间${rule.strictlyIncreasing?'并严格递增':''}`);
+    return values;
+  }
   if (!text) throw new Error(`${field.label}请输入数值`);
   if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) throw new Error(`${field.label}请输入${field.unit ? `以 ${field.unit} 为单位的` : ''}有限数值`);
   const value = shift(Number(text), field.exponent);
@@ -126,15 +164,15 @@ export function manualParameterChanges(draft: ManualParameterDraft): Record<stri
   return Object.fromEntries(Object.entries(draft.values).filter(([key, value]) => value !== draft.initialValues[key]));
 }
 
-export function validateManualParameterDraft(draft: ManualParameterDraft, currentRevision: number): Record<string, number> {
+export function validateManualParameterDraft(draft: ManualParameterDraft, currentRevision: number): Record<string, number | number[]> {
   if (draft.revision !== currentRevision) throw new Error('配置已更新，请恢复未保存修改后重新编辑。');
   const changes = manualParameterChanges(draft);
-  const numeric: Record<string, number> = {};
+  const numeric: Record<string, number | number[]> = {};
   for (const [key, raw] of Object.entries(changes)) {
     const field = draft.fields.find(item => item.key === key);
     if (!field) throw new Error(`参数 ${key} 未获准修改`);
     const value = parseDisplayParameter(raw, field);
-    if (value !== draft.baseline[key]) numeric[key] = value;
+    if (JSON.stringify(value) !== JSON.stringify(draft.baseline[key])) numeric[key] = value;
   }
   if (!Object.keys(numeric).length) throw new Error('请至少修改一个参数数值。');
   const effective = { ...draft.baseline, ...numeric };
@@ -147,4 +185,31 @@ export function validateManualParameterDraft(draft: ManualParameterDraft, curren
     }
   }
   return numeric;
+}
+
+/** Explicit step to the native inclusive linspace contract, without allocation. */
+export function validateScanStep(startText: string, stopText: string, stepText: string, maxPoints = 10000) {
+  const finite = (text: string, label: string) => {
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text.trim()) || !Number.isFinite(Number(text))) throw new Error(`${label}必须为有限数值`);
+    return Number(text);
+  };
+  const start = finite(startText, '扫描起点'), stop = finite(stopText, '扫描终点'), step = finite(stepText, '扫描步进');
+  if (step <= 0) throw new Error('扫描步进必须大于零');
+  if (stop <= start) throw new Error('扫描终点必须大于起点');
+  const intervals = (stop - start) / step;
+  const rounded = Math.round(intervals);
+  if (!Number.isSafeInteger(rounded) || rounded + 1 > maxPoints || rounded < 1) throw new Error(`扫描点数须为 2–${maxPoints}，请增大步进`);
+  if (Math.abs(intervals - rounded) > 1e-8 * Math.max(1, Math.abs(intervals))) throw new Error('扫描范围须能被步进整除，避免改变实际步进');
+  return { start, stop, step, points: rounded + 1 };
+}
+
+export function applyManualScanStep(draft:ManualParameterDraft,startKey:string,stopKey:string,stepText:string):ManualParameterDraft {
+  const points=draft.fields.find(f=>f.key==='points');
+  if(!points)throw new Error('当前方法未授权修改扫描点数');
+  const start=draft.fields.find(f=>f.key===startKey),stop=draft.fields.find(f=>f.key===stopKey);
+  if(!start||!stop||start.exponent!==stop.exponent)throw new Error('扫描端点不可编辑或单位不一致');
+  parseDisplayParameter(draft.values[startKey]??'',start);parseDisplayParameter(draft.values[stopKey]??'',stop);
+  const scan=validateScanStep(draft.values[startKey]??'',draft.values[stopKey]??'',stepText,Math.min(points.rule.max,10000));
+  parseDisplayParameter(String(scan.points),points);
+  return {...draft,values:{...draft.values,points:String(scan.points)}};
 }

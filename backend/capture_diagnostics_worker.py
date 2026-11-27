@@ -10,7 +10,7 @@ import zipfile
 from .capture_diagnostics import (VERSION, PROCEDURES, MAX_JSON_BYTES, MAX_RAW_BYTES,
     MAX_CONTEXT_BYTES, MAX_CAPTURES, NOTICE, _require, unavailable)
 from .common import checked_path, file_hash
-from .prior_failure_context import MANIFEST_SHA
+from .prior_failure_context import MANIFEST_SHA, IMPLEMENTATION, load_audited_bindings
 
 
 def _read(path):
@@ -20,7 +20,19 @@ def _read(path):
     return json.loads(data.decode('utf-8-sig'))
 
 
-def _sources(root, expected):
+def _sources(root, expected, source_binding=None):
+    if source_binding is not None:
+        _require(isinstance(source_binding, dict), 'analysis_binding_changed')
+        binding = load_audited_bindings(root, IMPLEMENTATION).get(source_binding.get('adapterId'))
+        _require(binding is not None and source_binding.get('adapterProfileHash') == binding['fingerprint']
+                 and source_binding.get('sourceManifestSha256') == binding['sourceManifestSha256'], 'analysis_binding_changed')
+        for name in ('platform_analysis.py', 'analyze_single_qubit.py'):
+            rel = binding['analysisSourcePath'] if name == 'platform_analysis.py' else 'adapters/arclight_runtime/' + name
+            _require(expected.get(name) == binding['manifest'][name]
+                     and file_hash(checked_path(root / rel, parent=root)) == binding['manifest'][name], 'analysis_source_changed')
+        return checked_path(root / binding['analysisSourcePath'], parent=root)
+    # Compatibility with the original bounded worker input. This path accepts
+    # only the original frozen sources; a missing binding never selects v3.
     manifest_path = checked_path(root / 'adapters/arclight_runtime/source_manifest.json', parent=root)
     _require(file_hash(manifest_path) == MANIFEST_SHA, 'source_manifest_changed')
     manifest = {v['path'].replace('\\', '/'): v['sha256'] for v in _read(manifest_path)}
@@ -28,6 +40,7 @@ def _sources(root, expected):
         rel = 'adapters/arclight_runtime/' + name
         _require(expected.get(name) == manifest[rel] and file_hash(checked_path(root / rel, parent=root)) == manifest[rel],
                  'analysis_source_changed')
+    return checked_path(root / 'adapters/arclight_runtime/platform_analysis.py', parent=root)
 
 
 def _axis_inventory(records, job):
@@ -231,14 +244,13 @@ def calculate(resolved):
         root = checked_path(resolved['root'])
         binding = resolved['binding']
         _require(binding['procedureId'] in PROCEDURES and 1 <= len(resolved['operations']) <= 2, 'unsupported_scope')
-        _sources(root, resolved['sourceHashes'])
-        path = root / 'adapters/arclight_runtime/platform_analysis.py'
+        path = _sources(root, resolved['sourceHashes'], resolved.get('sourceBinding'))
         spec = importlib.util.spec_from_file_location('_qcal_offline_capture_analysis', path)
         platform = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(platform)
         native = platform.native_module('analyze_single_qubit')
         operations = [_operation(root, item, binding, native, platform) for item in resolved['operations']]
-        _sources(root, resolved['sourceHashes'])
+        _sources(root, resolved['sourceHashes'], resolved.get('sourceBinding'))
         partial = any(o['fitDiagnosticCoverage']['missingFitCaptureCount'] for o in operations)
         output = {'schema': VERSION, 'status': 'partial_fit_diagnostics' if partial else 'available', 'scope': 'current_attempt_diagnostic_only_not_acceptance',
                   'binding': binding, 'sourceHashes': resolved['sourceHashes'], 'notice': NOTICE,

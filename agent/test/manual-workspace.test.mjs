@@ -47,3 +47,16 @@ test('runtime snapshots retain manual policy and evidence needed to distinguish 
  assert.equal(result.data.currentNodeDiagnostic.freshAcquisition,true);
  assert.equal(result.data.currentNodeDiagnostic.latestAttemptId,'attempt-current');
 });
+
+test('explicit single-step proposal carries inspected node revision and attempt without executing',async()=>{
+ const proposal={tool:'run_manual_step',arguments:{workflowId:'manual',nodeId:'Q11:readout',expectedRevision:9,expectedAttemptId:'attempt-current',remeasure:true}};
+ const store=new Store(':memory:');let index=0;let prompt;
+ const outputs=[JSON.stringify({type:'tool_call',...proposal}),final({message:'已提出本步重测，等待控制器核对当前记录。',proposals:[proposal]})];
+ const brain=new Brain(config,store,async(_,messages)=>{prompt=messages[0].content;return outputs[index++];});
+ try{
+  const result=await brain.run('workspace',{message:'重测当前任务的读取腔定频，由控制器独立复测，不运行后续步骤',context:{intent:'execute',scope:{kind:'workspace'}}});
+  assert.equal(result.status,'ok');assert.deepEqual(result.proposals,[proposal]);
+  assert.match(prompt,/run_manual_step/);assert.doesNotMatch(prompt,/不提供 run_step/);
+  assert.equal(store.events(result.sessionId).find(e=>e.event_type==='workspace_proposal').payload.executed,false);
+ }finally{store.close();}
+});

@@ -8,7 +8,7 @@ import hashlib
 import json
 
 from .common import APIError, checked_path, digest, file_hash, number
-from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, audited_bindings,
+from .prior_failure_context import (CHECKED_JSON_NAMES, load_audited_bindings,
                                     _validate_effect)
 from .quality import evaluate
 
@@ -111,10 +111,7 @@ def restoration_source(db, adapter, wf, marker, current_parameters, current_vers
     try:
         implementation = type(adapter).__module__ + '.' + type(adapter).__qualname__
         root = checked_path(adapter.root)
-        profiles = {identity: checked_path(root / name, parent=root).read_bytes()
-                    for identity, (name, _) in PROFILE_FILES.items()}
-        bindings = audited_bindings(implementation, profiles,
-            checked_path(root / 'adapters/arclight_runtime/source_manifest.json', parent=root).read_bytes())
+        bindings = load_audited_bindings(root, implementation)
         binding = bindings.get(wf.get('adapterId'))
         _need(binding and wf.get('adapterProfileHash') == binding['fingerprint'], 'unaudited_adapter')
         _need(marker.get('origin') != 'operator_withdrawal', 'candidate_already_withdrawn')

@@ -16,6 +16,8 @@ from backend.prior_failure_context import PROFILE_FILES, ENTRY_FILES, audited_bi
 
 
 class ReadoutWithdrawalTests(unittest.TestCase):
+    profile_version = 2
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='qcal-withdrawal-offline-')
         self.root = Path(self.temp.name)
@@ -27,8 +29,14 @@ class ReadoutWithdrawalTests(unittest.TestCase):
         (self.root / 'adapters/arclight_runtime/source_manifest.json').write_bytes(manifest)
         imports = self.root / 'data/imports'; imports.mkdir(parents=True)
         (imports / 'history.json').write_text(dumps({'version': 1, 'resources': [{'id': 'Q11', 'label': 'Q11'}], 'records': []}))
-        self.binding = audited_bindings('adapters.arclight.ArcLightAdapter', profiles, manifest)['arclight-private-f8-q11-v2']
-        self.adapter = ArcLightAdapter(self.root, self.root / 'adapters/arclight_profile_v2.json')
+        if self.profile_version == 3:
+            from tests.test_arclight_v3_evidence import install_sources
+            from backend.prior_failure_context import load_audited_bindings
+            install_sources(self.root)
+            self.binding = load_audited_bindings(self.root, 'adapters.arclight.ArcLightAdapter')['arclight-private-f8-q11-v3']
+        else:
+            self.binding = audited_bindings('adapters.arclight.ArcLightAdapter', profiles, manifest)['arclight-private-f8-q11-v2']
+        self.adapter = ArcLightAdapter(self.root, self.root / f'adapters/arclight_profile_v{self.profile_version}.json')
         self.controller = Controller(self.root, adapter=self.adapter, start_worker=False)
         self.controller._brain = lambda *a, **kw: self.fail('No model allowed')
         self.adapter.execute = lambda *a, **kw: self.fail('No hardware allowed')

@@ -10,6 +10,7 @@ import subprocess
 import time
 from .f8 import AdapterError, ALIASES, F8Adapter, _dump, _load, _digest, _utc
 from .history import sha256
+from .progress_delivery import read_event_batch
 from .arclight_runtime.platform_specs import build_job, POLICY
 
 METHODS={
@@ -267,7 +268,7 @@ class ArcLightAdapter(F8Adapter):
         d.mkdir(parents=True);_dump(d/'adapter_intent.json',{'operationId':op,'requestHash':request_hash,'request':canonical,'createdAt':_utc(),'profileHash':_digest(self.profile)})
         _dump(d/'plan.json',plan)
         env=os.environ.copy();env.pop('PYTHONPATH',None);env.update(QCAL_ARCLIGHT_RUN_DIR=str(d),PYTHONIOENCODING='utf-8',PYTHONDONTWRITEBYTECODE='1')
-        position=0;stopping=None;started=time.monotonic();delivery_error=None
+        position=0;stopping=None;started=time.monotonic();delivery_error=None;telemetry_error=None
         def dispatch(e):
             nonlocal delivery_error
             try:emit(e)
@@ -280,14 +281,18 @@ class ArcLightAdapter(F8Adapter):
                 raise AdapterError('FAILED_BEFORE_START','ArcLight worker could not start') from exc
             _dump(d/'process.json',{'pid':process.pid,'startedAt':_utc()});dispatch({'event':'worker_started','pid':process.pid,'operationId':op})
             def pump():
-                nonlocal position
-                if not (d/'events.jsonl').exists():return
-                with (d/'events.jsonl').open('rb') as f:
-                    f.seek(position)
-                    while True:
-                        line=f.readline()
-                        if not line.endswith(b'\n'):break
-                        dispatch(json.loads(line));position=f.tell()
+                nonlocal position,delivery_error,telemetry_error
+                # A bad journal must stop delivery, not worker supervision. Keep
+                # the original bytes for diagnosis and never retry the bad tail.
+                if telemetry_error is not None:return False
+                previous=position
+                try:position,events=read_event_batch(d/'events.jsonl',position)
+                except Exception as exc:
+                    telemetry_error=type(exc).__name__+': '+str(exc)
+                    delivery_error=telemetry_error
+                    return False
+                for event in events:dispatch(event)
+                return position!=previous
             while process.poll() is None:
                 pump()
                 try:stop=cancel()
@@ -296,22 +301,26 @@ class ArcLightAdapter(F8Adapter):
                     (d/'STOP_AFTER_POINT').write_text('controller_cancel_or_deadline',encoding='utf8');stopping=time.monotonic()
                 if stopping and time.monotonic()-stopping>self.profile['cancelGraceSeconds']:
                     process.kill();process.wait(timeout=10)
-                    _dump(d/'adapter_receipt.json',{'status':'unknown','reason':'forced_worker_termination; chassis locks retained','recordedAt':_utc()})
+                    _dump(d/'adapter_receipt.json',{'status':'unknown','reason':'forced_worker_termination; chassis locks retained','recordedAt':_utc(),
+                        **({'telemetryError':telemetry_error} if telemetry_error is not None else {})})
                     raise AdapterError('NEEDS_RECONCILIATION','Worker termination left hardware state unknown')
                 time.sleep(.15)
-            pump()
+            while pump():pass
         completion=_load(d/'completion.json') if (d/'completion.json').exists() else {}
         if completion.get('state') in ('cancelled','failed_after_shutdown') and completion.get('shutdown_ok') is True:
             receipt={'status':completion['state'],'operationId':op,'requestHash':request_hash,'shutdownConfirmed':True,
                 'partialArtifacts':self._artifacts(d,completion.get('files',[])), 'pointsCompleted':completion.get('pointsCompleted',0),
-                'reason':completion.get('error'),'recordedAt':_utc(),'completionPath':str(d/'completion.json')}
+                'reason':completion.get('error'),'recordedAt':_utc(),'completionPath':str(d/'completion.json'),
+                **({'telemetryError':telemetry_error} if telemetry_error is not None else {})}
             _dump(d/'adapter_receipt.json',receipt)
             raise AdapterError('CANCELLED_AFTER_SHUTDOWN' if receipt['status']=='cancelled' else 'FAILED_AFTER_SHUTDOWN','ArcLight worker stopped and cleanup completed; partial data retained',receipt)
         if process.returncode!=0 or completion.get('state')!='completed' or completion.get('shutdown_ok') is not True:
-            _dump(d/'adapter_receipt.json',{'status':'unknown','reason':completion.get('error','worker outcome unknown'),'completion':completion,'recordedAt':_utc()})
+            _dump(d/'adapter_receipt.json',{'status':'unknown','reason':completion.get('error','worker outcome unknown'),'completion':completion,'recordedAt':_utc(),
+                **({'telemetryError':telemetry_error} if telemetry_error is not None else {})})
             raise AdapterError('NEEDS_RECONCILIATION','ArcLight acquisition or shutdown not fully confirmed',completion)
         result=self._result(d,plan,request,completion)
-        _dump(d/'adapter_receipt.json',{'status':'completed','operationId':op,'requestHash':request_hash,'result':result,'recordedAt':_utc()})
+        _dump(d/'adapter_receipt.json',{'status':'completed','operationId':op,'requestHash':request_hash,'result':result,'recordedAt':_utc(),
+            **({'telemetryError':telemetry_error} if telemetry_error is not None else {})})
         return result
     def _result(self,d,plan,request,completion):
         artifacts=self._artifacts(d,completion['files'])

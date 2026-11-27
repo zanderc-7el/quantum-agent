@@ -1,5 +1,6 @@
 import path from 'node:path';
 import {validateDocumentArguments,documentDirectory,documentExcerpt,finishDocumentPage} from './document-tools.mjs';
+import {evidenceSummary} from './runtime-evidence.mjs';
 
 const id=value=>typeof value==='string'&&/^[A-Za-z0-9_.:-]{1,160}$/.test(value)&&!value.includes('..');
 const secret=/api.?key|token|password|secret|authorization|cookie|credential/i;
@@ -10,6 +11,9 @@ const redact=value=>value.replace(/\bBearer\s+[^\s,;"']+/gi,'Bearer [redacted]')
  .replace(/https?:\/\/[^\s/:]+:[^\s/@]+@/gi,'[credentials redacted]@');
 const selected=(value,keys)=>Object.fromEntries(keys.filter(k=>value?.[k]!==undefined).map(k=>[k,value[k]]));
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+const redactTree=value=>Array.isArray(value)?value.map(redactTree):record(value)?
+ Object.fromEntries(Object.entries(value).filter(([key])=>!secret.test(key)).map(([key,item])=>[key,redactTree(item)])):
+ typeof value==='string'?redact(value):value;
 
 function decimalScale(value,places){
  const [coefficient,exponent='0']=String(value).toLowerCase().split('e');
@@ -38,9 +42,22 @@ function parameterView(parameters,{workflowId,nodeId,route,field,meaning,...meta
   ...(record(parameters)?{parameters,...frequencyUnits(parameters)}:{reason:'effective_parameters_unavailable'})};
 }
 
+function spectroscopySettings(detail){
+ const p=detail?.parameters;
+ if(detail?.node?.procedureId!=='sq_spectroscopy' || !record(p)
+    || !Number.isFinite(p.spectroscopy_width_s) || p.spectroscopy_width_s<=0)return {};
+ const settings={onPulseDurationUs:p.spectroscopy_width_s*1e6};
+ if(Number.isSafeInteger(p.shots) && p.shots>0)settings.shotsPerBlock=p.shots;
+ if(Number.isSafeInteger(p.acquisitions_per_point) && p.acquisitions_per_point>0)settings.blocksPerOnOrOffPoint=p.acquisitions_per_point;
+ const rowShots=settings.shotsPerBlock*settings.blocksPerOnOrOffPoint;
+ if(Number.isSafeInteger(rowShots))settings.shotsPerOnOrOffPoint=rowShots;
+ if(Number.isSafeInteger(p.capture_repeats) && p.capture_repeats>0)settings.captures=p.capture_repeats;
+ return {spectroscopySettings:settings};
+}
+
 function effectiveParameters(detail,workflowId,nodeId,route,metadata={}){
  return parameterView(detail?.parameters,{workflowId,nodeId,route,field:'parameters',
-  meaning:'effective_configuration_not_instrument_readback',...metadata});
+  meaning:'effective_configuration_not_instrument_readback',...spectroscopySettings(detail),...metadata});
 }
 
 function prioritizeNodeDetail(detail,workflowId,nodeId,route){
@@ -71,7 +88,7 @@ function markParameterCompleteness(original,output){
 }
 
 function summarizeNode(n){
- return {...selected(n,['id','procedureId','status','engineState']),dependsOn:n.dependsOn??[],
+ return {...selected(n,['id','label','procedureId','status','engineState']),dependsOn:n.dependsOn??[],
   attempt:n.attempt??null,...selected(n,['latestAttemptId'])};
 }
 
@@ -87,7 +104,7 @@ function currentDiagnostic(w){
   else prerequisites[dependency.engineState==='verified'?'satisfied':'unsatisfied'].push(
    selected(dependency,['id','procedureId','status','engineState']));
  }
- return {...selected(current,['id','procedureId','status','engineState','detail','latestAttemptId']),
+ return {...selected(current,['id','label','procedureId','status','engineState','detail','latestAttemptId']),
   qualityStatus:current.result?.quality?.status??null,qualityReasons:current.result?.quality?.reasons??[],
   ...selected(current.result,['dataKind','partial','stale','verificationPending']),
   freshAcquisition:current.result?.provenance?.freshAcquisition===true,prerequisites,
@@ -143,8 +160,8 @@ function summarizeReport(report){
    figures:nodes.reduce((sum,node)=>sum+node.figureCount,0)},nodes};
 }
 
-function bounded(value){
- let truncated=false,remaining=8500;
+function bounded(value,maxChars=11000){
+ let truncated=false,remaining=Math.min(8500,maxChars);
  const visit=(item,depth=0)=>{
   if(remaining<=0||depth>10){truncated=true;return '[truncated]';}
   if(typeof item==='string'){item=redact(item);const length=Math.min(item.length,800,remaining);remaining-=length;if(length<item.length)truncated=true;return item.slice(0,length);}
@@ -152,8 +169,8 @@ function bounded(value){
   if(item&&typeof item==='object'){const out={};for(const [key,v] of Object.entries(item)){if(secret.test(key))continue;if(remaining<100){truncated=true;break;}remaining-=key.length+8;out[key]=visit(v,depth+1);}return out;}
   remaining-=20;return item;
  };
- let data=visit(value),budget=8500;
- while(JSON.stringify(data).length>11000){budget=Math.floor(budget/2);remaining=budget;truncated=true;data=visit(value);}
+ let data=visit(value),budget=Math.min(8500,maxChars);
+ while(JSON.stringify(data).length>maxChars){budget=Math.floor(budget/2);remaining=budget;truncated=true;data=visit(value);}
  return {data,truncated};
 }
 
@@ -235,6 +252,7 @@ export function createRuntimeTools({root,baseUrl='http://127.0.0.1:8765',request
    if(kind==='workflows')data=(data.items??data).filter(w=>!campaign||campaign.children?.some(c=>c.workflowId===w.id)).map(w=>summarizeWorkflow(w));
    if(kind==='attention'&&campaign)data=(data.items??data).filter(a=>campaign.children?.some(c=>c.workflowId===a.workflowId));
   }
+  const evidence=name==='inspect_workflow'&&args.nodeId?evidenceSummary(data):null;
   if(name==='inspect_workflow'&&args.nodeId)data=prioritizeNodeDetail(data,args.workflowId,args.nodeId,route);
   if(name==='inspect_workflow'&&!args.nodeId){
    const currentId=data.currentNodeId;
@@ -254,8 +272,14 @@ export function createRuntimeTools({root,baseUrl='http://127.0.0.1:8765',request
    }
    data=summarizeWorkflow(data,current);
   }
-  const result=bounded(data);
+  const result=bounded(data,11000-(evidence?JSON.stringify(evidence).length+30:0));
   markParameterCompleteness(data,result.data);
+  if(evidence){
+   // Apply the same credential redaction, but do not budget-truncate the
+   // already bounded atomic evidence projection a second time.
+   const safeEvidence=redactTree(evidence);
+   result.data={evidenceSummary:safeEvidence,...result.data};
+  }
   if(documentRead)finishDocumentPage(data,result.data);
   const workflowSummary=name==='inspect_workflow'&&!args.nodeId||name==='inspect_runtime'&&kind==='workflows';
   if(workflowSummary)markNodeCompleteness(data,result.data);

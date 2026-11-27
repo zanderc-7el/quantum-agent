@@ -7,7 +7,7 @@ from .common import ROOT
 VERSION = 'measurement-experience-15step/2'
 WORKING_POINT_VERSION = 'working-point-pulse-chain/1'
 WORKING_POINT_OMITTED = ('ro_resonator_survey', 'ro_power_shift', 'sq_spectroscopy')
-WORKING_POINT_PROFILE_IDS = ('arclight-private-f8-q11-v1', 'arclight-private-f8-q11-v2')
+WORKING_POINT_PROFILE_IDS = ('arclight-private-f8-q11-v1', 'arclight-private-f8-q11-v2', 'arclight-private-f8-q11-v3')
 PARAMETERS = {
     'ro_resonator_survey': ([], ['readout_frequency_hz']),
     'sq_spectroscopy': (['readout_frequency_hz'], ['drive_frequency_hz']),
@@ -21,6 +21,39 @@ PARAMETERS = {
     'sq_echo': (['readout_frequency_hz', 'readout_amplitude', 'drive_frequency_hz', 'pi_duration_s'], []),
     'sq_rb': (['readout_frequency_hz', 'readout_amplitude', 'drive_frequency_hz', 'drive_amplitude', 'pi_duration_s'], []),
 }
+
+# These procedures are opt-in manual tasks with server-resolved record dependencies.
+SCIENCE_METHODS = {
+    'sq_shape_rabi_amplitude_repeat5': ('五门形状幅度 Rabi', 's03_rabi_amplitude', ['f01','readout']),
+    'sq_shape_rabi_amplitude': ('形状专属幅度 Rabi', 's03_rabi_amplitude', ['f01', 'readout']),
+    'sq_shape_half_verify': ('固定时长半幅门验证', 's03_rabi_amplitude', ['pi01', 'readout']),
+    'sq_drag_scan': ('DRAG 系数扫描及独立复测', 's03_rabi_amplitude', ['pi01', 'half01', 'anharmonicity', 'readout']),
+    'sq_shelve_spectrum12': ('SHELVE 条件 1→2 频谱', 's02_qubit_frequency', ['pi01', 'f01', 'readout']),
+    'sq_shelve_rabi12': ('SHELVE 条件 1→2 Rabi', 's03_rabi_amplitude', ['pi01', 'spectrum12', 'readout']),
+    'sq_shelve_readout_compare': ('SHELVE 留出读出对比', 's04_readout_fidelity', ['pi01', 'spectrum12', 'pi12', 'readout']),
+}
+SCIENCE_IRB_METHODS = {
+    'sq_drag_half_scan': ('X/2 DRAG 系数扫描及独立复测', 's03_rabi_amplitude', ['pi01','half01','rabi_amplitude','rabi_time','anharmonicity','readout']),
+    'sq_drag_irb': ('同一 X/2 DRAG 门的独立交错 RB', 's08_single_qubit_rb', ['pi01','half01','drag','anharmonicity','readout']),
+}
+SCIENCE_METHODS.update(SCIENCE_IRB_METHODS)
+SCIENCE_FLUX_METHODS = {
+    'ro_flux_scan': ('偏置与读取腔二维扫描', 's01_readout_frequency', ['cavity_seed']),
+    'sq_flux_point_recheck': ('同偏置工作点独立核查', 's02_qubit_frequency', ['cavity_seed','flux_scan']),
+}
+SCIENCE_METHODS.update(SCIENCE_FLUX_METHODS)
+_SCIENCE_READS = ['drive_hz', 'readout_hz', 'readout_amp', 'readout_width_s', 'xy_delay_s',
+                  'pulse_shape', 'pulse_length_s', 'pulse_sigma_s', 'shape_pi_amp', 'drag_lambda1',
+                  'f12_hz', 'probe12_amplitude']
+PARAMETERS.update({key: (_SCIENCE_READS, outputs) for key, outputs in {
+    'sq_shape_rabi_amplitude': ['shape_pi_amp'], 'sq_shape_rabi_amplitude_repeat5': ['shape_pi_amp'], 'sq_shape_half_verify': [], 'sq_drag_scan': ['drag_lambda1'],
+    'sq_shelve_spectrum12': ['f12_hz'], 'sq_shelve_rabi12': ['probe12_amplitude'],
+    'sq_shelve_readout_compare': [], 'sq_drag_half_scan':['drag_lambda1'], 'sq_drag_irb':[]}.items()})
+PARAMETERS.update({key:(['readout_hz','readout_amp','readout_width_s','xy_delay_s'],[]) for key in SCIENCE_FLUX_METHODS})
+for _method in SCIENCE_IRB_METHODS:
+    _reads,_outputs=PARAMETERS[_method]
+    PARAMETERS[_method]=([*_reads,'drag_mode','drag_beta_s'],
+        [*_outputs,'drag_beta_s'] if _method=='sq_drag_half_scan' else _outputs)
 
 # Auxiliary procedures retain their original owner; they are distinct acquisitions.
 FULL_SINGLE_AUXILIARY = (
@@ -58,6 +91,20 @@ class Catalog:
         if isinstance(available, list):
             available = {p: {'available': True} for p in available}
         history = self.history()['records']
+        science = [(key, meta) for key, meta in SCIENCE_METHODS.items() if key in available]
+        if mode == 'real' and science:
+            for resource in resources:
+                for procedure, (label, owner, roles) in science:
+                    cap = available[procedure]
+                    supported = cap if isinstance(cap, bool) else cap.get('available', False)
+                    nodes.append({'id': resource['id'] + ':science:' + procedure, 'ownerId': owner,
+                        'procedureId': procedure, 'name': procedure, 'label': label, 'status': 'pending',
+                        'progress': 0, 'attempt': 0, 'qubits': resource['label'], 'resourceId': resource['id'],
+                        'detail': '需选择当前已验收来源；仅允许人工逐步运行',
+                        'capability': 'available' if supported else 'unavailable', 'engineState': 'pending',
+                        'parameters': {}, 'parameterVersions': {}, 'rules': [], 'dependsOn': [],
+                        'scienceSourceRoles': roles, 'mainProcedureId': procedure, 'mainProcedureComplete': False})
+            return nodes, []
         for resource in resources:
             selected = [a for a in self.owners if experiment == 'two' or a['id'].startswith('s')]
             for owner in selected:
@@ -114,15 +161,23 @@ class Catalog:
 
     def describe(self, capabilities, parameter_bounds=None):
         history = self.history()
+        supported = capabilities.get('resources')
+        resources = [r for r in history['resources'] if supported is None or r['id'] in supported]
+        manual_nodes, _ = self.nodes(resources[:1], 'real', capabilities, 'single', 'full')
+        manual_methods = [{'procedureId': node['procedureId'], 'label': node['label'],
+                           'capability': node['capability'], 'dependsOn': node['dependsOn'],
+                           **({'scienceSourceRoles': node['scienceSourceRoles'], 'executionProfile': 'science-shape-repeat5' if node['procedureId']=='sq_shape_rabi_amplitude_repeat5' else 'science-flux' if node['procedureId'] in SCIENCE_FLUX_METHODS else 'science-v3-irb' if node['procedureId'] in SCIENCE_IRB_METHODS else 'science-v3'} if 'scienceSourceRoles' in node else {}),
+                           'parameterBounds': parameter_bounds or {}} for node in manual_nodes]
         return {'blueprint': {'version': VERSION, 'nodes': self.owners,
                              'edges': [{'from': d, 'to': k} for k, ds in self.dependencies.items() for d in ds]},
                 'resources': history['resources'], 'rules': self.rules(), 'capabilities': capabilities,
+                'manualMethods': manual_methods,
                 'parameterBounds': parameter_bounds or {},
                 'coverage': {'realDefault': 'full', 'main': '原流程八个主步骤', 'full': '八个主步骤及功率扫描、时间Rabi、AllXY、Ramsey、Echo独立采集',
                              'working_point': '复刻已有工作点 · 10项脉冲测量'},
                 'workingPointCoverage': {
                     'available': capabilities.get('physicalHardware') is True and capabilities.get('id') in WORKING_POINT_PROFILE_IDS and 'Q11' in capabilities.get('resources', []),
-                    'reason': '仅限已审计 Q11 ArcLight v1/v2；创建时重新核对历史来源与完整配置。历史参数仅为初值，10项全部重新采集验收。',
+                    'reason': '仅限已审计 Q11 ArcLight v1/v2/v3；创建时重新核对历史来源与完整配置。历史参数仅为初值，10项全部重新采集验收。',
                     'resourceIds': ['Q11'], 'adapterProfileIds': list(WORKING_POINT_PROFILE_IDS),
                     'selectedNodeCount': 10, 'seedStatus': 'seed_only', 'label': '复刻已有工作点 · 10项脉冲测量'},
                 'stages': [{'id': 'na', 'label': '网分预扫描', 'capability': 'unavailable', 'reason': '当前连接为主机脉冲测控；网分适配未接入'},

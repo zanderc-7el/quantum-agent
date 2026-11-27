@@ -14,7 +14,28 @@ from .common import ROOT, dumps, now
 from .result_archive import ensure_schema, backfill, record_attempt, SCHEMA_VERSION
 
 sys.path.insert(0, str(ROOT / 'vendor' / 'experience'))
-from quantum_agents.runtime import Runtime, StepSpec, Budget  # noqa: E402
+from .platform_ledger import PlatformRuntime as Runtime, StepSpec, Budget, AccountingBudget  # noqa: E402
+
+def _read_workflow(rt, payload):
+    workflow = json.loads(payload)
+    state = workflow.get('engineState')
+    if workflow.get('status') != 'attention' or state not in ('plan_rejected', 'budget_exhausted'):
+        return workflow
+    rejected = {node['id']: node for node in workflow.get('nodes', [])
+                if node.get('engineState') == state and (node.get('lastAdmissionError') or {}).get('code')}
+    if not rejected or (len(rejected) == 1 and workflow.get('currentNodeId') in rejected):
+        return workflow
+    row = rt.db.execute("SELECT payload FROM events WHERE run_id=? AND event='acquisition_admission_rejected' "
+                        "ORDER BY seq DESC LIMIT 1", (workflow['id'],)).fetchone()
+    if row:
+        event = json.loads(row[0])
+        node = rejected.get(event.get('nodeId'))
+        if node and node['lastAdmissionError']['code'] == event.get('errorCode'):
+            workflow['currentNodeId'] = node['id']
+    elif len(rejected) == 1:
+        workflow['currentNodeId'] = next(iter(rejected))
+    return workflow
+
 
 class Store:
     def __init__(self, path, *, root=None):
@@ -50,20 +71,30 @@ class Store:
     @contextmanager
     def transaction(self):
         with self.lock, self.connect() as rt:
-            with rt._transaction():
-                yield rt
+            try:
+                with rt._transaction():
+                    yield rt
+            except Exception as error:
+                from .ownership_diagnostics import OwnershipRefusal, record_rollback_refusal
+                if isinstance(error, OwnershipRefusal):
+                    # Preserve the refusal after rollback without changing any
+                    # command, workflow revision, permission, effect or lease.
+                    with rt._transaction():
+                        record_rollback_refusal(rt, error)
+                    self.changed.notify_all()
+                raise
             self.changed.notify_all()
 
     def workflows(self, rt=None):
         if rt is None:
             with self.connect() as current:
                 return self.workflows(current)
-        return [json.loads(row[0]) for row in rt.db.execute('SELECT payload FROM platform_workflows ORDER BY rowid DESC')]
+        return [_read_workflow(rt, row[0]) for row in rt.db.execute('SELECT payload FROM platform_workflows ORDER BY rowid DESC')]
 
     @staticmethod
     def get(rt, workflow_id):
         row = rt.db.execute('SELECT payload FROM platform_workflows WHERE id=?', (workflow_id,)).fetchone()
-        return json.loads(row[0]) if row else None
+        return _read_workflow(rt, row[0]) if row else None
 
     @staticmethod
     def save(rt, workflow, event, payload=None):

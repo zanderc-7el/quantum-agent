@@ -9,12 +9,16 @@ The actual candidate's verification plan is checked again before its dispatch.
 from copy import deepcopy
 
 from .common import APIError
+from . import workflow_budget as task_budget
 
 VERSION = 'selection-verification-budget/1'
 ARC_IDENTITIES = frozenset((
     ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v1'),
-    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v2')))
+    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v2'),
+    ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v3')))
 F8_IDENTITY = ('adapters.f8.F8Adapter', 'f8-native-cy8')
+RABI16_IDENTITY = ('adapters.arclight_rabi16_adapter.ArcLightRabi16Adapter', 'arclight-private-f8-q11-rabi16-v1')
+SMART_RABI16_IDENTITY = ('adapters.arclight_smart_rabi16_adapter.ArcLightSmartRabi16Adapter', 'arclight-private-f8-q11-smart-rabi16-v1')
 PROCEDURES = frozenset(('ro_resonator_survey', 'ro_power_shift', 'sq_spectroscopy',
     'sq_rabi_amplitude', 'sq_rabi_time', 'sq_rabi_frequency', 'sq_allxy', 'ro_iq01',
     'ro_optimize', 'ro_optimize_frequency', 'ro_s21_ge', 'sq_t1', 'sq_ramsey',
@@ -30,11 +34,10 @@ def _integer(value, name, *, zero=False):
 
 
 def _remaining(workflow):
-    maximum = _integer(workflow.get('maxTotalShots'), 'maxTotalShots')
-    reserved = _integer(workflow.get('reservedShots'), 'reservedShots', zero=True)
-    if reserved > maximum:
+    available = task_budget.remaining(workflow, 'maxTotalShots', workflow.get('reservedShots'))
+    if available is not None and available < 0:
         raise APIError('INVALID_BUDGET', '累计预留已超任务上限；不能假定剩余额度')
-    return maximum - reserved
+    return available
 
 
 def plan_shots(plan):
@@ -46,8 +49,13 @@ def plan_shots(plan):
 def verification_probe(*, implementation_id, profile_id, procedure_id, request_parameters, selection_plan):
     """Return budget-only parameters; never a measured or submitted candidate."""
     identity = (implementation_id, profile_id)
-    if identity not in ARC_IDENTITIES | {F8_IDENTITY} or procedure_id not in PROCEDURES:
+    if identity not in ARC_IDENTITIES | {F8_IDENTITY, RABI16_IDENTITY, SMART_RABI16_IDENTITY} or procedure_id not in PROCEDURES or (identity in {RABI16_IDENTITY, SMART_RABI16_IDENTITY} and procedure_id != 'sq_rabi_amplitude'):
         raise APIError('VERIFICATION_BUDGET_UNKNOWN', '此执行器/方法的独立复测预算语义尚未核验')
+    if identity == SMART_RABI16_IDENTITY and (selection_plan.get('executionPolicy') != 'q11-smart-rabi-independent-blocks16/1'
+            or selection_plan.get('samplingPolicy') != 'arclight-rabi-independent-blocks16/1'
+            or not isinstance(selection_plan.get('executionBinding'), dict)
+            or selection_plan['executionBinding'].get('schema') != 'qcal-smart-attempt-execution-binding/1'):
+        raise APIError('VERIFICATION_BUDGET_UNKNOWN', '智能 16 块计划缺少本版本的授权与分块策略')
     parameters = deepcopy(request_parameters)
     basis = 'same_sampling_counts_after_calibration_only'
     if identity in ARC_IDENTITIES:
@@ -69,12 +77,13 @@ def verification_probe(*, implementation_id, profile_id, procedure_id, request_p
 def selection_lookahead(workflow, selection_plan, verification_plan, *, basis):
     selection, verification = plan_shots(selection_plan), plan_shots(verification_plan)
     remaining = _remaining(workflow)
-    if selection + verification > remaining:
+    if remaining is not None and selection + verification > remaining:
         raise APIError('JOINT_SHOTS_BUDGET',
             f'首测 {selection} + 独立复测 {verification} = {selection + verification} shots，'
             f'超过任务剩余 {remaining}；未启动首测，已有预留不退还')
     return {'version': VERSION, 'selectionShots': selection, 'verificationShotsUpperBound': verification,
         'jointShots': selection + verification, 'remainingShotsAtCheck': remaining,
+        **({'budgetMode': task_budget.MODE} if remaining is None else {}),
         'verificationBasis': basis, 'reservation': False,
         'candidateKnown': False, 'actualVerificationPlanRechecked': True}
 
@@ -87,15 +96,18 @@ def verify_admission(workflow, actual_plan, lookahead):
     maximum = _integer(lookahead.get('verificationShotsUpperBound'), 'verificationShotsUpperBound')
     if shots > maximum:
         raise APIError('VERIFICATION_BUDGET_CHANGED', '实际候选改变了复测采样规模，超过首测前已核验容量；未下发复测')
-    if shots > _remaining(workflow):
+    remaining = _remaining(workflow)
+    if remaining is not None and shots > remaining:
         raise APIError('TOTAL_SHOTS_BUDGET', '独立复测所需 shots 超过当前剩余额度；首测数据及预留保留')
-    return {'version': VERSION, 'actualVerificationShots': shots, 'remainingShotsAtCheck': _remaining(workflow),
+    return {'version': VERSION, 'actualVerificationShots': shots, 'remainingShotsAtCheck': remaining,
+        **({'budgetMode': task_budget.MODE} if remaining is None else {}),
         'reservation': False, 'selectionChargedAgain': False}
 
 
 def sampling_context(*, implementation_id, profile_id, procedure_id):
     """Static native semantics, never new measurement evidence or a duration estimate."""
-    if (implementation_id, profile_id) not in ARC_IDENTITIES or procedure_id not in FIT_PROCEDURES:
+    identity = (implementation_id, profile_id)
+    if identity not in ARC_IDENTITIES | {RABI16_IDENTITY, SMART_RABI16_IDENTITY} or procedure_id not in FIT_PROCEDURES or (identity in {RABI16_IDENTITY, SMART_RABI16_IDENTITY} and procedure_id != 'sq_rabi_amplitude'):
         return None
     return {'source': 'audited_ArcLight_platform_analysis._fit_metrics',
         'fitUnit': 'one_capture', 'rSquaredAggregation': 'minimum_across_capture_fits',

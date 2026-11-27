@@ -97,7 +97,9 @@ class ArcLightV2ProfileTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, code)
 
     def test_explicit_v2_identity_has_same_method_constraints_as_v1(self):
-        self.assertEqual(len(SUPPORTED_IDENTITIES), 2)
+        self.assertEqual(SUPPORTED_IDENTITIES, frozenset(
+            ('adapters.arclight.ArcLightAdapter', 'arclight-private-f8-q11-v' + str(version))
+            for version in (1, 2, 3)))
         for method in METHOD_KNOBS:
             with self.subTest(method=method):
                 common = {'implementation_id': 'adapters.arclight.ArcLightAdapter', 'procedure_id': method,

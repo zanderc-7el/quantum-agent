@@ -121,7 +121,8 @@ class AcceptedUpstreamTests(unittest.TestCase):
         source_fixtures.CaptureDiagnosticsTests.tearDownClass()
 
     def fixture(self):
-        source_fixtures.CaptureDiagnosticsTests.fixture(self, independent=True)
+        source_fixtures.CaptureDiagnosticsTests.fixture(self, independent=True,
+            identity=getattr(self, 'profile_identity', 'arclight-private-f8-q11-v2'))
         self.upstream = self.node
         self.upstream.update(status='success', engineState='verified', mainProcedureComplete=True,
                              parameterVersions=deepcopy(self.attempt['parameterVersions']), attempt=1, dependsOn=[])

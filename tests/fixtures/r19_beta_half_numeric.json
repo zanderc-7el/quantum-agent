@@ -1,0 +1,266 @@
+{
+  "fixtureOnly": true,
+  "physicalAcceptanceEligible": false,
+  "description": "Synthetic ADC through actual native numeric analysis; no device or source authentication",
+  "selection": {
+    "parameters": {
+      "pulse_shape": "Gaussian",
+      "pulse_length_s": 2e-08,
+      "shape_pi_amp": 0.3,
+      "pulse_phase_rad": 0.0,
+      "shots": 100,
+      "capture_repeats": 4,
+      "acquisitions_per_point": 2,
+      "order_seed": 20261126,
+      "drive_hz": 4860000000.0,
+      "drive_amp": 0.3,
+      "drive_length_s": 2e-08,
+      "readout_hz": 7010000000.0,
+      "readout_amp": 0.4,
+      "readout_width_s": 2e-06,
+      "xy_delay_s": 1e-07,
+      "xy_filter_mhz": 4700,
+      "xy_attenuation_db": 3.75,
+      "pulse_sigma_s": 4e-09,
+      "drag_mode": "empirical_beta",
+      "drag_beta_s": 2e-10,
+      "points": 21,
+      "drag_repeats": 4,
+      "beta_start_s": -1e-09,
+      "beta_stop_s": 1e-09,
+      "scan_axis_values": [
+        -2e-09,
+        -1e-09,
+        0.0,
+        1e-09,
+        2e-09
+      ]
+    },
+    "analysis": {
+      "metrics": {
+        "r_squared": 0.9999999893231054,
+        "curvature_z": 12965.789424162125,
+        "optimum_fit_stderr": 4.816467255543848e-14,
+        "diagnostic_improvement": 0.0
+      },
+      "candidateParameters": {
+        "drag_beta_s": 1.9997877285815654e-10
+      },
+      "series": [
+        {
+          "name": "drag_diagnostic",
+          "x": [
+            -2e-09,
+            -1e-09,
+            0.0,
+            1e-09,
+            2e-09
+          ],
+          "y": [
+            0.3419938137608617,
+            0.1719916409367753,
+            0.10197467287709533,
+            0.13200557380597924,
+            0.26199346246960437
+          ],
+          "xUnit": "s",
+          "yUnit": "relative excited-state projection",
+          "quantity": "iq_projection"
+        }
+      ],
+      "analysis": {
+        "accepted": true,
+        "reasons": [],
+        "scope": "Exact fixed-duration X/2 coefficient diagnostic; no gate-fidelity claim until independent same-pulse IRB",
+        "uncertaintyScope": "Quadratic fit covariance diagnostic only; not a calibrated repeated-capture confidence interval",
+        "metricSemantics": {
+          "diagnostic_improvement": "Observed zero-axis mean minus minimum acquired scan-axis mean"
+        },
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "coefficientConvention": "Q=beta*dI/dt before native phase rotation; empirical beta does not measure anharmonicity"
+      },
+      "targetPulseIdentity": {
+        "identity": {
+          "policy": "native_science_v3_empirical_beta_fixed_duration_v1",
+          "transition": "target01",
+          "shape": "Gaussian",
+          "durationS": 2e-08,
+          "sigmaS": 4e-09,
+          "amplitude": 0.15,
+          "frequencyHz": 4860000000.0,
+          "phaseRad": 0.0,
+          "rotationRad": 1.5707963267948966,
+          "lambda1": null,
+          "anharmonicityHz": null,
+          "bufferS": 2e-09,
+          "xySampleRateHz": 4000000000.0,
+          "readoutContextHash": "3a2664037fbf44cffd6f13f196895121a02d8c9f27b4f50ea9edf37b0d37433f",
+          "dragMode": "empirical_beta",
+          "betaSeconds": 1.9997877285815654e-10
+        },
+        "sha256": "82c961552b7a23eeb5eaabd69ba1a1e04ce918d9f3b1aad42ac338bca374bce1"
+      }
+    },
+    "policy": "native_science_v3_empirical_beta_fixed_duration_v1",
+    "campaignPolicy": "native_science_v3_drag_xhalf_empirical_beta_v1",
+    "coefficient": {
+      "mode": "empirical_beta",
+      "unit": "s",
+      "betaSeconds": 1.9997877285815654e-10,
+      "convention": "(I+i*beta*dI/dt)*exp(i*phase), native np.gradient at 4 GHz before 2 ns zero buffer",
+      "inferredAnharmonicityHz": null,
+      "limits": {
+        "coefficientAbsoluteMaximumS": 1.5915494309189535e-06,
+        "basebandPeakNormalized": 1.0,
+        "dacPeakNormalized": 0.990001,
+        "sampleRateHz": 4000000000.0,
+        "bufferS": 2e-09,
+        "sampleSlopeMaximumNormalizedPerSecond": 8000000000.0,
+        "sampleSlopeScope": "Consequence of the existing unit-peak sample bound; not a calibrated voltage slew limit"
+      }
+    }
+  },
+  "verification": {
+    "parameters": {
+      "pulse_shape": "Gaussian",
+      "pulse_length_s": 2e-08,
+      "shape_pi_amp": 0.3,
+      "pulse_phase_rad": 0.0,
+      "shots": 100,
+      "capture_repeats": 4,
+      "acquisitions_per_point": 2,
+      "order_seed": 20261126,
+      "drive_hz": 4860000000.0,
+      "drive_amp": 0.3,
+      "drive_length_s": 2e-08,
+      "readout_hz": 7010000000.0,
+      "readout_amp": 0.4,
+      "readout_width_s": 2e-06,
+      "xy_delay_s": 1e-07,
+      "xy_filter_mhz": 4700,
+      "xy_attenuation_db": 3.75,
+      "pulse_sigma_s": 4e-09,
+      "drag_mode": "empirical_beta",
+      "drag_beta_s": 2e-10,
+      "points": 21,
+      "drag_repeats": 4,
+      "beta_start_s": -1e-09,
+      "beta_stop_s": 1e-09,
+      "scan_axis_values": [
+        -2e-09,
+        -1e-09,
+        0.0,
+        1e-09,
+        2e-09
+      ],
+      "verify_drag_beta_s": 1.9997877285815654e-10
+    },
+    "analysis": {
+      "metrics": {
+        "r_squared": 0.9999999926476358,
+        "curvature_z": 15624.20892926744,
+        "optimum_fit_stderr": 3.99704869290078e-14,
+        "diagnostic_improvement": 0.0,
+        "candidate_agreement_fraction": 0.0002222701260017057,
+        "candidate_points_acquired": 4,
+        "candidate_signal_agreement": 0.0002619236919214687,
+        "candidate_capture_agreement": 0.0009738897344699224,
+        "candidate_improvement_vs_zero": 0.0020097586086940595,
+        "candidate_improvement_sem": 1.2338485074320239e-05,
+        "candidate_improvement_upper_5sem": 0.0020714510340656606
+      },
+      "candidateParameters": {
+        "drag_beta_s": 1.9997877285815657e-10
+      },
+      "series": [
+        {
+          "name": "drag_diagnostic",
+          "x": [
+            -2e-09,
+            -1e-09,
+            0.0,
+            1e-09,
+            2e-09
+          ],
+          "y": [
+            0.34199536694522964,
+            0.17201302501707388,
+            0.10201674283987981,
+            0.13199275557844312,
+            0.2620006394925145
+          ],
+          "xUnit": "s",
+          "yUnit": "relative excited-state projection",
+          "quantity": "iq_projection"
+        }
+      ],
+      "analysis": {
+        "accepted": true,
+        "reasons": [],
+        "scope": "Exact fixed-duration X/2 coefficient diagnostic; no gate-fidelity claim until independent same-pulse IRB",
+        "uncertaintyScope": "Quadratic fit covariance diagnostic only; not a calibrated repeated-capture confidence interval",
+        "metricSemantics": {
+          "diagnostic_improvement": "Observed zero-axis mean minus minimum acquired scan-axis mean"
+        },
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s",
+        "coefficientConvention": "Q=beta*dI/dt before native phase rotation; empirical beta does not measure anharmonicity"
+      },
+      "candidateComparison": {
+        "pairedCaptureDifferences": [
+          0.001974117001908087,
+          0.002014422035366945,
+          0.002020005415709216,
+          0.002030489981791989
+        ],
+        "mean": 0.0020097586086940595,
+        "captureSem": 1.2338485074320239e-05,
+        "scope": "Measured zero-coefficient half-gate minus dedicated frozen-candidate half-gate on each capture prepared-reference scale",
+        "baselineBetaSeconds": 0.0,
+        "candidateBetaSeconds": 1.9997877285815657e-10,
+        "coefficientMode": "empirical_beta",
+        "coefficientUnit": "s"
+      },
+      "targetPulseIdentity": {
+        "identity": {
+          "policy": "native_science_v3_empirical_beta_fixed_duration_v1",
+          "transition": "target01",
+          "shape": "Gaussian",
+          "durationS": 2e-08,
+          "sigmaS": 4e-09,
+          "amplitude": 0.15,
+          "frequencyHz": 4860000000.0,
+          "phaseRad": 0.0,
+          "rotationRad": 1.5707963267948966,
+          "lambda1": null,
+          "anharmonicityHz": null,
+          "bufferS": 2e-09,
+          "xySampleRateHz": 4000000000.0,
+          "readoutContextHash": "3a2664037fbf44cffd6f13f196895121a02d8c9f27b4f50ea9edf37b0d37433f",
+          "dragMode": "empirical_beta",
+          "betaSeconds": 1.9997877285815657e-10
+        },
+        "sha256": "ebfbc1cee3b8cde992e9ea43cb0f8889a7d01452396b7f8b4fee1d16a669ef94"
+      }
+    },
+    "policy": "native_science_v3_empirical_beta_fixed_duration_v1",
+    "campaignPolicy": "native_science_v3_drag_xhalf_empirical_beta_v1",
+    "coefficient": {
+      "mode": "empirical_beta",
+      "unit": "s",
+      "betaSeconds": 1.9997877285815657e-10,
+      "convention": "(I+i*beta*dI/dt)*exp(i*phase), native np.gradient at 4 GHz before 2 ns zero buffer",
+      "inferredAnharmonicityHz": null,
+      "limits": {
+        "coefficientAbsoluteMaximumS": 1.5915494309189535e-06,
+        "basebandPeakNormalized": 1.0,
+        "dacPeakNormalized": 0.990001,
+        "sampleRateHz": 4000000000.0,
+        "bufferS": 2e-09,
+        "sampleSlopeMaximumNormalizedPerSecond": 8000000000.0,
+        "sampleSlopeScope": "Consequence of the existing unit-peak sample bound; not a calibrated voltage slew limit"
+      }
+    }
+  }
+}

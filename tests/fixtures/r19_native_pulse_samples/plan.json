@@ -1,0 +1,177 @@
+{
+  "operationId": "TEST_ONLY-r19-native-baseband-row",
+  "resourceId": "Q11",
+  "routing": {
+    "xyLogical": [
+      6,
+      0
+    ],
+    "readoutLogical": [
+      14,
+      0
+    ],
+    "adcLogical": [
+      15,
+      0
+    ],
+    "adcPhysical": [
+      0,
+      0
+    ],
+    "adcSampleRateHz": 2800000000.0
+  },
+  "parameters": {
+    "pulse_shape": "Gaussian",
+    "pulse_length_s": 2e-08,
+    "shape_pi_amp": 0.3,
+    "pulse_phase_rad": 0.0,
+    "shots": 100,
+    "capture_repeats": 2,
+    "acquisitions_per_point": 2,
+    "order_seed": 20261126,
+    "drive_hz": 4860000000.0,
+    "drive_amp": 0.3,
+    "drive_length_s": 2e-08,
+    "readout_hz": 7010000000.0,
+    "readout_amp": 0.4,
+    "readout_width_s": 2e-06,
+    "xy_delay_s": 1e-07,
+    "xy_filter_mhz": 4700,
+    "xy_attenuation_db": 3.75,
+    "pulse_sigma_s": 4e-09,
+    "drag_mode": "empirical_beta",
+    "drag_beta_s": 2e-10,
+    "points": 21,
+    "drag_repeats": 1,
+    "beta_start_s": -1e-09,
+    "beta_stop_s": 1e-09,
+    "scan_axis_values": [
+      -2e-09,
+      -1e-09,
+      0.0,
+      1e-09,
+      2e-09
+    ],
+    "verify_drag_beta_s": 2e-10
+  },
+  "instrument": {
+    "address": "TEST FAKE"
+  },
+  "visaLibrary": "not-used",
+  "procedureId": "sq_drag_half_scan",
+  "rows": [
+    {
+      "capture": 0,
+      "stage": "half_drag_scan",
+      "condition": "verification_candidate",
+      "axisValue": 2e-10,
+      "logicalState": null,
+      "gates": [
+        {
+          "axis": "x",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        },
+        {
+          "axis": "y",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        },
+        {
+          "axis": "x",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        },
+        {
+          "axis": "y",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        },
+        {
+          "axis": "x",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        },
+        {
+          "axis": "y",
+          "theta": 1.5707963267948966,
+          "pulse": {
+            "shape": "Gaussian",
+            "durationNs": 20.0,
+            "amplitude": 0.3,
+            "frequencyHz": 4860000000.0,
+            "phaseRad": 0.0,
+            "lambda1": null,
+            "anharmonicityHz": null,
+            "sigmaNs": 4.0,
+            "label": "target01",
+            "dragMode": "empirical_beta",
+            "betaSeconds": 2e-10
+          }
+        }
+      ],
+      "baseCondition": "diagnostic",
+      "id": 7
+    }
+  ]
+}

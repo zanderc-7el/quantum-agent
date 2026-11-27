@@ -16,6 +16,17 @@ export default function WorkflowBudget({ workflow, gateway }: { workflow: Workfl
   if (workflow.mode !== "real") return null;
   const { limit, reserved, remaining, attempts, attemptLimit, nodeLimit } = workflowBudget(workflow);
   const format = (value: number | undefined) => value === undefined ? "未提供" : new Intl.NumberFormat("zh-CN").format(value);
+  if (workflow.budget?.mode === 'accounting_only') {
+    const usage = workflow.shotAccounting;
+    return <section className="rp-budget" aria-label="本次任务采集计量"><div className="rp-budget-title"><Gauge size={15} /><strong>采集计量 · 无累计上限</strong></div><div className="rp-budget-values">
+      <span>回执确认 shots<strong>{format(usage?.confirmedShots)}</strong></span>
+      <span>累计预留 shots<strong>{format(usage?.reservedShots ?? reserved)}</strong></span>
+      <span>累计尝试<strong>{format(usage?.attempts ?? attempts)}</strong></span>
+      {!!usage?.scienceChildren && <span>计入的科学子任务<strong>{format(usage.scienceChildren)}</strong></span>}
+      {!!usage?.unresolvedOperations && <span>计数待核操作<strong>{format(usage.unresolvedOperations)}</strong></span>}
+      {!!usage?.unattributedReservedShots && <span>旧预留待核 shots<strong>{format(usage.unattributedReservedShots)}</strong></span>}
+    </div></section>;
+  }
   const editable = ['draft', 'paused', 'attention'].includes(workflow.status);
   const begin = () => {
     setValues({ maxTotalShots: workflow.maxTotalShots ?? 0, maxAttemptsPerNode: workflow.maxAttemptsPerNode ?? 0, maxWorkflowAttempts: workflow.maxWorkflowAttempts ?? 0 });
@@ -39,10 +50,10 @@ export default function WorkflowBudget({ workflow, gateway }: { workflow: Workfl
     {gateway && !editing && <button className="secondary rp-budget-edit-button" disabled={!editable} onClick={begin} title={editable ? '记录原因并调整本任务预算' : '采集结束或暂停到检查点后可调整'}>调整任务预算</button>}
     {editing && <form className="rp-parameter-editor" aria-label="调整任务预算" onSubmit={event => { event.preventDefault(); void save(); }}>
       <div className="rp-parameter-fields">
-        {([['maxTotalShots', '总 shots 上限'], ['maxAttemptsPerNode', '单节点尝试上限'], ['maxWorkflowAttempts', '任务总尝试上限']] as const).map(([key, label]) => <label key={key}><span>{label}</span><input aria-label={label} type="number" step="1" min={workflow[key]} max={BUDGET_LIMITS[key]} value={values[key]} disabled={busy} onChange={event => setValues({ ...values, [key]: Number(event.target.value) })} /><small>当前 {format(workflow[key])}；可设置上限 {format(BUDGET_LIMITS[key])}</small></label>)}
+        {([['maxTotalShots', '总 shots 上限'], ['maxAttemptsPerNode', '单节点尝试上限'], ['maxWorkflowAttempts', '任务总尝试上限']] as const).map(([key, label]) => <label key={key}><span>{label}</span><input aria-label={label} type="number" step="1" min={workflow[key] ?? undefined} max={BUDGET_LIMITS[key]} value={values[key]} disabled={busy} onChange={event => setValues({ ...values, [key]: Number(event.target.value) })} /><small>当前 {format(workflow[key] ?? undefined)}；可设置上限 {format(BUDGET_LIMITS[key])}</small></label>)}
         <label><span>调整原因</span><input aria-label="预算调整原因" value={reason} maxLength={1000} disabled={busy} onChange={event => setReason(event.target.value)} /></label>
       </div>
-
+      
       {error && <p role="alert" className="rp-error">{error}</p>}
       <div className="rp-action-row"><button className="secondary" type="button" disabled={busy} onClick={() => setEditing(false)}>取消</button><button className="primary" type="submit" disabled={busy || !editable}>{busy ? '保存中…' : '保存预算'}</button></div>
     </form>}

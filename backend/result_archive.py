@@ -18,6 +18,12 @@ SCHEMA_VERSION = 1
 def ensure_schema(db):
     # The caller owns the transaction, including the migration and backfill.
     for statement in (
+        'CREATE TABLE IF NOT EXISTS platform_accounting_workflows(workflow_id TEXT PRIMARY KEY,parent_id TEXT)',
+        'CREATE INDEX IF NOT EXISTS platform_accounting_parent ON platform_accounting_workflows(parent_id)',
+        '''CREATE TABLE IF NOT EXISTS platform_shot_usage(
+            workflow_id TEXT NOT NULL,operation_id TEXT PRIMARY KEY,reserved INTEGER NOT NULL CHECK(reserved>0),
+            confirmed INTEGER,resolution TEXT NOT NULL DEFAULT 'unconfirmed')''',
+        'CREATE INDEX IF NOT EXISTS platform_shot_usage_workflow ON platform_shot_usage(workflow_id)',
         'CREATE TABLE IF NOT EXISTS platform_archive_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)',
         '''CREATE TABLE IF NOT EXISTS platform_result_archive(
             seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
@@ -91,6 +97,8 @@ def _insert(db, source_key, payload):
 
 
 def record_effect(db, operation_id, root):
+    from .shot_accounting import capture
+    capture(db, operation_id, root)
     row = db.execute('SELECT * FROM platform_effects WHERE operation_id=?', (operation_id,)).fetchone()
     if not row or row['state'] not in ('completed', 'cancelled', 'failed_after_shutdown') or not row['result']:
         return None

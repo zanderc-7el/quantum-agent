@@ -10,7 +10,7 @@ import sqlite3
 from .capture_diagnostics import _registered_files, TIMING_PROJECTION_FIELDS
 from .chat_acquisition_context import read_chat_snapshot
 from .common import APIError, checked_path, digest, file_hash, number
-from .prior_failure_context import (PROFILE_FILES, CHECKED_JSON_NAMES, audited_bindings,
+from .prior_failure_context import (CHECKED_JSON_NAMES, load_audited_bindings,
     _validate_effect, javascript_json_units_upper_bound)
 from .quality import evaluate
 
@@ -129,14 +129,13 @@ def resolve_accepted_upstream(root, db_path, workflow, node, *, implementation_i
     output = _base(workflow, node)
     try:
         root = checked_path(root)
-        bindings = audited_bindings(implementation_id,
-            {identity: checked_path(root / name, parent=root).read_bytes() for identity, (name, _) in PROFILE_FILES.items()},
-            checked_path(root / 'adapters/arclight_runtime/source_manifest.json', parent=root).read_bytes())
+        bindings = load_audited_bindings(root, implementation_id)
         binding = bindings.get(workflow.get('adapterId'))
         _require(binding is not None and workflow.get('adapterProfileHash') == binding['fingerprint']
                  and workflow.get('mode') == 'real' and node.get('resourceId') == 'Q11', 'unaudited_binding')
         for name in ('platform_analysis.py', 'analyze_single_qubit.py'):
-            _require(file_hash(checked_path(root / 'adapters/arclight_runtime' / name, parent=root))
+            path = binding['analysisSourcePath'] if name == 'platform_analysis.py' else 'adapters/arclight_runtime/' + name
+            _require(file_hash(checked_path(root / path, parent=root))
                      == binding['manifest'][name], 'analysis_source_changed')
         with read_chat_snapshot(db_path) as db:
             row = db.execute('SELECT payload FROM platform_workflows WHERE id=?', (workflow['id'],)).fetchone()

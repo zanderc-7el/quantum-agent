@@ -3,6 +3,7 @@ import type { ParameterBounds } from "../types.ts";
 export function numericParameterBounds(bounds: ParameterBounds = {}): ParameterBounds {
   return Object.fromEntries(Object.entries(bounds).flatMap(([key, rule]) => {
     if (!rule || typeof rule !== "object") return [];
+    if (rule.type === 'integerArray') return [];
     if (rule.enum) {
       if (!Array.isArray(rule.enum) || !rule.enum.length || rule.enum.some(value => typeof value !== "number" || !Number.isFinite(value))) return [];
       return [[key, { ...rule, min: Number.isFinite(rule.min) ? rule.min : Math.min(...rule.enum), max: Number.isFinite(rule.max) ? rule.max : Math.max(...rule.enum) }]];

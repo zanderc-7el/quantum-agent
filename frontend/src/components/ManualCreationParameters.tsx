@@ -1,0 +1,10 @@
+import type { ParameterBounds } from '../types';
+import { buildManualParameterFields, parseDisplayParameter, validateScanStep } from '../lib/manualParameters';
+import { manualScanKeys } from '../lib/manualExperimentDraft';
+export default function ManualCreationParameters({procedureId,bounds={},values,onChange,disabled}: {procedureId:string;bounds?:ParameterBounds;values:Record<string,string>;onChange(values:Record<string,string>):void;disabled:boolean}) {
+ const keys=manualScanKeys(procedureId);const fields=buildManualParameterFields(bounds,keys);if(!keys.length)return <p className="cd-note">创建后读取所选方法的生效配置；测量仍需核对前置实验。</p>;
+ const start=fields.find(f=>f.key===keys[0]),stop=fields.find(f=>f.key===keys[1]);
+ let stepError='',count:number|undefined;
+ if(values.scan_step!==undefined){try{count=validateScanStep(values[keys[0]]??'',values[keys[1]]??'',values.scan_step,Math.min(bounds.points?.max??10000,10000)).points;}catch(e){stepError=e instanceof Error?e.message:String(e);}}
+ return <fieldset className="mw-scan-draft" disabled={disabled}><legend>创建前核对扫描参数 · 不下发设备</legend>{fields.length!==keys.length&&<p className="mw-scan-error">当前目录缺少完整参数范围，不能提交此扫描。</p>}<div className="mw-object-fields">{fields.map(f=>{let error='';if(values[f.key]!==undefined)try{parseDisplayParameter(values[f.key],f);}catch(e){error=e instanceof Error?e.message:String(e);}return <label key={f.key}><span>{f.label} ({f.unit||'无量纲'})</span><input aria-label={`新建参数 ${f.key}`} inputMode="decimal" value={values[f.key]??''} aria-invalid={!!error} onChange={e=>onChange({...values,[f.key]:e.target.value})}/><small className={error?'mw-scan-error':''}>{error||`范围 ${f.min} – ${f.max} ${f.unit}`}</small></label>;})}<label><span>扫描步进 ({start?.unit??stop?.unit??'未记录'})</span><input aria-label="扫描步进" inputMode="decimal" aria-invalid={!!stepError} aria-describedby="manual-step-error" value={values.scan_step??''} onChange={e=>onChange({...values,scan_step:e.target.value})}/><small id="manual-step-error" className={stepError?'mw-scan-error':''}>{stepError|| (count?`包含起止端点，共 ${count} 点`:'填写正数；扫描范围需被步进整除')}</small></label></div></fieldset>;
+}

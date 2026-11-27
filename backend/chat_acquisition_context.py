@@ -4,6 +4,8 @@ Only registered plan JSON is opened. Raw acquisition files are never read.
 All database rows must come from the caller's one pinned SQLite read snapshot.
 """
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import hashlib
 import json
 import math
@@ -19,6 +21,112 @@ MAX_CHAT_UNITS = 190000  # Below the agent's unchanged 200,000 UTF-16-unit limit
 IDENTITY = ('runId', 'nodeId', 'attemptId', 'operationId', 'resourceId', 'procedureId', 'parameterVersions')
 METRICS = ('contrast_snr', 'peak_snr', 'resolved_power_points', 'scan_coverage', 'r_squared', 'cycles',
            'assignment_fidelity', 'relative_stderr', 't1_s', 'gate_fidelity', 'reference_drift_fraction')
+MAX_RAW_METADATA = 16384
+PARAMETER_FACTS = ('readout_hz', 'drive_hz', 'readout_amp', 'readout_width_s', 'drive_amp',
+    'drive_length_s', 'half_pi_amp', 'shape_pi_amp', 'pulse_length_s', 'f12_hz',
+    'probe12_amplitude', 'drag_lambda1', 'drag_beta_s')
+
+
+def beijing_time(value):
+    """Convert an offset-bearing source time; never assign a timezone to naive data."""
+    if not isinstance(value, str) or len(value) > 80:
+        return None
+    try:
+        stamp = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return stamp.astimezone(timezone(timedelta(hours=8))).isoformat() if stamp.tzinfo else None
+    except ValueError:
+        return None
+
+
+def parameter_facts(values, role):
+    facts = {}
+    if not isinstance(values, dict):
+        return facts
+    for key in PARAMETER_FACTS:
+        value = values.get(key)
+        if not number(value):
+            continue
+        fact = {'value': value, 'role': role}
+        if key.endswith('_hz'):
+            decimal = Decimal(str(value))
+            fact['unit'] = 'Hz'
+            fact['frequencyUnits'] = {name: format(decimal / divisor, 'f')
+                for name, divisor in [('MHz', Decimal(10)**6), ('GHz', Decimal(10)**9)]}
+        elif key.endswith('_s'):
+            fact['unit'] = 's'
+        facts[key] = fact
+    return facts
+
+
+def _projection(column, fields, path='$'):
+    # Both arguments are internal constants, never client strings. JSON extraction
+    # keeps large arrays/artifact lists out of the Python/model context.
+    source = f"CASE WHEN json_valid({column}) THEN {column} ELSE '{{}}' END"
+    def value(key):
+        # -> keeps original JSON tokens: json_extract turns true into integer 1
+        # and re-encoding a SQLite REAL can discard source decimal digits.
+        return f"json(({source}) -> '{path}.{key}')"
+    return 'json_object(' + ','.join(f"'{key}',{value(key)}" for key in fields) + ')'
+
+
+def _registered_operation_raw(db, operation):
+    rows = db.execute("""SELECT json_extract(a.value,'$.sha256') AS sha,
+        r.sha256 AS registered_sha,json_extract(CASE WHEN json_valid(r.payload) THEN r.payload ELSE '{}' END,'$.sha256') AS metadata_sha,
+        json_extract(a.value,'$.id') AS id,json_extract(CASE WHEN json_valid(r.payload) THEN r.payload ELSE '{}' END,'$.id') AS registered_id,
+        json_extract(CASE WHEN json_valid(r.payload) THEN r.payload ELSE '{}' END,'$.kind') AS registered_kind
+        FROM platform_effects e JOIN json_each(CASE WHEN json_valid(e.result) THEN e.result ELSE '{}' END,'$.artifacts') a
+        LEFT JOIN platform_artifacts r ON r.id=json_extract(a.value,'$.id')
+        WHERE e.operation_id=? AND json_valid(e.result) AND json_valid(a.value)
+        AND json_extract(a.value,'$.kind')='raw' LIMIT ?""", (operation, MAX_RAW_METADATA + 1)).fetchall()
+    if len(rows) > MAX_RAW_METADATA:
+        return set()
+    hashes = set()
+    for row in rows:
+        sha = row['sha']
+        if (not isinstance(sha, str) or len(sha) != 64 or any(c not in '0123456789abcdef' for c in sha)
+                or sha != row['registered_sha'] or sha != row['metadata_sha']
+                or row['id'] != row['registered_id'] or row['registered_kind'] != 'raw'):
+            return set()
+        hashes.add(sha)
+    return hashes
+
+
+def _execution_matches(workflow, node, attempt, request):
+    binding = attempt.get('executionBinding')
+    if not binding:
+        return (not request.get('executionBinding') and request.get('adapterId') == workflow.get('adapterId')
+                and request.get('adapterProfileHash') == workflow.get('adapterProfileHash'))
+    # Read-only metadata identity, not a substitute for the native execution gate.
+    versions = {'qcal-attempt-execution-binding/1': 'arclight-private-f8-q11-rabi16-v1',
+                'qcal-smart-attempt-execution-binding/1': 'arclight-private-f8-q11-smart-rabi16-v1'}
+    return (isinstance(binding, dict) and binding.get('schema') in versions
+        and node['procedureId'] == 'sq_rabi_amplitude' and node['resourceId'] == 'Q11'
+        and request.get('executionBinding') == binding
+        and binding.get('stage') == 'acquisition' and versions.get(binding.get('schema')) == request.get('adapterId')
+        and all(binding.get(k) == v for k, v in {
+            'baseAdapterId': workflow.get('adapterId'), 'baseAdapterProfileHash': workflow.get('adapterProfileHash'),
+            'workflowId': workflow['id'], 'nodeId': node['id'], 'attemptId': attempt['id'],
+            'resourceId': node['resourceId'], 'procedureId': node['procedureId'], 'attemptNumber': attempt.get('number'),
+            'adapterId': request.get('adapterId'), 'adapterProfileHash': request.get('adapterProfileHash'),
+            'selectionOperationId': attempt['id'] + '/measure', 'verificationOperationId': attempt['id'] + '/verify'}.items()))
+
+
+def _committed(db, workflow_id, resource_id):
+    prefix = workflow_id + ':' + resource_id + ':'
+    values = {}
+    for row in db.execute('SELECT name,value,revision FROM parameters WHERE substr(name,1,?)=? LIMIT 65',
+                          (len(prefix), prefix)):
+        key = row['name'][len(prefix):]
+        if key not in PARAMETER_FACTS or len(row['value']) > 128:
+            continue
+        try:
+            fact = parameter_facts({key: json.loads(row['value'])}, 'committed_ledger_value').get(key)
+        except (ValueError, TypeError):
+            fact = None
+        if fact:
+            values[key] = {**fact, 'revision': row['revision'],
+                'meaning': 'Stored committed value; does not establish validity under the current measurement conditions.'}
+    return values
 
 
 @contextmanager
@@ -166,6 +274,7 @@ def registered_plan_geometry(db, root, request, result, remaining):
 def acquisition_context(db, workflow, root, captured_at):
     """Explain persisted receipts, not recompute scientific quality or dispatch."""
     snapshot = {'schema': 'chat-acquisition-state/1', 'snapshotAt': captured_at,
+                'snapshotAtBeijing': beijing_time(captured_at), 'displayTimeZone': 'Asia/Shanghai (UTC+08:00)',
                 'workflowId': workflow['id'], 'workflowRevision': workflow['revision'],
                 'eventSeq': db.execute('SELECT coalesce(max(seq),0) FROM events').fetchone()[0],
                 'currentNodeId': workflow.get('currentNodeId'), 'readOnly': True, 'rawFileRead': False,
@@ -175,21 +284,29 @@ def acquisition_context(db, workflow, root, captured_at):
     ordered = sorted(workflow['nodes'], key=lambda n: n['id'] != workflow.get('currentNodeId'))
     for node in ordered[:64]:
         latest = node.get('result') or {}
-        item = {'nodeId': node['id'], 'procedureId': node['procedureId'], 'attemptId': node.get('latestAttemptId'),
+        item = {'nodeId': node['id'], 'label': node.get('label'), 'resourceId': node['resourceId'],
+                'procedureId': node['procedureId'], 'attemptId': node.get('latestAttemptId'),
                 'engineState': node.get('engineState'), 'attemptCount': node.get('attempt', 0),
                 'controllerQuality': latest.get('quality', {}).get('status'), 'stale': bool(latest.get('stale')),
-                'verificationPending': latest.get('verificationPending') is True, 'operations': []}
+                'verificationPending': latest.get('verificationPending') is True, 'operations': [],
+                'committedParameters': _committed(db, workflow['id'], node['resourceId'])}
         snapshot['nodes'].append(item)
         if not item['attemptId']:
             item['acquisitionState'] = 'not_measured' if node.get('attempt', 0) == 0 else 'unavailable'
             continue
-        row = db.execute('SELECT payload FROM platform_attempts WHERE id=? AND workflow_id=? AND node_id=?',
+        attempt_fields = ('id', 'nodeId', 'number', 'operationId', 'verificationOperationId', 'parameterVersions', 'executionBinding')
+        row = db.execute('SELECT ' + _projection('payload', attempt_fields) + ' AS payload FROM platform_attempts WHERE id=? AND workflow_id=? AND node_id=?',
                          (item['attemptId'], workflow['id'], node['id'])).fetchone()
         attempt = _object(row['payload']) if row else None
         if not attempt or attempt.get('id') != item['attemptId'] or attempt.get('nodeId') != node['id']:
             item['acquisitionState'] = 'metadata_inconsistent'
             continue
-        effects = db.execute('SELECT operation_id,state,request,result FROM platform_effects WHERE workflow_id=? AND attempt_id=?',
+        result_fields = ('acquiredAt', 'dataKind', 'partial', 'parameters', 'candidateParameters')
+        result_projection = (_projection('result', result_fields)[:-1] +
+            ",'provenance'," + _projection('result', ('operationId', 'freshAcquisition', 'executionBinding'), '$.provenance') +
+            ",'metrics'," + _projection('result', METRICS, '$.metrics') +
+            ",'analysisQuality'," + _projection('result', ('accepted',), '$.analysisQuality') + ')')
+        effects = db.execute('SELECT operation_id,state,request,' + result_projection + ' AS result FROM platform_effects WHERE workflow_id=? AND attempt_id=? ORDER BY operation_id LIMIT 8',
                              (workflow['id'], item['attemptId'])).fetchall()
         raw_by_stage, fresh_by_stage = {}, {}
         for effect in effects[:8]:
@@ -198,8 +315,8 @@ def acquisition_context(db, workflow, root, captured_at):
                     or any(request.get(key) != value for key, value in {
                         'runId': workflow['id'], 'nodeId': node['id'], 'attemptId': item['attemptId'],
                         'resourceId': node['resourceId'], 'procedureId': node['procedureId'],
-                        'adapterId': workflow.get('adapterId'), 'adapterProfileHash': workflow.get('adapterProfileHash'),
-                        'parameterVersions': attempt.get('parameterVersions')}.items())):
+                        'parameterVersions': attempt.get('parameterVersions')}.items())
+                    or not _execution_matches(workflow, node, attempt, request)):
                 continue
             operation = effect['operation_id']
             if operation == attempt.get('operationId'):
@@ -212,14 +329,30 @@ def acquisition_context(db, workflow, root, captured_at):
             provenance = result.get('provenance') or {}
             fresh = (effect['state'] == 'completed' and result.get('dataKind') == 'real'
                      and not result.get('partial') and provenance.get('freshAcquisition') is True
-                     and provenance.get('operationId') == operation)
-            raw = _registered_raw(db, result) if fresh else set()
+                     and provenance.get('operationId') == operation
+                     and (not attempt.get('executionBinding') or
+                          provenance.get('executionBinding') == attempt['executionBinding']))
+            raw = _registered_operation_raw(db, operation) if fresh else set()
+            plans = db.execute("""SELECT a.value FROM platform_effects e JOIN json_each(CASE WHEN json_valid(e.result) THEN e.result ELSE '{}' END,'$.artifacts') a
+                WHERE e.operation_id=? AND json_valid(e.result) AND json_valid(a.value)
+                AND json_extract(a.value,'$.name')='plan.json' LIMIT 2""", (operation,)).fetchall()
+            result['artifacts'] = [value for row in plans if (value := _object(row[0])) is not None]
             raw_by_stage[stage], fresh_by_stage[stage] = raw, fresh
             entry = {'stage': stage, 'operationId': operation, 'receiptState': effect['state'],
-                     'freshCompletedReceipt': fresh, 'registeredRawSha256': sorted(raw),
+                     'freshCompletedReceipt': fresh, 'registeredRawSha256': sorted(raw)[:8],
+                     'registeredRawCount': len(raw), 'registeredRawSetSha256': hashlib.sha256(
+                         json.dumps(sorted(raw), separators=(',', ':')).encode()).hexdigest(),
+                     'rawHashListTruncated': len(raw) > 8,
                      'acquisitionState': 'completed' if effect['state'] == 'completed' else effect['state'],
-                     'acquiredAt': result.get('acquiredAt'), 'dataKind': result.get('dataKind'),
-                     'metrics': {k: v for k, v in result.get('metrics', {}).items() if k in METRICS and number(v)},
+                     'acquiredAt': result.get('acquiredAt'), 'acquiredAtBeijing': beijing_time(result.get('acquiredAt')),
+                     'acquiredAtMeaning': 'Operation acquisition completion timestamp; not the first hardware trigger.',
+                     'dataKind': result.get('dataKind'),
+                     'parameterEvidence': {'source': 'this_operation_result',
+                         'operationId': operation, 'attemptId': item['attemptId'],
+                         'measuredCandidates': parameter_facts(result.get('candidateParameters'), 'measured_result_candidate') if fresh and raw else {},
+                         'configuredInputs': parameter_facts(result.get('parameters'), 'acquisition_configured_input'),
+                         'meaning': 'Candidates are the measured/fitted outputs of this operation. Configured inputs are not measured outputs; committed ledger values are separate.'},
+                     'metrics': {k: v for k, v in (result.get('metrics') or {}).items() if k in METRICS and number(v)},
                      'nativeAnalysisAccepted': (result.get('analysisQuality') or {}).get('accepted'),
                      'geometry': registered_plan_geometry(db, root, request, result, remaining),
                      'rawFileRead': False}
